@@ -47,6 +47,7 @@ const STEPS = [
   { name: 'bilingual:check', cmd: ['npm', 'run', '--silent', 'bilingual:check'], fast: true, about: '中英对照的结构与哈希一致' },
   { name: 'zh:prose', cmd: ['npm', 'run', '--silent', 'zh:prose'], fast: true, about: '中文标点、空格与术语' },
   { name: 'skills:check', cmd: ['npm', 'run', '--silent', 'skills:check'], fast: true, about: '.claude/skills 镜像没漂移' },
+  { name: 'changelog:check', cmd: ['npm', 'run', '--silent', 'changelog:check'], fast: true, about: 'CHANGELOG 与 package.json 版本一致' },
   { name: 'syntax', cmd: ['node', 'scripts/check-syntax.mjs'], fast: false, about: '两个产物都能被解析' },
   { name: 'host', cmd: ['node', 'scripts/check-host.mjs'], fast: false, about: '包名、Loader 行、路由与模块表一致' },
   { name: 'build:check', cmd: ['node', 'scripts/check-build.mjs'], fast: false, about: 'lib/ 与 src/ 的新构建逐字节一致' },

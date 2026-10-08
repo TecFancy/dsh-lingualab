@@ -21,3 +21,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+
+  # Pulling into `main` is how this repository releases, so the pull request has
+  # to carry the version bump. Without this job that rule is a convention; with
+  # it, a merge that forgets the bump fails before it can land.
+  version-bump:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: BASE_REF=origin/${{ github.base_ref }} node scripts/check-version-bump.mjs
