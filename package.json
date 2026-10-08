@@ -40,7 +40,8 @@
     "prepare": "node -e \"try { require.resolve('husky') } catch { process.exit(0) } require('node:child_process').execSync('husky', { stdio: 'inherit' })\""
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.4"
+    "@deepseek-ai/schemastery": "^3.18.4",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
@@ -56,7 +57,11 @@
     "tsdown": "^0.22.14",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "zod-validation-error": "^4.0.2"
   },
   "dsh": {
     "bundle": {

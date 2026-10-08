@@ -10,6 +10,8 @@ export {
   SUBTITLE_ZH_MODES,
   isSubtitleZhMode,
 } from './model/types.ts'
+export { fetchCues } from './api/fetch-cues.ts'
 export { decodeSubtitleText, stripStyleTags } from './lib/decode.ts'
+export { mergeBilingual } from './lib/merge.ts'
 export { parseLRC, parseSRT, parseSubtitle, parseVTT } from './lib/parse.ts'
 export { findActiveCue, hasCjk, orderCueLines, visibleCueLines } from './lib/lines.ts'

@@ -48,13 +48,13 @@ grep 得到，次日复习就靠它。
 ## 仓库结构
 
 ```text
-src/index.ts                 host 半边：三条路由与配置
-src/host-context.ts          我们用到的宿主插件上下文那一片
-src/host/                    库扫描、媒体伺服、笔记读写
-src/shared/                  两端共用的契约与笔记 markdown 格式
-src/client/entities/cue/     字幕解析、解码、双语分行
-src/client/                  面板（进行中）
-lib/                         tsdown 产物，提交进仓库：外壳直接取这里
-locale/                      插件页上的显示名与简介
-cordis.patch.yml             bundle 补丁（loader 行 `lingualab`）
+src/index.ts                 host half: the three routes and the config
+src/host-context.ts          the slice of the host plugin context we call
+src/host/                    library scan, media serving, notes read/write
+src/shared/                  the wire contract and the notes markdown format
+src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
+src/client/                  the panel (in progress)
+lib/                         tsdown output, committed: what the shell fetches
+locale/                      the Plugins page display name and summary
+cordis.patch.yml             bundle patch (loader row `lingualab`)
 ```

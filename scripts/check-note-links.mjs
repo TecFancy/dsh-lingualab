@@ -26,7 +26,7 @@
  *   node scripts/check-note-links.mjs --self-test # run the negative cases
  */
 
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import os from "node:os";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -111,7 +111,6 @@ const ROOT = (() => {
 const NOTES = path.join(ROOT, ".agents", "notes");
 
 /** The bilingual tree, as the pairing gate defines it: docs/ plus the notes. */
-const BILINGUAL_ROOTS = ["docs/", ".agents/notes/"];
 
 async function walk(dir) {
   const out = [];
