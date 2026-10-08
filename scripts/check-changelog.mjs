@@ -17,6 +17,11 @@
  * Release body is built from (`scripts/release-notes.mjs`), so a version heading
  * with nothing under it publishes a release that says nothing.
  *
+ * The changelog is a bilingual pair (`CHANGELOG.md` / `CHANGELOG.zh.md`), and the
+ * release body carries both sides, so every rule below runs over both files. A
+ * version that exists only in English would publish a release whose Chinese half is
+ * silently missing.
+ *
  * Usage: node scripts/check-changelog.mjs
  */
 import { readFileSync } from 'node:fs'
@@ -25,20 +30,25 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8')
 const problems = []
 
-const headings = [...changelog.matchAll(/^## \[([^\]]+)\]/gm)].map((match) => match[1])
-if (headings.length === 0) {
-  problems.push('CHANGELOG.md 里没有任何 `## [x.y.z]` 标题')
-} else {
+/** The two sides of the pair the release body is built from. */
+const FILES = ['CHANGELOG.md', 'CHANGELOG.zh.md']
+
+for (const file of FILES) {
+  const changelog = readFileSync(join(root, file), 'utf8')
+  const headings = [...changelog.matchAll(/^## \[([^\]]+)\]/gm)].map((match) => match[1])
+  if (headings.length === 0) {
+    problems.push(`${file} 里没有任何 \`## [x.y.z]\` 标题`)
+    continue
+  }
   if (headings[0] !== 'Unreleased') {
-    problems.push(`CHANGELOG.md 的第一个标题是 [${headings[0]}]，应该是 [Unreleased]`)
+    problems.push(`${file} 的第一个标题是 [${headings[0]}]，应该是 [Unreleased]`)
   }
   const released = headings.filter((heading) => heading !== 'Unreleased')
   if (released[0] !== manifest.version) {
     problems.push(
-      `CHANGELOG 最新的发行版是 [${released[0] ?? '（无）'}]，package.json 是 ${manifest.version}；` +
+      `${file} 最新的发行版是 [${released[0] ?? '（无）'}]，package.json 是 ${manifest.version}；` +
         '两者必须一致，改版本用 `npm run release -- <patch|minor|major>`',
     )
   }
@@ -51,7 +61,7 @@ if (headings.length === 0) {
     .filter((line) => line.trim().length > 0 && !line.trim().startsWith('###'))
     .length
   if (detail === 0) {
-    problems.push(`[${manifest.version}] 这一节是空的：GitHub Release 的正文就从这里生成，别发一条什么都没说的版本`)
+    problems.push(`${file} 的 [${manifest.version}] 这一节是空的：Release 正文从这里生成，别发一条什么都没说的版本`)
   }
 }
 
@@ -60,4 +70,4 @@ if (problems.length > 0) {
   for (const problem of problems) console.error(`   · ${problem}`)
   process.exit(1)
 }
-console.log(`✅ check-changelog — Unreleased 在最上，最新发行版 ${manifest.version} 与 package.json 一致`)
+console.log(`✅ check-changelog — 中英两侧都是 Unreleased 在最上，最新发行版 ${manifest.version} 与 package.json 一致`)
