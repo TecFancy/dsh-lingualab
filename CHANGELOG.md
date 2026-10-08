@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- Pushing a `v*` tag now publishes a GitHub Release whose body is that version's
+  section from this file (`scripts/release-notes.mjs`, run by
+  `.github/workflows/release.yml`). The tag stays a human decision; everything
+  after it is mechanical. The workflow also refuses a tag whose name does not match
+  `package.json`, so the wrong commit cannot be released under a version.
+
 ## [0.1.2] - 2026-10-08
 
 ### Fixed

@@ -49,6 +49,30 @@ are in place, and the panel itself is next.
 The plugin is not installed in any profile yet. It is developed on `development` and
 released by pulling into `main`; nothing here is published to npm.
 
+## Releasing
+
+Work lands on `development`. A pull request into `main` is a release, and the
+version bump travels with it:
+
+```sh
+npm run release -- patch|minor|major   # bump, move Unreleased into a dated section, commit
+```
+
+`npm run verify` keeps the changelog and the manifest in step, and the
+`version-bump` job in CI fails a pull request into `main` that does not raise the
+version. After the merge, tag the commit that carries the release:
+
+```sh
+git checkout main && git pull
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
+```
+
+Pushing the tag publishes a GitHub Release whose body is that version's section of
+`CHANGELOG.md`; the tag is the one manual step, and everything after it is
+mechanical. Nothing is published to npm — the plugin is installed from a local path
+or a tarball, so a version number here marks a state that was installed and used,
+not an artifact on a registry.
+
 ## Host routes
 
 | Route | Kind | What it answers |

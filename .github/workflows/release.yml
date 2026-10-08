@@ -1,0 +1,51 @@
+# A tag pushed to `main` becomes a GitHub Release.
+#
+# The tag is created by hand after the release pull request merges
+# (`git tag -a vX.Y.Z && git push origin vX.Y.Z`), which is deliberate: it is the
+# one moment where "this version is going out" gets a human decision. Everything
+# after that moment is mechanical, so it lives here: take the version's section out
+# of the changelog and publish it as the release body.
+#
+# There is no publish job and no artifact: this repository is installed from a
+# local path or a tarball, not from a registry.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The tag and the manifest must agree. A tag that does not match the version
+      # in `package.json` means the wrong commit was tagged, and publishing notes
+      # for it would make the mistake permanent.
+      - name: Check the tag against package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$manifest" ]; then
+            echo "tag $GITHUB_REF_NAME 与 package.json 的 $manifest 不一致" >&2
+            exit 1
+          fi
+
+      - name: Build the release body from CHANGELOG.md
+        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" --write release-body.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-body.md \
+            --verify-tag

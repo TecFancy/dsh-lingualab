@@ -65,6 +65,21 @@ node scripts/verify.mjs --list   # 看检查表
   都跑一遍，React 报 #185。typecheck、ESLint、单测全绿也拦不住，所以改完客户端一定要在隔离实例里
   打开看一眼 console。
 
+## 发版与 Release（2026-10-08 定）
+
+```sh
+npm run release -- patch|minor|major   # 抬版本 + 把 Unreleased 挪成带日期的版本节 + 提交
+npm run release:notes [版本号]          # 打印这一版的正文（GitHub Release 用的就是它）
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z   # 合并到 main 之后，唯一手动的一步
+```
+
+- 版本号的唯一来源是 `package.json`，`check-changelog` 要求 CHANGELOG 里最新的发行版标题跟它一致，
+  而且那一节不能是空的（Release 正文就取自那里）。
+- PR 到 `main` 时 CI 的 `version-bump` job 会比对 base 分支的版本，没抬高就合不进去。
+- 标签推上去后 `.github/workflows/release.yml` 建 GitHub Release，并且会先核对标签名与
+  `package.json` 的版本是否一致，不一致直接失败。
+- **不发 npm**，全仓没有 publish 步骤。
+
 ## 文档分工
 
 **为什么** → `.agents/notes/`；**是什么** → README 与源码注释；**怎么干活** → 这份技能；

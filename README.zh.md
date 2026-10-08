@@ -37,6 +37,26 @@ grep 得到，次日复习就靠它。
 
 插件还没装进任何 profile。开发在 `development` 分支，靠合进 `main` 出版本，这里的东西不发 npm。
 
+## 发版
+
+改动落在 `development`。往 `main` 开 PR 就是一次发版，版本号的抬高跟着 PR 一起走：
+
+```sh
+npm run release -- patch|minor|major   # bump, move Unreleased into a dated section, commit
+```
+
+`npm run verify` 会让 CHANGELOG 与 manifest 保持一致，CI 里的 `version-bump` job 会把没有抬高
+版本的 PR 拦在 `main` 外面。合并之后，在承载这次发版的提交上打标签：
+
+```sh
+git checkout main && git pull
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
+```
+
+标签推上去之后会建一个 GitHub Release，正文取自 `CHANGELOG.md` 里这一版的段落。打标签是唯一
+需要人做的动作，之后的都是机械的。这里不发 npm，插件从本地路径或 tar 包装，所以版本号标记的是
+一个装过、用过的状态，而不是注册表上的一个包。
+
 ## 宿主路由
 
 | 路由 | 类型 | 回答什么 |

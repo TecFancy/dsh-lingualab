@@ -33,6 +33,7 @@
     "prepare": "node -e \"try { require.resolve('husky') } catch { process.exit(0) } require('node:child_process').execSync('husky', { stdio: 'inherit' })\"",
     "release": "node scripts/release.mjs",
     "release:check": "node scripts/check-version-bump.mjs",
+    "release:notes": "node scripts/release-notes.mjs",
     "skills:check": "node scripts/sync-skills.mjs --check",
     "skills:sync": "node scripts/sync-skills.mjs",
     "test": "vitest run",
