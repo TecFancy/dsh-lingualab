@@ -101,6 +101,15 @@ export function serveMedia(
   const type = CONTENT_TYPES[extname(target).slice(1).toLowerCase()] ?? 'application/octet-stream'
   const range = parseRange(req.headers.range, size)
 
+  // A `Range` header the file cannot satisfy is a `416`, not a silent whole-file
+  // response: players treat the second as "this server ignores ranges" and stop
+  // asking, which costs the scrubber its responsiveness.
+  if (req.headers.range !== undefined && range === null) {
+    res.writeHead(416, { 'content-range': `bytes */${size}`, 'accept-ranges': 'bytes' })
+    res.end()
+    return
+  }
+
   if (range === null) {
     res.writeHead(200, {
       'content-type': type,
@@ -112,7 +121,7 @@ export function serveMedia(
       res.end()
       return
     }
-    createReadStream(target).pipe(res)
+    pipeFile(target, res)
     return
   }
 
@@ -127,7 +136,25 @@ export function serveMedia(
     res.end()
     return
   }
-  createReadStream(target, { start: range.start, end: range.end }).pipe(res)
+  pipeFile(target, res, range.start, range.end)
+}
+
+/**
+ * Stream a file into the response, and end the response if the read fails.
+ *
+ * A `ReadStream` with no `error` listener is an unhandled exception, and an
+ * unhandled exception in the host process takes the whole GUI with it. A file that
+ * disappears mid-read is a realistic case: the library folder is edited by hand.
+ */
+function pipeFile(path: string, res: ServerResponse, start?: number, end?: number): void {
+  const stream = start === undefined ? createReadStream(path) : createReadStream(path, { start, end })
+  stream.on('error', () => {
+    res.destroy()
+  })
+  res.on('close', () => {
+    stream.destroy()
+  })
+  stream.pipe(res)
 }
 
 /** JSON helper shared by every route: one shape, one place to change it. */
@@ -148,7 +175,13 @@ export async function readJsonBody(req: IncomingMessage, limitBytes = 256 * 1024
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
     total += buffer.byteLength
-    if (total > limitBytes) throw new Error('请求体太大')
+    if (total > limitBytes) {
+      // Stop reading and drop the connection: leaving the rest of an oversized body
+      // in the socket would let it be parsed as the next request on a keep-alive
+      // connection.
+      req.destroy()
+      throw new Error('请求体太大')
+    }
     chunks.push(buffer)
   }
   const text = Buffer.concat(chunks).toString('utf8')

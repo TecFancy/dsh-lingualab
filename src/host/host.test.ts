@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -131,6 +131,14 @@ describe('serveMedia', () => {
 
       const missing = await fetch(`http://127.0.0.1:${port}/S01E01/notes.md`)
       expect(missing.status).toBe(404)
+
+      // An unsatisfiable range is a 416, not a whole-file 200: a player that gets
+      // the latter stops asking for ranges at all.
+      const bad = await fetch(`http://127.0.0.1:${port}/S01E01/audio.mp3`, {
+        headers: { range: 'bytes=999-1200' },
+      })
+      expect(bad.status).toBe(416)
+      expect(bad.headers.get('content-range')).toBe('bytes */11')
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()))
     }
@@ -159,6 +167,17 @@ describe('notes round-trip', () => {
     expect(result.reason).toContain('最多 7 条')
     // Nothing was written, so the file still does not exist.
     expect(readNotes(root, 'S01E01').phrases).toEqual([])
+  })
+
+  it('refuses a notes path that resolves outside the library through a symlink', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    writeFileSync(join(outside, 'notes.md'), '- [ ] 00:01 | escaped | | |')
+    symlinkSync(outside, join(root, 'S01E99'))
+    const read = readNotes(root, 'S01E99')
+    expect(read.ok).toBe(false)
+    expect(read.reason).toContain('素材目录外面')
+    expect(writeNotes(root, 'S01E99', [{ at: 1, text: 'x' }]).ok).toBe(false)
+    rmSync(outside, { recursive: true, force: true })
   })
 
   it('refuses an episode id that would escape the library', () => {

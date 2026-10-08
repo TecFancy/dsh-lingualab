@@ -19,6 +19,33 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The seek gate now waits for the audio element's `seeked` event instead of
+  guessing from the reported position. A sentence loop could count a pass that
+  never played — or, on a cue shorter than one `timeupdate`, wrap forever — because
+  a stale position near the loop start was read as "the seek arrived".
+- A loop that has used up its repeat count stops *and rewinds to the start of the
+  window*. Previously it stopped just past the end, so pressing play again
+  re-triggered the same stop on the next tick and the button looked broken.
+- Switching episodes no longer plays the new audio with the previous episode's
+  cues: the cue list is tagged with its episode and is empty until the new
+  subtitles arrive.
+- A pending notes write is flushed when the episode changes instead of being
+  dropped with the debounce timer, and a mutation that arrives after the switch is
+  discarded rather than written under the new episode's id.
+- The media route answers an unsatisfiable `Range` with `416` instead of a silent
+  whole-file `200`, ends the response when a read fails mid-stream (an unhandled
+  stream error takes the host process with it), and drops the connection when a
+  request body exceeds its limit.
+- One unreadable episode folder no longer fails the whole library listing.
+- A subtitle line containing `|` survives a save and reload: the notes separator
+  is escaped on the way out and unescaped on the way in.
+- The notes path is compared by real path, so an episode folder that is a symlink
+  out of the library is refused rather than written through.
+- Handled keyboard shortcuts stop propagating, so the space bar cannot reach the
+  conversation behind the panel.
+
 ## [0.1.0] - 2026-10-08
 
 ### Added

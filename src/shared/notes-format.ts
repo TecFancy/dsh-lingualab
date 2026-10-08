@@ -18,6 +18,11 @@
  * verbatim, so commentary written by hand or by the agent survives a save from
  * the panel. Everything else that is not a phrase line is dropped on save; the
  * file this module writes is canonical.
+ *
+ * A subtitle line may itself contain a `|`, so the separator is escaped on the way
+ * out and unescaped on the way in. Splitting on a bare `|` would silently shift
+ * every field of that one line — the English text would become the Chinese gloss,
+ * and the next save would write the corruption back.
  */
 import type { NotePhrase, NotesSummary } from './protocol.ts'
 
@@ -56,6 +61,16 @@ export function parseTimestamp(text: string): number | null {
 
 const PHRASE_PATTERN = /^\s*-\s*\[( |x|X)\]\s*(.*)$/
 
+/** Split on unescaped `|`, so `a\\|b` stays one field. */
+function splitFields(body: string): string[] {
+  return body.split(/(?<!\\)\|/).map((field) => field.replace(/\\\|/g, '|').trim())
+}
+
+/** Escape the separator so a field can contain one. */
+function joinField(field: string): string {
+  return field.replace(/\|/g, '\\|')
+}
+
 /** Split the tags field (`#review #hard`) into bare tag names. */
 function parseTags(field: string): string[] {
   return field
@@ -70,7 +85,7 @@ function parsePhraseLine(line: string): NotePhrase | null {
   if (match === null) return null
   const done = (match[1] ?? ' ').toLowerCase() === 'x'
   const body = match[2] ?? ''
-  const fields = body.split('|')
+  const fields = splitFields(body)
 
   // The timestamp leads: a phrase without one cannot be seeked back to, and the
   // panel reads these files it did not write, so a malformed line is skipped
@@ -113,7 +128,7 @@ export function serializeNotes(preamble: string, phrases: readonly NotePhrase[])
   const body = phrases
     .map((phrase) => {
       const tags = phrase.tags.map((tag) => `#${tag.replace(/^#+/, '')}`).join(' ')
-      const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, phrase.note]
+      const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, phrase.note].map(joinField)
       // The note field is trimmed of trailing pipes: an empty trailing field
       // would make the line end in `|` and read like a truncated table row.
       while (fields.length > 3 && (fields[fields.length - 1] ?? '').trim().length === 0) fields.pop()

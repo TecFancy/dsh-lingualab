@@ -77,43 +77,54 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (isTypingTarget(event.target)) return
     const store = useMediaPlayer.getState()
+    // Handled keys stop here. The conversation lives in the same document, and a
+    // space bar that scrolls or submits behind the panel is a stolen keystroke.
+    const handled = (): void => {
+      event.preventDefault()
+      event.stopPropagation()
+    }
     switch (event.key) {
       case ' ':
-        event.preventDefault()
+        handled()
         store.toggle()
         return
       case 'ArrowLeft':
-        event.preventDefault()
+        handled()
         store.seek(Math.max(0, store.currentTime - NUDGE_SECONDS))
         return
       case 'ArrowRight':
-        event.preventDefault()
+        handled()
         store.seek(store.currentTime + NUDGE_SECONDS)
         return
       case 'ArrowUp':
-        event.preventDefault()
+        handled()
         store.stepCue(-1)
         return
       case 'ArrowDown':
-        event.preventDefault()
+        handled()
         store.stepCue(1)
         return
       case 'l':
       case 'L':
+        handled()
         store.loopSentence()
         return
       case '[':
+        handled()
         store.setPoint('a')
         return
       case ']':
+        handled()
         store.setPoint('b')
         return
       case 'r':
       case 'R':
+        handled()
         store.clearAB()
         return
       case 's':
       case 'S':
+        handled()
         store.cycleSpeed(1)
         return
       default:

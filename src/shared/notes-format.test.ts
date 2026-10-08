@@ -83,6 +83,15 @@ describe('serializeNotes', () => {
     expect(parsed.preamble).toContain('> 注释')
   })
 
+  it('keeps a field that itself contains the separator', () => {
+    const tricky = phrase({ text: 'He said "yes | no" | and left', zh: '他说「行 | 不行」', note: 'a|b' })
+    const parsed = parseNotes(serializeNotes('', [tricky]))
+    expect(parsed.phrases).toHaveLength(1)
+    expect(parsed.phrases[0]?.text).toBe('He said "yes | no" | and left')
+    expect(parsed.phrases[0]?.zh).toBe('他说「行 | 不行」')
+    expect(parsed.phrases[0]?.note).toBe('a|b')
+  })
+
   it('drops an empty trailing field instead of leaving a dangling pipe', () => {
     const text = serializeNotes('', [phrase({ note: '', tags: [] })])
     expect(text.trim().endsWith('|')).toBe(false)

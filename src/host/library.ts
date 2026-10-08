@@ -187,6 +187,15 @@ export function scanLibrary(root: string): LibraryPayload {
     ? [...manifest.episodes.filter((id) => folderNames.includes(id)), ...[...folderNames].filter((id) => !manifest.episodes?.includes(id)).sort(compareIds)]
     : [...folderNames].sort(compareIds)
 
-  const episodes = ordered.map((id) => scanEpisode(root, id, manifest.titles?.[id] ?? id))
+  // A folder that cannot be read is skipped rather than fatal: the library is
+  // edited by hand, and one broken episode must not hide the other hundred.
+  const episodes: EpisodeEntry[] = []
+  for (const id of ordered) {
+    try {
+      episodes.push(scanEpisode(root, id, manifest.titles?.[id] ?? id))
+    } catch {
+      continue
+    }
+  }
   return { ok: true, root, reason: null, current: pickCurrent(episodes, manifest), episodes }
 }

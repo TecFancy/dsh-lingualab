@@ -26,11 +26,15 @@ export function useAudioBinding(src: string | null): AudioRef {
   const speed = useMediaPlayer(currentSpeed)
   const seekRequest = useMediaPlayer((state) => state.seekRequest)
   const seekToken = useMediaPlayer((state) => state.seekToken)
+  /** The last seek request this element has been given, so a source change cannot re-apply one. */
+  const appliedSeek = useRef(0)
 
-  // Source changes: load the new file and let the store know nothing is playing
-  // yet. Without the pause the previous episode keeps playing under the new cues.
+  // Source changes: load the new file. `load()` resets the position, and marking
+  // the current seek request as already applied stops a request from the previous
+  // episode from moving the new one.
   useEffect(() => {
     const audio = ref.current
+    appliedSeek.current = useMediaPlayer.getState().seekToken
     if (audio === null) return
     if (src === null) {
       audio.removeAttribute('src')
@@ -62,12 +66,13 @@ export function useAudioBinding(src: string | null): AudioRef {
     audio.preservesPitch = true
   }, [speed, src])
 
-  // Programmatic seeks, applied once per request rather than on every render.
+  // Programmatic seeks: once per request, never replaying an older one.
   useEffect(() => {
     const audio = ref.current
-    if (audio === null || seekRequest === null) return
+    if (audio === null || seekRequest === null || seekToken === appliedSeek.current) return
+    appliedSeek.current = seekToken
     audio.currentTime = seekRequest
-  }, [seekToken, seekRequest, src])
+  }, [seekToken, seekRequest])
 
   // Browser events into the store.
   useEffect(() => {
@@ -79,16 +84,20 @@ export function useAudioBinding(src: string | null): AudioRef {
     const onMeta = (): void => store().setDuration(audio.duration)
     const onEnded = (): void => store().setPlaying(false)
     const onError = (): void => store().setPlaying(false)
+    // The seek gate's release signal: the element itself says the position moved.
+    const onSeeked = (): void => store().clearGuard()
 
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('loadedmetadata', onMeta)
     audio.addEventListener('durationchange', onMeta)
+    audio.addEventListener('seeked', onSeeked)
     audio.addEventListener('ended', onEnded)
     audio.addEventListener('error', onError)
     return () => {
       audio.removeEventListener('timeupdate', onTime)
       audio.removeEventListener('loadedmetadata', onMeta)
       audio.removeEventListener('durationchange', onMeta)
+      audio.removeEventListener('seeked', onSeeked)
       audio.removeEventListener('ended', onEnded)
       audio.removeEventListener('error', onError)
     }

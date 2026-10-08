@@ -5,10 +5,12 @@
  *
  * **The seek gate.** When playback is moved programmatically, the browser keeps
  * emitting `timeupdate` for the position it had a moment ago. Written straight
- * through, that stale value puts the scrubber back where it was and the UI looks
- * broken for a third of a second. So a programmatic seek records its target, and
- * incoming positions are ignored until the reported time reaches that target —
- * or until the guard expires, so a seek that never lands cannot freeze the clock.
+ * through, that stale value puts the scrubber back where it was, and — worse — a
+ * loop that wraps on it counts a pass that never played and can stop a repeat
+ * early. So a programmatic seek raises a guard, every reported position is
+ * dropped while the guard is up, and the guard comes down on the element's own
+ * `seeked` event (see `useAudioBinding`). A timeout backs it up, because a seek
+ * that never completes must not freeze the clock forever.
  *
  * **The loop decision.** Wrapping is delegated to {@link planLoop}, a pure
  * function with its own tests. This file owns the state it reads and the effects
@@ -16,7 +18,7 @@
  */
 import { create } from 'zustand'
 import { findActiveCue, type Cue } from '../../../entities/cue/index.ts'
-import { planLoop, stepCueIndex, type LoopMode } from '../lib/loop.ts'
+import { loopWindow, planLoop, stepCueIndex, type LoopMode } from '../lib/loop.ts'
 
 /** Ten steps, all of them pitch-preserving. Ported from the repealed repeater app. */
 export const SPEED_PRESETS: readonly number[] = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.15, 1.25, 1.5, 2]
@@ -26,9 +28,6 @@ export const DEFAULT_SPEED_INDEX = 5
 
 /** How long a programmatic seek may keep ignoring reported positions. */
 const SEEK_GUARD_MS = 1200
-
-/** How close a reported position must be to the seek target to count as arrived. */
-const SEEK_TOLERANCE_SECONDS = 0.35
 
 /** How many times a wrap repeats before the loop stops by itself. `0` is endless. */
 const DEFAULT_REPEATS = 0
@@ -59,6 +58,7 @@ export interface MediaPlayerState {
   toggle: () => void
   seek: (time: number) => void
   onTime: (time: number) => void
+  clearGuard: () => void
   setDuration: (duration: number) => void
   setSpeedIndex: (index: number) => void
   cycleSpeed: (delta: number) => void
@@ -92,6 +92,9 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
   seekToken: 0,
   guard: null,
 
+  // A new episode starts with no loop and the default repeat count. The speed is
+  // deliberately *not* reset: it is a preference about how the reader listens, not
+  // a property of the material, and re-picking it every episode would be noise.
   reset: (cues) =>
     set((state) => ({
       cues,
@@ -100,6 +103,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       currentTime: 0,
       duration: 0,
       loopMode: 'none',
+      repeats: DEFAULT_REPEATS,
       playsDone: 0,
       pointA: null,
       pointB: null,
@@ -124,14 +128,11 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
   onTime: (time) => {
     const { guard, cues } = get()
     if (guard !== null) {
-      if (Date.now() > guard.expiresAt) {
-        set({ guard: null })
-      } else if (Math.abs(time - guard.target) > SEEK_TOLERANCE_SECONDS) {
-        // A position from before the seek: ignore it rather than snapping back.
-        return
-      } else {
-        set({ guard: null })
-      }
+      // Every position reported before the seek lands is stale, including one that
+      // happens to sit near the target. Waiting for `seeked` is the only signal
+      // that distinguishes "the element moved" from "the element has not moved yet".
+      if (Date.now() <= guard.expiresAt) return
+      set({ guard: null })
     }
 
     const state = get()
@@ -147,7 +148,18 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     })
 
     if (decision.stop) {
-      set({ isPlaying: false, currentTime: time, playsDone: decision.playsDone })
+      // Leave the playhead at the start of what was repeated rather than just past
+      // its end: pressing play again would otherwise re-trigger the same stop on
+      // the next tick and the button would look broken.
+      const window = loopWindow({
+        mode: state.loopMode,
+        cueStart: state.cues[state.activeIndex]?.start ?? null,
+        cueEnd: state.cues[state.activeIndex]?.end ?? null,
+        pointA: state.pointA,
+        pointB: state.pointB,
+      })
+      set({ isPlaying: false, playsDone: decision.playsDone })
+      if (window !== null) get().seek(window.start)
       return
     }
     if (decision.seekTo !== null) {
@@ -157,6 +169,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     }
     set({ currentTime: time, activeIndex: findActiveCue(cues, time) })
   },
+
+  clearGuard: () => set({ guard: null }),
 
   setDuration: (duration) => set({ duration: Number.isFinite(duration) ? duration : 0 }),
 
