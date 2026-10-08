@@ -102,7 +102,19 @@ if (dryRun) {
 
 writeFileSync(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`)
 for (const [file, text] of nextChangelogs) writeFileSync(join(root, file), text)
+
+// Moving entries between sections changes the pairing hashes, so the record has to
+// be refreshed in the same commit. Without this the release commit fails its own
+// pre-commit gate, which is how this step was found.
+try {
+  execFileSync('node', ['scripts/check-bilingual.mjs', '--write'], { cwd: root, stdio: 'pipe' })
+  console.log('  bilingual：配对记录已按新分节重记')
+} catch {
+  console.error('⚠️ 配对记录没能重记，提交前自己跑一次 npm run bilingual:check -- --write')
+}
+
 git('add', 'package.json', ...CHANGELOGS)
+git('add', ...CHANGELOGS.map((file) => file.replace(/\.md$/, '.i18n.yaml')))
 git('commit', '-m', `chore(release): v${next}`)
 console.log(`✅ 已提交 chore(release): v${next}`)
 
