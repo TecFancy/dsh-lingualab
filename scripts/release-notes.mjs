@@ -8,6 +8,10 @@
  * find that section and print it, and to fail loudly when a tag has no section to
  * point at.
  *
+ * The changelog is a bilingual pair, and both sides go into the body: Chinese
+ * first, then a rule, then English. A release that carries one language is a
+ * release half the readers cannot use, and the reader here reads Chinese first.
+ *
  * Usage:
  *   node scripts/release-notes.mjs            # the version in package.json
  *   node scripts/release-notes.mjs 0.1.2      # a specific version
@@ -24,27 +28,39 @@ const destination = writeAt === -1 ? null : argv[writeAt + 1]
 const version = argv.find((argument) => /^\d+\.\d+\.\d+$/.test(argument)) ??
   JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
 
-const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8')
-
 /**
- * The version's section, from its heading to the next one.
+ * One version's section out of one changelog file.
  *
  * Built without the `m` flag on purpose: with it, `$` also matches at every line
  * end, and the lazy body then stops at the first newline and prints an empty
  * release. `(?:^|\n)` anchors the heading instead, and `$` means end of input.
  */
-const heading = version.replace(/\./g, '\\.')
-const match = new RegExp(`(?:^|\\n)## \\[${heading}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|$)`).exec(changelog)
-
-if (match === null) {
-  console.error(`❌ CHANGELOG.md 里没有 [${version}] 这一节，先跑 npm run release -- <patch|minor|major>`)
-  process.exit(1)
+function sectionOf(file, wanted) {
+  const changelog = readFileSync(join(root, file), 'utf8')
+  const heading = wanted.replace(/\./g, '\\.')
+  const match = new RegExp(`(?:^|\\n)## \\[${heading}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|$)`).exec(changelog)
+  if (match === null) {
+    console.error(`❌ ${file} 里没有 [${wanted}] 这一节，先跑 npm run release -- <patch|minor|major>`)
+    process.exit(1)
+  }
+  const section = (match[1] ?? '').trim()
+  if (section.length === 0) {
+    console.error(`❌ ${file} 的 [${wanted}] 是空的，Release 会是一条什么都没说的记录`)
+    process.exit(1)
+  }
+  return section
 }
 
+// Chinese first, then English: the reader of this repository reads Chinese first,
+// and a release that carries one language is a release half the readers cannot use.
 const body = [
   `## dsh-lingualab ${version}`,
   '',
-  (match[1] ?? '').trim(),
+  sectionOf('CHANGELOG.zh.md', version),
+  '',
+  '---',
+  '',
+  sectionOf('CHANGELOG.md', version),
   '',
   '---',
   '',

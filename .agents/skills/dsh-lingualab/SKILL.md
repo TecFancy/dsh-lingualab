@@ -73,8 +73,10 @@ npm run release:notes [版本号]          # 打印这一版的正文（GitHub R
 git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z   # 合并到 main 之后，唯一手动的一步
 ```
 
-- 版本号的唯一来源是 `package.json`，`check-changelog` 要求 CHANGELOG 里最新的发行版标题跟它一致，
-  而且那一节不能是空的（Release 正文就取自那里）。
+- 版本号的唯一来源是 `package.json`。更新日志是中英一对文件（`CHANGELOG.md` 与 `CHANGELOG.zh.md`），
+  `check-changelog` 对两侧都要求「最新的发行版标题跟版本号一致」且那一节非空；`release` 一次把
+  两侧的 Unreleased 都挪成新版本节，漏掉一侧下次跑检查就会报出来。
+- Release 正文两侧都带，先中文后英文，由 `release-notes.mjs` 合成。
 - PR 到 `main` 时 CI 的 `version-bump` job 会比对 base 分支的版本，没抬高就合不进去。
 - 标签推上去后 `.github/workflows/release.yml` 建 GitHub Release，并且会先核对标签名与
   `package.json` 的版本是否一致，不一致直接失败。

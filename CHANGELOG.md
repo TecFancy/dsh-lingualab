@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- The changelog is now a bilingual pair (`CHANGELOG.md` / `CHANGELOG.zh.md`), and a
+  GitHub Release carries both sides: Chinese first, then a rule, then English. The
+  release body was already generated from the changelog, so the Chinese reader was
+  the one it left out.
+
 ## [0.1.3] - 2026-10-08
 
 ### Added

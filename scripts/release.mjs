@@ -8,6 +8,12 @@
  * This script does the first two and the commit; the tag is created after the
  * merge, when the commit that lands on `main` is known.
  *
+ * The changelog is a bilingual pair, and the release body carries both sides, so
+ * the move below happens in both files in one commit. Moving only the English side
+ * is the mistake this shape prevents: the version heading would then exist in one
+ * file, and `check-changelog` would fail on the next run instead of at release
+ * time.
+ *
  * Usage:
  *   node scripts/release.mjs patch|minor|major [--dry-run]
  *   node scripts/release.mjs patch --tag        # also tag the new commit
@@ -44,9 +50,10 @@ if (dirty.length > 0 && !dryRun) {
 }
 
 const manifestPath = join(root, 'package.json')
-const changelogPath = join(root, 'CHANGELOG.md')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-const changelog = readFileSync(changelogPath, 'utf8')
+
+/** Both sides of the changelog pair, in the order the release body shows them. */
+const CHANGELOGS = ['CHANGELOG.md', 'CHANGELOG.zh.md']
 
 const [major = 0, minor = 0, patch = 0] = String(manifest.version)
   .split('.')
@@ -54,26 +61,39 @@ const [major = 0, minor = 0, patch = 0] = String(manifest.version)
 const next =
   kind === 'major' ? `${major + 1}.0.0` : kind === 'minor' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`
 
-const unreleased = /## \[Unreleased\]\n([\s\S]*?)(?=\n## \[|$)/.exec(changelog)
-if (unreleased === null) {
-  console.error('❌ CHANGELOG.md 里找不到 `## [Unreleased]` 段落')
-  process.exit(1)
-}
-const body = (unreleased[1] ?? '').trim()
-if (body.length === 0) {
-  console.error('❌ Unreleased 是空的：先在它下面记下这次改了什么，再发版')
-  process.exit(1)
-}
-
 const today = new Date().toISOString().slice(0, 10)
-const nextChangelog = changelog.replace(
-  /## \[Unreleased\]\n[\s\S]*?(?=\n## \[|$)/,
-  `## [Unreleased]\n\n## [${next}] - ${today}\n\n${body}\n`,
-)
+const nextChangelogs = new Map()
+
+for (const file of CHANGELOGS) {
+  const changelog = readFileSync(join(root, file), 'utf8')
+  const unreleased = /## \[Unreleased\]\n([\s\S]*?)(?=\n## \[|$)/.exec(changelog)
+  if (unreleased === null) {
+    console.error(`❌ ${file} 里找不到 \`## [Unreleased]\` 段落`)
+    process.exit(1)
+  }
+  const body = (unreleased[1] ?? '').trim()
+  if (body.length === 0) {
+    console.error(`❌ ${file} 的 Unreleased 是空的：先在它下面记下这次改了什么，再发版`)
+    process.exit(1)
+  }
+  nextChangelogs.set(
+    file,
+    changelog.replace(
+      /## \[Unreleased\]\n[\s\S]*?(?=\n## \[|$)/,
+      `## [Unreleased]\n\n## [${next}] - ${today}\n\n${body}\n`,
+    ),
+  )
+}
 const nextManifest = { ...manifest, version: next }
 
 console.log(`${manifest.version} → ${next}（${kind}）`)
-console.log(`  CHANGELOG：把 Unreleased 的内容挪到 [${next}] - ${today}`)
+console.log(`  CHANGELOG：把中英两侧的 Unreleased 都挪到 [${next}] - ${today}`)
+for (const [file, text] of nextChangelogs) {
+  if (text === readFileSync(join(root, file), 'utf8')) {
+    console.error(`❌ ${file} 没有变化，检查 Unreleased 段落是否写成了别的形状`)
+    process.exit(1)
+  }
+}
 
 if (dryRun) {
   console.log('（--dry-run，不写文件、不提交）')
@@ -81,8 +101,8 @@ if (dryRun) {
 }
 
 writeFileSync(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`)
-writeFileSync(changelogPath, nextChangelog)
-git('add', 'package.json', 'CHANGELOG.md')
+for (const [file, text] of nextChangelogs) writeFileSync(join(root, file), text)
+git('add', 'package.json', ...CHANGELOGS)
 git('commit', '-m', `chore(release): v${next}`)
 console.log(`✅ 已提交 chore(release): v${next}`)
 
