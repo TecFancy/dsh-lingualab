@@ -58,6 +58,12 @@ node scripts/verify.mjs --list   # 看检查表
   `.gitignore`。别把音频提交进任何仓库。
 - **视频不做内嵌**，留在 NAS 上用外部播放器看，理由见
   `.agents/notes/implemented/simplification/2026-10-08-v1-without-waveform.md`。
+- **改了源码要重启隔离实例并强刷安装副本**：宿主半边要重启才生效；而 profile 用 `file:` 装 tar 包时，
+  版本号没变是不会换新文件的，得 `rm -rf node_modules/<包名> && npx pnpm@11.22.0 install --force`，
+  否则你在浏览器里验的还是上一版。
+- **只有真在浏览器里打开面板才能发现的 bug**：空列表返回新的 `[]` 会让页面的 reset 副作用每次渲染
+  都跑一遍，React 报 #185。typecheck、ESLint、单测全绿也拦不住，所以改完客户端一定要在隔离实例里
+  打开看一眼 console。
 
 ## 文档分工
 

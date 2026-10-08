@@ -45,6 +45,9 @@ interface LoadedNotes {
 
 const NOTHING_LOADED: LoadedNotes = { id: null, phrases: [] }
 
+/** Same reason as `NO_CUES` in the library hook: a stable identity per render. */
+const NO_PHRASES: readonly NotePhrase[] = []
+
 /** A write waiting for its debounce to elapse. */
 interface PendingWrite {
   readonly id: string
@@ -122,7 +125,7 @@ export function useNotes(episodeId: string | null): NotesState {
     [episodeId, loaded, schedule],
   )
 
-  const visible = loaded.id === episodeId ? loaded.phrases : []
+  const visible = loaded.id === episodeId ? loaded.phrases : NO_PHRASES
   const capacity = phraseCapacity(visible)
 
   const add = useCallback(
