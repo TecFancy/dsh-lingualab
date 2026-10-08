@@ -27,6 +27,11 @@ tracks, because a bilingual subtitle is one file with two languages in it. A fol
 audio is listed but not playable, and an optional `manifest.json` at the root may set the
 play order, rename episodes and name the episode to open first.
 
+The folder is configurable from the page: the 「Media folder」 card shows what is in
+effect, offers the folder each workspace would use by convention, and accepts a typed
+path. Saving it writes `libraryRoot` into the plugin's profile entry through the
+settings service, so there is one home for the value and no restart is needed.
+
 Practice is built around the sentence, not the file: click a subtitle line to jump there,
 loop the current sentence, drag out an A-B region, change speed in ten steps without
 changing pitch. Subtitles put English above Chinese whatever the source order, and the

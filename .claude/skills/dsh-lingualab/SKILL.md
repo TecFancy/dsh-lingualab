@@ -56,6 +56,11 @@ node scripts/verify.mjs --list   # 看检查表
   `--registry=https://registry.npmmirror.com --cache <可写目录>`。
 - **素材不进 git**：剧集音频放在工作区的 `notes/learning/english/media/`，那个目录自带
   `.gitignore`。别把音频提交进任何仓库。
+- **可选服务一律用 `ctx.get(name)` 读**：当成上下文属性读（`ctx.workspaceRegistry`）在服务缺席时会抛错，
+  而路由里抛错会被 web 服务兜成一个**空的 400**，页面上看起来就是「什么都没有」。这个坑吃过一次，
+  四条路由全中。
+- **volatile 的配置字段是盒子**：`z.string().default('').volatile()` 解析出来不是字符串，要 `config.x.get()`
+  才是值；写错的话路由同样全炸。它的好处是 settings 服务能在线改，改完下次读就是新值，不用重启。
 - **视频不做内嵌**，留在 NAS 上用外部播放器看，理由见
   `.agents/notes/implemented/simplification/2026-10-08-v1-without-waveform.md`。
 - **改了源码要重启隔离实例并强刷安装副本**：宿主半边要重启才生效；而 profile 用 `file:` 装 tar 包时，
