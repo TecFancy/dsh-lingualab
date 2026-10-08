@@ -47,6 +47,10 @@ the plugin that was installed and used, not an artifact on a registry.
   out of the library is refused rather than written through.
 - Handled keyboard shortcuts stop propagating, so the space bar cannot reach the
   conversation behind the panel.
+- The empty cue and phrase lists are module-level constants. Returning a fresh
+  `[]` while an episode was loading put the page's player-reset effect into an
+  infinite render loop — found by opening the panel in the test instance, which is
+  the only check that runs the component tree at all.
 
 ## [0.1.0] - 2026-10-08
 

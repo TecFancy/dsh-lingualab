@@ -33,6 +33,15 @@ interface LoadedCues {
 
 const NOTHING_LOADED: LoadedCues = { id: null, cues: [] }
 
+/**
+ * The list handed out while the episode's subtitles are still in flight.
+ *
+ * One module-level constant, not a fresh `[]`: the page resets the player in an
+ * effect keyed on this array, and a new identity on every render is an infinite
+ * render loop, not a cosmetic detail.
+ */
+const NO_CUES: readonly Cue[] = []
+
 /** Load the library, then the selected episode's subtitles. */
 export function useLibrary(): LibraryState {
   const [payload, setPayload] = useState<LibraryPayload | null>(null)
@@ -88,7 +97,7 @@ export function useLibrary(): LibraryState {
   const selectEpisode = useCallback((id: string) => setEpisodeId(id), [])
 
   // Only the cues that belong to the episode on screen are ever handed out.
-  const cues = episode !== null && loaded.id === episode.id ? loaded.cues : []
+  const cues = episode !== null && loaded.id === episode.id ? loaded.cues : NO_CUES
 
   return { payload, loading, error, episode, cues, selectEpisode }
 }
