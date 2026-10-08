@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-08
+
 ### Fixed
 
 - The seek gate now waits for the audio element's `seeked` event instead of
