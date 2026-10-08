@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "policy": "dsh-plugin-naming/v1",
+  "plugin": {
+    "namespace": "tecfancy",
+    "name": "lingualab",
+    "coordinate": "tecfancy/lingualab",
+    "packageName": "dsh-lingualab"
+  },
+  "names": {
+    "pluginNames": ["lingualab"],
+    "loaderIds": ["lingualab"],
+    "services": [],
+    "tools": [],
+    "commands": [],
+    "skills": ["dsh-lingualab"],
+    "skillProviders": [],
+    "events": [],
+    "settingsNamespaces": [],
+    "routes": [
+      { "kind": "exact", "path": "/lingualab/library" },
+      { "kind": "prefix", "path": "/lingualab/media" },
+      { "kind": "exact", "path": "/lingualab/notes" }
+    ]
+  }
+}

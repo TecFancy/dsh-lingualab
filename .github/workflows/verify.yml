@@ -1,0 +1,23 @@
+# Every push to `development` and every pull request that targets `development`
+# or `main` runs the same gate the release train relies on. There is no publish
+# job anywhere in this repository on purpose: the plugin is installed from a
+# local path or a tarball, never from the npm registry.
+name: verify
+
+on:
+  push:
+    branches: [development]
+  pull_request:
+    branches: [development, main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run verify

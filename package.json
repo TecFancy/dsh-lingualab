@@ -1,0 +1,74 @@
+{
+  "name": "dsh-lingualab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "「语言实验室」— a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "AGENTS.md",
+    "locale/*.json"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:check": "node scripts/check-build.mjs",
+    "watch": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fsd": "steiger src/client",
+    "docs:check": "node scripts/check-docs.mjs",
+    "links:check": "node scripts/check-links.mjs",
+    "bilingual:check": "node scripts/check-bilingual.mjs",
+    "zh:prose": "node scripts/check-zh-prose.mjs",
+    "notes:check": "node scripts/check-notes.mjs",
+    "notes:links": "node scripts/check-note-links.mjs",
+    "skills:sync": "node scripts/sync-skills.mjs",
+    "skills:check": "node scripts/sync-skills.mjs --check",
+    "verify": "node scripts/verify.mjs",
+    "prepare": "node -e \"try { require.resolve('husky') } catch { process.exit(0) } require('node:child_process').execSync('husky', { stdio: 'inherit' })\""
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.4"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@feature-sliced/steiger-plugin": "^0.6.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "~18.3.0",
+    "eslint": "^10.2.1",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import-x": "^4.16.2",
+    "husky": "^9.1.7",
+    "steiger": "^0.5.11",
+    "tsdown": "^0.22.14",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.58.2",
+    "vitest": "^4.1.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  }
+}

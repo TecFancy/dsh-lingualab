@@ -1,0 +1,11 @@
+# dsh-lingualab bundle patch.
+#
+# `plugin_manager install_bundle <package dir>` reconciles
+# `dsh.profile.bundles` against installed packages and, seeing the
+# `dsh.bundle.patch` declaration in package.json, mounts this row.
+#
+# The row id must stay unique across the whole composition: a duplicate loader
+# entry id makes dshmarket's pre-install check reject every later install.
+- insert:
+    - id: lingualab
+      name: 'dsh-lingualab'
