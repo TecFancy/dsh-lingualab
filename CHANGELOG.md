@@ -19,6 +19,20 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The empty cue and phrase lists are module-level constants. Returning a fresh
+  `[]` while an episode was loading put the page's player-reset effect into an
+  infinite render loop. Type checking, linting and the unit tests were all green
+  on that build; opening the panel in a real test instance was what caught it.
+
+### Changed
+
+- The repository skill records two traps found while verifying: replacing a `file:`
+  tarball without changing its version does not refresh the installed copy, and a
+  client change has to be looked at in a browser because no static check renders
+  the component tree.
+
 ## [0.1.1] - 2026-10-08
 
 ### Fixed
@@ -47,10 +61,6 @@ the plugin that was installed and used, not an artifact on a registry.
   out of the library is refused rather than written through.
 - Handled keyboard shortcuts stop propagating, so the space bar cannot reach the
   conversation behind the panel.
-- The empty cue and phrase lists are module-level constants. Returning a fresh
-  `[]` while an episode was loading put the page's player-reset effect into an
-  infinite render loop — found by opening the panel in the test instance, which is
-  the only check that runs the component tree at all.
 
 ## [0.1.0] - 2026-10-08
 
