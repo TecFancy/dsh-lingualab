@@ -30,6 +30,11 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Changed
 
+- TypeScript is pinned to `~5.9.3` rather than `~6.0.2`. The Steiger plugin's
+  `@feature-sliced/filesystem` depends on `typescript@^5.8.3`, so a root pin on the
+  6.x line left two copies in the tree and `npm ci` on a clean runner re-resolved a
+  version the lock did not carry. One line, one version, and the checks all pass on
+  both 5.9 and 6.0.
 - The repository skill records two traps found while verifying: replacing a `file:`
   tarball without changing its version does not refresh the installed copy, and a
   client change has to be looked at in a browser because no static check renders
