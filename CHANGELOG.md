@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The page no longer takes a row in the left rail. It is reached from a card on the 「应用」 page —
+  `dsh-apps-panel` carries an entry whose `panel` names this plugin's `main` key — so the page has
+  one entry point instead of two, and the rail stops growing a row per plugin. In a profile without
+  that launcher the page is registered and there is no way in.
+
 ## [0.1.5] - 2026-10-08
 
 ### Added

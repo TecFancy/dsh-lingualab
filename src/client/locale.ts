@@ -8,7 +8,6 @@
 
 /** Chinese copy — the primary side of every pair in this repository. */
 export const zh: Record<string, string> = {
-  panel: '语言实验室',
   title: '语言实验室',
   subtitle: '一次一集，逐句精听',
   back: '← 返回会话',
@@ -85,7 +84,6 @@ export const zh: Record<string, string> = {
 
 /** English copy — same keys, same order. */
 export const en: Record<string, string> = {
-  panel: 'Language Lab',
   title: 'Language Lab',
   subtitle: 'One episode at a time, sentence by sentence',
   back: '← Back to conversation',

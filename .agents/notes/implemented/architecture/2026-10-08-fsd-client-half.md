@@ -18,8 +18,8 @@ were already on the table before the first line was written.
 
 The client half is organised in FSD layers — `shared`, `entities`, `features`,
 `widgets`, `pages` — and has no `app` layer. Registration, providers and routing stay
-with the host, so `index.tsx` sits at the root of the analysed tree and wires two slot
-registrations. Steiger enforces the layer rules over `src/client`; the page composes
+with the host, so `index.tsx` sits at the root of the analysed tree and wires one slot
+registration. Steiger enforces the layer rules over `src/client`; the page composes
 features, and features never reach into each other.
 
 ## Alternatives considered

@@ -2,8 +2,8 @@
 
 [English](README.md) | 简体中文
 
-「语言实验室」面板：**左栏一行，点开是中栏的一整页**，当前会话不动。这一页把已经放进工作区的
-材料变成精听练习：一次一集，逐句来，笔记写回磁盘，Agent 读得到。
+「语言实验室」面板：**「应用」页上一张卡片，点开是中栏的一整页**，当前会话不动。这一页把已经放进
+工作区的材料变成精听练习：一次一集，逐句来，笔记写回磁盘，Agent 读得到。
 
 ## 做什么
 
@@ -35,10 +35,15 @@ grep 得到，次日复习就靠它。
 
 ## 当前状态
 
-**host 半边写完并测过**：库扫描、带 `Range` 的媒体路由、笔记读写，配 43 个单测覆盖纯逻辑与路由。
-**客户端半边正在写**，它依赖的实体与格式模块已经就位，面板本身是下一步。
+两个半边都写完了：host 那边是库扫描、带 `Range` 的媒体路由与笔记读写；client 那边是页面本身——
+剧集列表、播放器、逐句字幕，以及那个每集最多 7 条的笔记面板。
 
-插件还没装进任何 profile。开发在 `development` 分支，靠合进 `main` 出版本，这里的东西不发 npm。
+这一页**不在左栏占行**。它以 `main` 面板的形式注册在 `lingualab` 这个 key 上，入口是「应用」页上的
+一张卡片，由 `dsh-apps-panel` 按自己的注册表画出来（`panel: lingualab`）。这是一次有意的取舍：
+左栏不再每个插件长一行，代价是这个插件要有一个启动台才进得去。没有装 `dsh-apps-panel` 的 profile 里，
+这一页注册着，但没有入口。
+
+开发在 `development` 分支，靠合进 `main` 出版本，这里的东西不发 npm。
 
 ## 发版
 
@@ -76,7 +81,7 @@ src/host-context.ts          the slice of the host plugin context we call
 src/host/                    library scan, media serving, notes read/write
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
-src/client/                  the panel (in progress)
+src/client/                  the page, its widgets, and the two slot-free features
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

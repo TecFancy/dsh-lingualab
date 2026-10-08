@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh.md)
 
-The 「语言实验室」 panel: **one row in the left rail → a whole page in the centre column**,
+The 「语言实验室」 panel: **a card on the 「应用」 page → a whole page in the centre column**,
 leaving the current Session untouched. The page turns media that already sits in the
 workspace into intensive-listening practice: one episode at a time, sentence by sentence,
 with the notes written back to disk where the agent can read them.
@@ -46,13 +46,18 @@ that runs the next-day review.
 
 ## Status
 
-The **host half is written and tested**: the library scan, the media route with `Range`
-support, and the notes read/write path, with 43 unit tests over the pure logic and the
-routes. The **client half is being written** — the entity and format modules it depends on
-are in place, and the panel itself is next.
+Both halves are written: the library scan, the media route with `Range` support and the notes
+read/write path on the host side, and the page itself — episode list, player, sentence-level
+subtitles, the seven-phrase notes panel — on the client side.
 
-The plugin is not installed in any profile yet. It is developed on `development` and
-released by pulling into `main`; nothing here is published to npm.
+The page has **no rail row of its own**. It is registered as a `main` panel under the key
+`lingualab`, and the entry is a card on the 「应用」 page, which `dsh-apps-panel` draws from its
+registry (`panel: lingualab`). That is a deliberate trade: the rail stops growing a row per
+plugin, and in exchange this plugin needs a launcher to be reachable. In a profile without
+`dsh-apps-panel`, the page is registered and unreachable.
+
+It is developed on `development` and released by pulling into `main`; nothing here is
+published to npm.
 
 ## Releasing
 
@@ -94,7 +99,7 @@ src/host-context.ts          the slice of the host plugin context we call
 src/host/                    library scan, media serving, notes read/write
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
-src/client/                  the panel (in progress)
+src/client/                  the page, its widgets, and the two slot-free features
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

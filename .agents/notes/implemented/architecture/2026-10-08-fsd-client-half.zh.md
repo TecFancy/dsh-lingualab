@@ -14,8 +14,8 @@ Status: implemented
 ## Decision
 
 客户端半边按 FSD 分层组织，有 `shared`、`entities`、`features`、`widgets`、`pages` 五层，
-没有 `app` 层。注册、Provider 和路由留给宿主，所以 `index.tsx` 待在被分析目录的根上，只做两件
-事：把左栏那一行和中栏那一页接到宿主的插槽上。Steiger 在 `src/client` 上执行分层规则，页面负责
+没有 `app` 层。注册、Provider 和路由留给宿主，所以 `index.tsx` 待在被分析目录的根上，只做一件事：
+把中栏那一页接到宿主的 `main` 插槽上。Steiger 在 `src/client` 上执行分层规则，页面负责
 组合各个 feature，feature 之间不互相伸手。
 
 ## Alternatives considered

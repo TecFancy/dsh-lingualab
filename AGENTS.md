@@ -1,7 +1,9 @@
 # AGENTS.md — dsh-lingualab
 
-「语言实验室」：dsh 的侧栏面板插件，把工作区里的音频与字幕变成逐句精听练习。每次会话先读这份，
-细节在 `.agents/skills/dsh-lingualab/SKILL.md`，决策理由在 `.agents/notes/`。
+「语言实验室」：dsh 的一个整页面板插件，把工作区里的音频与字幕变成逐句精听练习。页面注册在 `main`
+槽的 `lingualab` 键上，入口是「应用」页上的卡片（`dsh-apps-panel` 的注册表里 `panel: lingualab`），
+左栏没有它自己的一行。每次会话先读这份，细节在 `.agents/skills/dsh-lingualab/SKILL.md`，
+决策理由在 `.agents/notes/`。
 
 ## 三件每轮都要知道的事
 

@@ -5,8 +5,10 @@ description: 在 dsh-lingualab 仓库里干活时的操作手册——两个半�
 
 # dsh-lingualab 操作手册
 
-「语言实验室」是 dsh 的一个侧栏面板插件：读工作区里的音频与字幕，做逐句精听，笔记写回磁盘给
-agent 读。仓库自带 git，默认分支 `development`，靠 PR 合进 `main` 出版本，**不发 npm**。
+「语言实验室」是 dsh 的一个整页面板插件：读工作区里的音频与字幕，做逐句精听，笔记写回磁盘给
+agent 读。页面注册在 `main` 槽的 `lingualab` 键上，**入口是「应用」页上的卡片**——
+`dsh-apps-panel` 的注册表里有一条 `panel: lingualab`，左栏没有它自己的一行。仓库自带 git，
+默认分支 `development`，靠 PR 合进 `main` 出版本，**不发 npm**。
 
 ## 两个半边，两种生效方式
 
