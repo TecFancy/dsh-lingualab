@@ -13,6 +13,10 @@
  *   2. The first released heading equals `package.json#version` — the same string,
  *      not a "close enough" one.
  *
+ * It also refuses an empty release section. The changelog is what the GitHub
+ * Release body is built from (`scripts/release-notes.mjs`), so a version heading
+ * with nothing under it publishes a release that says nothing.
+ *
  * Usage: node scripts/check-changelog.mjs
  */
 import { readFileSync } from 'node:fs'
@@ -37,6 +41,17 @@ if (headings.length === 0) {
       `CHANGELOG 最新的发行版是 [${released[0] ?? '（无）'}]，package.json 是 ${manifest.version}；` +
         '两者必须一致，改版本用 `npm run release -- <patch|minor|major>`',
     )
+  }
+
+  const section = new RegExp(`(?:^|\\n)## \\[${manifest.version.replace(/\./g, '\\.')}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|$)`).exec(
+    changelog,
+  )
+  const detail = (section?.[1] ?? '')
+    .split('\n')
+    .filter((line) => line.trim().length > 0 && !line.trim().startsWith('###'))
+    .length
+  if (detail === 0) {
+    problems.push(`[${manifest.version}] 这一节是空的：GitHub Release 的正文就从这里生成，别发一条什么都没说的版本`)
   }
 }
 
