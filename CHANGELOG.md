@@ -19,6 +19,26 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-08
+
+### Added
+
+- The page can now choose the media folder. A 「Media folder」 card shows the folder
+  in effect, offers the ones each workspace would use by convention, and accepts a
+  typed path; saving it writes `libraryRoot` into this plugin's profile entry
+  through the settings service, so the value lives in one place and the Plugins
+  page sees the same thing. New route: `GET|POST /lingualab/config`.
+
+### Fixed
+
+- Reading the workspace registry through the context property threw whenever the
+  service was absent, and every route answered an empty `400` as a result — which is
+  why opening the panel with no `libraryRoot` configured showed nothing at all. It is
+  read through `ctx.get` now, which answers `undefined` instead of throwing.
+- A volatile config field is a box, not a value: it is read through `get()`. Read as
+  a plain string, every route threw and the page stayed empty even after the folder
+  card was added.
+
 ## [0.1.4] - 2026-10-08
 
 ### Added

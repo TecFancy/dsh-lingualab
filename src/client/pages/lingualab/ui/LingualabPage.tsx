@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { DEFAULT_SUBTITLE_ZH_MODE, orderCueLines, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
 import { useNotes } from '../../../features/notes/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
@@ -18,6 +19,7 @@ import { mediaUrl } from '../../../shared/lib/api.ts'
 import { formatBytes } from '../../../shared/lib/format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { ControlBar } from '../../../widgets/control-bar/index.ts'
+import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
@@ -40,7 +42,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 /** The panel's centre-column page. */
 export function LingualabPage({ back, t }: LingualabPageProps) {
-  const { payload, loading, error, episode, cues, selectEpisode } = useLibrary()
+  const { payload, loading, error, episode, cues, selectEpisode, reload } = useLibrary()
+  const folder = useLibraryConfig()
   const notes = useNotes(episode?.id ?? null)
   const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
@@ -177,11 +180,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
       {loading ? <div className="dsh-lingualab-empty">…</div> : null}
 
-      {!loading && payload !== null && !payload.ok && episodeList.length === 0 ? (
-        <div className="dsh-lingualab-card">
-          <h2>{t('noLibrary')}</h2>
-          <div className="dsh-lingualab-hint">{t('noLibraryHint')}</div>
-          <div className="dsh-lingualab-hint">{payload.root}</div>
+      {!loading && episodeList.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
+          <div className="dsh-lingualab-card">
+            <h2>{payload?.ok === false ? t('noLibrary') : t('noEpisodes')}</h2>
+            <div className="dsh-lingualab-hint">{t('noLibraryHint')}</div>
+          </div>
+          {/* The folder card is the way out of an empty library, so it sits where the
+              reader is looking rather than only in the side column. */}
+          <MediaFolderPanel t={t} config={folder} onSaved={reload} />
         </div>
       ) : null}
 
@@ -210,6 +217,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+            <MediaFolderPanel t={t} config={folder} onSaved={reload} />
             <NotesPanel t={t} notes={notes} phraseFromCurrentCue={phraseFromCurrentCue} />
             <StepTracker key={episode.id} t={t} episode={episode.id} />
           </div>

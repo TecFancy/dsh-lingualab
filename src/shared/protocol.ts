@@ -20,6 +20,15 @@ export const MEDIA_PATH = '/lingualab/media'
 /** Reading and writing one episode's notes markdown. */
 export const NOTES_PATH = '/lingualab/notes'
 
+/**
+ * Reading and changing where the library lives.
+ *
+ * The panel needs this because the config alone cannot be set from the page: with
+ * `libraryRoot` unset the plugin opens on an empty library, and the only way out was
+ * to edit the profile's patch file by hand.
+ */
+export const CONFIG_PATH = '/lingualab/config'
+
 /** Audio extensions the library scan accepts, in the order it prefers them. */
 export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac'] as const
 
@@ -96,6 +105,40 @@ export interface NotesPayload {
   readonly reason: string | null
   /** The phrases in file order. */
   readonly phrases: readonly NotePhrase[]
+}
+
+/** One folder the panel may offer as a library root. */
+export interface LibraryCandidate {
+  /** Absolute path. */
+  readonly path: string
+  /** Where the candidate came from: a workspace name, or the setting in effect. */
+  readonly label: string
+  readonly exists: boolean
+  /** Shallow count of subfolders, or `null` when the path is unreadable. */
+  readonly episodes: number | null
+}
+
+/** `GET /lingualab/config`. */
+export interface LibraryConfigPayload {
+  /** False when the resolved root is unusable; `reason` says why. */
+  readonly ok: boolean
+  readonly reason: string | null
+  /** The root in effect right now. */
+  readonly root: string
+  /** The value stored in the plugin config, empty when it is being guessed. */
+  readonly configured: string
+  /** Where `root` came from. */
+  readonly source: 'config' | 'workspace' | 'none'
+  readonly exists: boolean
+  readonly episodes: number | null
+  /** Whether this deployment can persist a new root, or only report it. */
+  readonly writable: boolean
+  readonly candidates: readonly LibraryCandidate[]
+}
+
+/** `POST /lingualab/config` request body. */
+export interface LibraryConfigWriteRequest {
+  readonly libraryRoot: string
 }
 
 /** `POST /lingualab/notes` request body. */

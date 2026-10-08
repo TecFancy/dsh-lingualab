@@ -6,9 +6,11 @@
  * and the page has to render that state instead of an error boundary.
  */
 import {
+  CONFIG_PATH,
   LIBRARY_PATH,
   MEDIA_PATH,
   NOTES_PATH,
+  type LibraryConfigPayload,
   type LibraryPayload,
   type NotePhrase,
   type NotesPayload,
@@ -21,6 +23,58 @@ export async function fetchLibrary(): Promise<LibraryPayload> {
     return (await response.json()) as LibraryPayload
   } catch (error) {
     return { ok: false, root: '', reason: String(error), current: null, episodes: [] }
+  }
+}
+
+/** Read where the library is, and which folders could be it. */
+export async function fetchConfig(): Promise<LibraryConfigPayload | null> {
+  try {
+    const response = await fetch(CONFIG_PATH, { headers: { accept: 'application/json' } })
+    return (await response.json()) as LibraryConfigPayload
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ask the host to make a folder the library root.
+ *
+ * The answer is the state now in effect, or the reason it was refused — a path that
+ * does not exist is a normal answer here, not an exception, because the reader is
+ * typing it.
+ */
+export async function saveConfig(libraryRoot: string): Promise<LibraryConfigPayload> {
+  try {
+    const response = await fetch(CONFIG_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ libraryRoot }),
+    })
+    const payload = (await response.json()) as LibraryConfigPayload | { ok: false; reason: string }
+    if ('root' in payload) return payload
+    return {
+      ok: false,
+      reason: payload.reason,
+      root: libraryRoot,
+      configured: '',
+      source: 'none',
+      exists: false,
+      episodes: null,
+      writable: true,
+      candidates: [],
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: String(error),
+      root: libraryRoot,
+      configured: '',
+      source: 'none',
+      exists: false,
+      episodes: null,
+      writable: true,
+      candidates: [],
+    }
   }
 }
 

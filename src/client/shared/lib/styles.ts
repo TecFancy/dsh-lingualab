@@ -83,4 +83,15 @@ export const STYLES = `
   color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-step-label{flex:1;min-width:0}
 .dsh-lingualab-step-mins{color:var(--dsw-alias-label-secondary,#8a8f98);font-size:12px}
+
+.dsh-lingualab-folder-row{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:6px 0}
+.dsh-lingualab-path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  word-break:break-all;color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-input{flex:1;min-width:0;background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,0.1));
+  border:0.5px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.25));border-radius:8px;color:inherit;
+  font-size:12.5px;padding:4px 8px}
+.dsh-lingualab-candidates{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.dsh-lingualab-candidate{display:flex;gap:8px;align-items:center;justify-content:space-between;
+  padding:6px 8px;border-radius:8px;background:var(--dsw-alias-bg-layer-1,rgba(127,127,127,0.04))}
+.dsh-lingualab-candidate-main{min-width:0}
 `
