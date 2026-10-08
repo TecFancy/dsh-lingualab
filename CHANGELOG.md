@@ -23,7 +23,7 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Added
 
-- The page can now choose the media folder. A 「媒体 folder」 card shows the folder
+- The page can now choose the media folder. A 「Media folder」 card shows the folder
   in effect, offers the ones each workspace would use by convention, and accepts a
   typed path; saving it writes `libraryRoot` into this plugin's profile entry
   through the settings service, so the value lives in one place and the Plugins
