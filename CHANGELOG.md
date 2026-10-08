@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-08
+
 ### Added
 
 - The page can now choose the media folder. A 「媒体 folder」 card shows the folder

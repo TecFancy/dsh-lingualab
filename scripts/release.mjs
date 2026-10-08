@@ -22,7 +22,7 @@
  * unrelated edits is the failure this check exists for.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -114,7 +114,10 @@ try {
 }
 
 git('add', 'package.json', ...CHANGELOGS)
-git('add', ...CHANGELOGS.map((file) => file.replace(/\.md$/, '.i18n.yaml')))
+// One sidecar records the whole pair, so it is named after the English side — not
+// one per file, which is what staging every derived name got wrong.
+const sidecar = CHANGELOGS[0]?.replace(/\.md$/, '.i18n.yaml')
+if (sidecar !== undefined && existsSync(join(root, sidecar))) git('add', sidecar)
 git('commit', '-m', `chore(release): v${next}`)
 console.log(`✅ 已提交 chore(release): v${next}`)
 
