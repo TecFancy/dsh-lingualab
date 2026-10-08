@@ -23,6 +23,8 @@ export interface LibraryState {
   readonly episode: EpisodeEntry | null
   readonly cues: readonly Cue[]
   readonly selectEpisode: (id: string) => void
+  /** Re-read the library listing; used after the folder setting changes. */
+  readonly reload: () => void
 }
 
 /** Cues plus the episode they were parsed from. */
@@ -49,6 +51,7 @@ export function useLibrary(): LibraryState {
   const [error, setError] = useState<string | null>(null)
   const [episodeId, setEpisodeId] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<LoadedCues>(NOTHING_LOADED)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -58,13 +61,17 @@ export function useLibrary(): LibraryState {
       if (cancelled) return
       setPayload(next)
       setError(next.ok ? null : next.reason)
-      setEpisodeId((current) => current ?? next.current)
+      // A reload may point at a different folder, so the remembered episode is only
+      // kept when the new listing still has it.
+      setEpisodeId((current) =>
+        current !== null && next.episodes.some((entry) => entry.id === current) ? current : next.current,
+      )
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadToken])
 
   const episode = payload?.episodes.find((entry) => entry.id === episodeId) ?? null
 
@@ -95,9 +102,10 @@ export function useLibrary(): LibraryState {
   }, [episode])
 
   const selectEpisode = useCallback((id: string) => setEpisodeId(id), [])
+  const reload = useCallback(() => setReloadToken((token) => token + 1), [])
 
   // Only the cues that belong to the episode on screen are ever handed out.
   const cues = episode !== null && loaded.id === episode.id ? loaded.cues : NO_CUES
 
-  return { payload, loading, error, episode, cues, selectEpisode }
+  return { payload, loading, error, episode, cues, selectEpisode, reload }
 }
