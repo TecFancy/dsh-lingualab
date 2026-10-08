@@ -9,11 +9,26 @@
  * Writes are whole-file and last-writer-wins. That is deliberate for V1: one
  * person, one browser, and a file small enough to rewrite in a single call. A
  * merge strategy would be guessing at a conflict that does not exist yet.
+ *
+ * There are two stores behind one route, and the id decides which one answers. A
+ * folder episode writes `notes.md` inside its folder, where the agent's grep finds
+ * it. A file episode has no folder of its own inside the library — the audio is
+ * wherever the reader keeps it — so its phrases live in the plugin state instead.
+ * The ceiling and the phrase shape are the same in both, because
+ * {@link sanitizePhrases} is the same in both.
  */
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { MAX_PHRASES, parseNotes, serializeNotes } from '../shared/notes-format.ts'
 import { NOTES_FILE, type NotePhrase, type NotesPayload } from '../shared/protocol.ts'
+import {
+  EMPTY_STATE,
+  isFileEpisodeId,
+  notesFor,
+  sanitizePhrases,
+  withNotes,
+  type OpenState,
+} from './state.ts'
 
 /** Episode ids name a folder, so they may not contain separators or escapes. */
 export function isSafeEpisodeId(id: string): boolean {
@@ -55,9 +70,12 @@ function staysInside(root: string, target: string): boolean {
 }
 
 /** Read the notes for one episode; a missing file is an empty list, not an error. */
-export function readNotes(root: string, episode: string): NotesPayload {
+export function readNotes(root: string, episode: string, state: OpenState = EMPTY_STATE): NotesPayload {
   if (!isSafeEpisodeId(episode)) {
     return { ok: false, episode, reason: '剧集 id 不合法', phrases: [] }
+  }
+  if (isFileEpisodeId(episode)) {
+    return { ok: true, episode, reason: null, phrases: [...notesFor(state, episode)] }
   }
   const path = notesPath(root, episode)
   if (!staysInside(root, path)) {
@@ -74,27 +92,11 @@ export function readNotes(root: string, episode: string): NotesPayload {
   }
 }
 
-/** Normalise one incoming phrase, dropping anything that cannot be played back. */
-function sanitizePhrase(input: unknown): NotePhrase | null {
-  if (typeof input !== 'object' || input === null) return null
-  const record = input as Record<string, unknown>
-  const at = typeof record.at === 'number' && Number.isFinite(record.at) && record.at >= 0 ? record.at : null
-  const text = typeof record.text === 'string' ? record.text.trim() : ''
-  if (at === null || text.length === 0) return null
-  const tags = Array.isArray(record.tags)
-    ? record.tags
-        .filter((tag): tag is string => typeof tag === 'string')
-        .map((tag) => tag.replace(/^#+/, '').trim())
-        .filter((tag) => tag.length > 0)
-    : []
-  return {
-    at,
-    text,
-    zh: typeof record.zh === 'string' ? record.zh.trim() : '',
-    note: typeof record.note === 'string' ? record.note.trim() : '',
-    tags,
-    done: record.done === true,
-  }
+/** The payload of a write, plus the state it produced. */
+export interface NotesWriteResult {
+  readonly payload: NotesPayload
+  /** Identity-equal to the input state unless a file episode's notes changed. */
+  readonly state: OpenState
 }
 
 /**
@@ -104,28 +106,39 @@ function sanitizePhrase(input: unknown): NotePhrase | null {
  * and clients get bypassed, so the rule that gives the method its discipline is
  * a property of the file, not of one UI. Refusing is explicit — the caller gets
  * `ok: false` and the reason, never a silently truncated list.
+ *
+ * The state comes back with the payload so the caller can persist it; a folder
+ * episode returns the state it was given, untouched.
  */
-export function writeNotes(root: string, episode: string, input: readonly unknown[]): NotesPayload {
+export function writeNotes(
+  root: string,
+  episode: string,
+  input: readonly unknown[],
+  state: OpenState = EMPTY_STATE,
+): NotesWriteResult {
   if (!isSafeEpisodeId(episode)) {
-    return { ok: false, episode, reason: '剧集 id 不合法', phrases: [] }
+    return { payload: { ok: false, episode, reason: '剧集 id 不合法', phrases: [] }, state }
   }
-  const phrases: NotePhrase[] = []
-  for (const item of input) {
-    const phrase = sanitizePhrase(item)
-    if (phrase !== null) phrases.push(phrase)
-  }
+  const phrases: NotePhrase[] = sanitizePhrases(input)
   if (phrases.length > MAX_PHRASES) {
     return {
-      ok: false,
-      episode,
-      reason: `一集最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`,
-      phrases: [],
+      payload: {
+        ok: false,
+        episode,
+        reason: `一集最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`,
+        phrases: [],
+      },
+      state,
     }
+  }
+
+  if (isFileEpisodeId(episode)) {
+    return { payload: { ok: true, episode, reason: null, phrases }, state: withNotes(state, episode, phrases) }
   }
 
   const path = notesPath(root, episode)
   if (!staysInside(root, path)) {
-    return { ok: false, episode, reason: '笔记路径跑到素材目录外面了', phrases: [] }
+    return { payload: { ok: false, episode, reason: '笔记路径跑到素材目录外面了', phrases: [] }, state }
   }
   try {
     const preamble = existsSync(path)
@@ -133,7 +146,7 @@ export function writeNotes(root: string, episode: string, input: readonly unknow
       : defaultPreamble(episode)
     writeFileSync(path, serializeNotes(preamble.length > 0 ? preamble : defaultPreamble(episode), phrases), 'utf8')
   } catch (error) {
-    return { ok: false, episode, reason: `写不了笔记：${String(error)}`, phrases: [] }
+    return { payload: { ok: false, episode, reason: `写不了笔记：${String(error)}`, phrases: [] }, state }
   }
-  return { ok: true, episode, reason: null, phrases }
+  return { payload: { ok: true, episode, reason: null, phrases }, state }
 }

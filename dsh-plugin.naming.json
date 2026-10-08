@@ -39,6 +39,22 @@
       {
         "kind": "exact",
         "path": "/lingualab/notes"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/places"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/browse"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/open"
+      },
+      {
+        "kind": "prefix",
+        "path": "/lingualab/file-media"
       }
     ]
   }

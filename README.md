@@ -27,28 +27,37 @@ tracks, because a bilingual subtitle is one file with two languages in it. A fol
 audio is listed but not playable, and an optional `manifest.json` at the root may set the
 play order, rename episodes and name the episode to open first.
 
-The folder is configurable from the page: the 「Media folder」 card shows what is in
-effect, offers the folder each workspace would use by convention, and accepts a typed
-path. Saving it writes `libraryRoot` into the plugin's profile entry through the
-settings service, so there is one home for the value and no restart is needed.
+The folder is configurable from the page without typing a path: the 「···」 button opens the
+media-folder layer, and its primary way in is the picker's 「Browse」 tab — walk to the folder,
+click 「Use as media folder」, and the host resolves the path itself. A typed absolute path
+survives as the fallback for a mount point no workspace contains. Saving writes `libraryRoot`
+into the plugin's profile entry through the settings service, so there is one home for the value
+and no restart is needed.
 
-Practice is built around the sentence, not the file: click a subtitle line to jump there,
-loop the current sentence, drag out an A-B region, change speed in ten steps without
-changing pitch. Subtitles put English above Chinese whatever the source order, and the
-Chinese side has four display modes so the native language never becomes the thing being
-read.
+An episode is not required to be a folder. Audio sitting loose in the library root, or anywhere
+under a browsable place, opens on its own: the picker lists it, pairing subtitles by file name,
+and the host remembers the file so its bytes can be served and its notes have somewhere to go.
+That is the answer to the two questions the previous version could not answer — "where is the
+audio I just copied in" and "why can I only pick from a dropdown".
+
+Practice is built around the sentence, not the file: click a subtitle line to jump there and
+play it, loop the current sentence, mark an A-B region, change speed in ten steps without
+changing pitch. Subtitles put English above Chinese whatever the source order, and the Chinese
+side has four display modes so the native language never becomes the thing being read.
 
 Notes follow the study method this panel was built for: **at most seven phrases per
 episode**. When the list is full the eighth phrase has to replace one, which is the point —
-the ceiling is a decision-forcing device, not a storage limit. The file is markdown with a
-checklist line per phrase, so it stays readable in an editor and greppable by the agent
-that runs the next-day review.
+the ceiling is a decision-forcing device, not a storage limit. A folder episode's file is
+markdown with a checklist line per phrase, so it stays readable in an editor and greppable by
+the agent that runs the next-day review; a file episode's notes live in the plugin's profile,
+because the plugin does not write into the material folder.
 
 ## Status
 
-Both halves are written: the library scan, the media route with `Range` support and the notes
-read/write path on the host side, and the page itself — episode list, player, sentence-level
-subtitles, the seven-phrase notes panel — on the client side.
+Both halves are written: the library scan, the media routes with `Range` support, the browsable
+picker and the notes read/write path on the host side, and the page itself — four bands, the
+sentence stage, the subtitle list, and the layers for picking an episode, keeping notes and
+setting the media folder — on the client side.
 
 The page has **no rail row of its own**. It is registered as a `main` panel under the key
 `lingualab`, and the entry is a card on the 「应用」 page, which `dsh-apps-panel` draws from its
@@ -87,16 +96,22 @@ not an artifact on a registry.
 
 | Route | Kind | What it answers |
 |---|---|---|
-| `GET /lingualab/library` | exact | Every episode folder, its files, and how much has been noted |
-| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio and subtitle bytes, `206` for a range request |
+| `GET /lingualab/library` | exact | Every episode folder and loose audio file, the open episode, and how much has been noted |
+| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio and subtitle bytes of a folder episode, `206` for a range request |
+| `GET`, `HEAD /lingualab/file-media/<id>/<file>` | prefix | The same for a file episode, from the paths recorded when it was picked |
 | `GET`, `POST /lingualab/notes` | exact | One episode's phrases, read or replaced wholesale |
+| `GET`, `POST /lingualab/config` | exact | Where the library is, and how to change it — by path, or by place and relative folder |
+| `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
+| `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
+| `POST /lingualab/open` | exact | Make one episode current: a scanned folder, or a single audio file with the subtitles beside it |
 
 ## Repository layout
 
 ```text
-src/index.ts                 host half: the three routes and the config
+src/index.ts                 host half: the routes and the config
 src/host-context.ts          the slice of the host plugin context we call
-src/host/                    library scan, media serving, notes read/write
+src/host/                    library scan, places and path rules, browsing, opening,
+                             media serving, notes read/write, remembered state
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the two slot-free features

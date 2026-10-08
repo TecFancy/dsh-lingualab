@@ -1,0 +1,130 @@
+/**
+ * The page's icons, drawn here rather than borrowed.
+ *
+ * Emoji were the previous version's icons and they are the reason the transport row
+ * never sat straight: ⏮ ▶ ⏭ 🔂 come from different fonts on different systems, so
+ * their optical sizes and baselines disagree. These are 16-unit strokes sharing one
+ * weight, so a row of them lines up, and they inherit `currentColor` from whatever
+ * chip or button holds them.
+ */
+import type { SVGProps } from 'react'
+
+/** Every icon takes a size, and nothing else. */
+export interface IconProps {
+  readonly size?: number
+}
+
+/** Shared geometry: one viewBox, one stroke weight, one set of caps. */
+function Svg({ size = 16, children, ...rest }: IconProps & SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...rest}
+    >
+      {children}
+    </svg>
+  )
+}
+
+export function PlayIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 3.4 12.5 8 5 12.6Z" fill="currentColor" stroke="none" />
+    </Svg>
+  )
+}
+
+export function PauseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={4.5} y={3.5} width={2.6} height={9} rx={0.8} fill="currentColor" stroke="none" />
+      <rect x={8.9} y={3.5} width={2.6} height={9} rx={0.8} fill="currentColor" stroke="none" />
+    </Svg>
+  )
+}
+
+export function PrevIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.6 5.5 8 12 12.4Z" fill="currentColor" stroke="none" />
+      <path d="M4 4v8" />
+    </Svg>
+  )
+}
+
+export function NextIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 3.6 10.5 8 4 12.4Z" fill="currentColor" stroke="none" />
+      <path d="M12 4v8" />
+    </Svg>
+  )
+}
+
+export function LoopIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 8a5 5 0 0 1 8.6-3.4M13 8a5 5 0 0 1-8.6 3.4" />
+      <path d="M11.4 2.6v2.4H9M4.6 13.4V11H7" />
+    </Svg>
+  )
+}
+
+export function NoteIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 2.8h8v10.4L8 10.6l-4 2.6Z" />
+    </Svg>
+  )
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </Svg>
+  )
+}
+
+export function ChevronIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 4l4 4-4 4" />
+    </Svg>
+  )
+}
+
+export function FolderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.5 4.2h4l1.2 1.6h5.8v6.4a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1Z" />
+    </Svg>
+  )
+}
+
+export function AudioIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6.5 11.5V4.2l5-1v7.3" />
+      <circle cx={5} cy={12} r={1.6} />
+      <circle cx={10} cy={11} r={1.6} />
+    </Svg>
+  )
+}
+
+export function SubtitleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={2.2} y={4} width={11.6} height={8} rx={1.4} />
+      <path d="M4.8 9.4h2.2M9 9.4h2.2" />
+    </Svg>
+  )
+}

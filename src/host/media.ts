@@ -32,6 +32,11 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   lrc: 'text/plain; charset=utf-8',
 }
 
+/** The content type a servable extension is sent as, or `null` when it is not one. */
+export function contentTypeOf(path: string): string | null {
+  return CONTENT_TYPES[extname(path).slice(1).toLowerCase()] ?? null
+}
+
 /** Resolve a request path to a file inside the library, or `null` to refuse it. */
 export function resolveMediaPath(root: string, requestPath: string): string | null {
   let decoded: string
@@ -91,6 +96,24 @@ export function serveMedia(
     res.end('没有这个文件\n')
     return
   }
+  serveFile(req, res, target)
+}
+
+/**
+ * Send one already-validated file, honouring `Range`.
+ *
+ * Split out of {@link serveMedia} because a file episode is served from a path the
+ * plugin remembered rather than from `<root>/<episode>/<file>`: the resolving
+ * differs, the bytes and the range handling do not, and duplicating this would mean
+ * two places to get `206` and `416` right.
+ *
+ * The caller owns containment. This function trusts `target`, and says so here
+ * because it is the only place a reader might wonder.
+ * @param req - the request, read for `Range` and for `HEAD`.
+ * @param res - the response to write.
+ * @param target - absolute path of the file to send.
+ */
+export function serveFile(req: IncomingMessage, res: ServerResponse, target: string): void {
   if (!existsSync(target)) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('没有这个文件\n')

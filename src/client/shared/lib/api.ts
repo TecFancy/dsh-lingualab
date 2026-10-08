@@ -6,15 +6,53 @@
  * and the page has to render that state instead of an error boundary.
  */
 import {
+  BROWSE_PATH,
   CONFIG_PATH,
   LIBRARY_PATH,
-  MEDIA_PATH,
   NOTES_PATH,
+  OPEN_PATH,
+  PLACES_PATH,
+  type BrowsePayload,
   type LibraryConfigPayload,
   type LibraryPayload,
   type NotePhrase,
   type NotesPayload,
+  type OpenPayload,
+  type PlacesPayload,
 } from '../protocol.ts'
+
+/** One empty payload per failure shape, so callers never see `undefined`. */
+const EMPTY_CONFIG = (root: string, reason: string): LibraryConfigPayload => ({
+  ok: false,
+  reason,
+  root,
+  configured: '',
+  source: 'none',
+  exists: false,
+  episodes: null,
+  writable: true,
+  candidates: [],
+})
+
+const EMPTY_BROWSE = (reason: string): BrowsePayload => ({
+  ok: false,
+  reason,
+  place: null,
+  rel: '',
+  parentRel: null,
+  entries: [],
+  summary: { dirs: 0, audio: 0, subtitles: 0, other: 0 },
+  page: { limit: 0, returned: 0, truncated: false },
+  folderEpisode: null,
+})
+
+const EMPTY_OPEN = (reason: string): OpenPayload => ({
+  ok: false,
+  reason,
+  episode: null,
+  media: null,
+  warnings: [],
+})
 
 /** Fetch the library listing. Network failures come back as an unreadable root. */
 export async function fetchLibrary(): Promise<LibraryPayload> {
@@ -22,7 +60,16 @@ export async function fetchLibrary(): Promise<LibraryPayload> {
     const response = await fetch(LIBRARY_PATH, { headers: { accept: 'application/json' } })
     return (await response.json()) as LibraryPayload
   } catch (error) {
-    return { ok: false, root: '', reason: String(error), current: null, episodes: [] }
+    return {
+      ok: false,
+      root: '',
+      reason: String(error),
+      current: null,
+      episodes: [],
+      files: [],
+      currentEpisode: null,
+      currentUnavailable: null,
+    }
   }
 }
 
@@ -44,37 +91,78 @@ export async function fetchConfig(): Promise<LibraryConfigPayload | null> {
  * typing it.
  */
 export async function saveConfig(libraryRoot: string): Promise<LibraryConfigPayload> {
+  return await postConfig({ libraryRoot }, libraryRoot)
+}
+
+/** The same, for a folder the picker browsed to: a place id and a relative path. */
+export async function saveConfigFromPlace(place: string, rel: string): Promise<LibraryConfigPayload> {
+  return await postConfig({ place, rel }, rel)
+}
+
+async function postConfig(
+  body: Record<string, string>,
+  fallbackRoot: string,
+): Promise<LibraryConfigPayload> {
   try {
     const response = await fetch(CONFIG_PATH, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ libraryRoot }),
+      body: JSON.stringify(body),
     })
     const payload = (await response.json()) as LibraryConfigPayload | { ok: false; reason: string }
     if ('root' in payload) return payload
-    return {
-      ok: false,
-      reason: payload.reason,
-      root: libraryRoot,
-      configured: '',
-      source: 'none',
-      exists: false,
-      episodes: null,
-      writable: true,
-      candidates: [],
-    }
+    return EMPTY_CONFIG(fallbackRoot, payload.reason)
   } catch (error) {
-    return {
-      ok: false,
-      reason: String(error),
-      root: libraryRoot,
-      configured: '',
-      source: 'none',
-      exists: false,
-      episodes: null,
-      writable: true,
-      candidates: [],
-    }
+    return EMPTY_CONFIG(fallbackRoot, String(error))
+  }
+}
+
+/** The roots the picker may browse: every workspace, plus the library itself. */
+export async function fetchPlaces(): Promise<PlacesPayload> {
+  try {
+    const response = await fetch(PLACES_PATH, { headers: { accept: 'application/json' } })
+    return (await response.json()) as PlacesPayload
+  } catch (error) {
+    return { ok: false, reason: String(error), places: [], current: null }
+  }
+}
+
+/** List one directory under one place. */
+export async function fetchBrowse(place: string, rel: string, query = ''): Promise<BrowsePayload> {
+  const params = new URLSearchParams({ place, rel })
+  if (query.trim().length > 0) params.set('q', query.trim())
+  try {
+    const response = await fetch(`${BROWSE_PATH}?${params.toString()}`, {
+      headers: { accept: 'application/json' },
+    })
+    return (await response.json()) as BrowsePayload
+  } catch (error) {
+    return EMPTY_BROWSE(String(error))
+  }
+}
+
+/** Open a folder episode the library scan already knows. */
+export async function openEpisodeById(episodeId: string): Promise<OpenPayload> {
+  return await postOpen({ episodeId })
+}
+
+/** Open one audio file, with the subtitles beside it. */
+export async function openEpisodeFile(place: string, rel: string): Promise<OpenPayload> {
+  return await postOpen({ place, rel })
+}
+
+async function postOpen(body: Record<string, string>): Promise<OpenPayload> {
+  try {
+    const response = await fetch(OPEN_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const payload = (await response.json()) as OpenPayload
+    if (typeof payload.ok !== 'boolean') return EMPTY_OPEN('主机没有回答')
+    return payload
+  } catch (error) {
+    return EMPTY_OPEN(String(error))
   }
 }
 
@@ -106,5 +194,5 @@ export async function saveNotes(episode: string, phrases: readonly NotePhrase[])
 
 /** The URL one media file is served from; `<audio>` and `fetch` share it. */
 export function mediaUrl(episode: string, file: string): string {
-  return `${MEDIA_PATH}/${encodeURIComponent(episode)}/${encodeURIComponent(file)}`
+  return `/lingualab/media/${encodeURIComponent(episode)}/${encodeURIComponent(file)}`
 }
