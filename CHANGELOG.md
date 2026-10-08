@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-08
+
 ### Added
 
 - Pushing a `v*` tag now publishes a GitHub Release whose body is that version's
