@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-08
+
 ### Fixed
 
 - The empty cue and phrase lists are module-level constants. Returning a fresh
