@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
 ### Changed
 
 - The page no longer takes a row in the left rail. It is reached from a card on the 「应用」 page —
