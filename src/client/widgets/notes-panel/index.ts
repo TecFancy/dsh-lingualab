@@ -1,3 +1,2 @@
-/** Public API of the notes panel widget: the layer, and the composer that feeds it. */
+/** Public API of the notes panel widget: the drawer of kept sentences. */
 export { NotesPanel, type NotesPanelProps } from './ui/NotesPanel.tsx'
-export { NotesComposer, type ComposerQuote, type NotesComposerProps } from './ui/NotesComposer.tsx'

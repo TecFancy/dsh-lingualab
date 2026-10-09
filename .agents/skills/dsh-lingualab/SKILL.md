@@ -42,10 +42,16 @@ node scripts/verify.mjs --list   # 看检查表
 3. **浏览只认 place id，不认路径**：页面传 `ws_<哈希>` 或 `lib`，由 host 自己解析成绝对路径
    （`src/host/places.ts`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
    每一步都 `realpath` 之后再确认仍在根内。**不要**为了让某条路由方便而接受浏览器传来的路径。
-4. **素材目录只读**：库扫描、浏览、打开都不写用户的目录；唯一写进去的是文件夹剧集里的 `notes.md`。
-   文件剧集的笔记因此落在 profile 里，不要改成在音频旁边建文件。
-5. **每集 7 条上限两端都拦**：格式模块定义 `MAX_PHRASES`，host 拒绝超长写入，面板负责问用户
-   替换哪一条。见 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`。
+4. **写素材目录只有两处，都很窄**：一是文件夹剧集里的 `notes.md`；二是 `src/host/import.ts`，
+   收用户拖进来的音频与字幕。库扫描、浏览、打开仍然全部只读。导入的底线不许松：**不覆盖已有文件**
+   （名字在就报 `exists`）、只收扫描读的扩展名、名字在 host 清洗、建好文件夹后再确认仍在根内、
+   先写隐藏临时文件再链接到位、要带 `x-lingualab-import` 头、单个文件 2 GB。
+   文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
+   见 `.agents/notes/implemented/feature/2026-10-09-home-first-and-drop-to-import.md`。
+5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
+   「短的工作集」靠笔记抽屉的「还在练 / 已记住」视图，不靠上限。**不要**再加回弹层询问用户
+   替换哪一条。旧的取舍记在 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`，
+   那是当时的决定，不要改它。
 6. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
    跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
    `npm run lint:fsd` 会拦。
@@ -78,9 +84,16 @@ node scripts/verify.mjs --list   # 看检查表
 - **只有真在浏览器里打开面板才能发现的 bug**：空列表返回新的 `[]` 会让页面的 reset 副作用每次渲染
   都跑一遍，React 报 #185。typecheck、ESLint、单测全绿也拦不住，所以改完客户端一定要在隔离实例里
   打开看一眼 console。
-- **页面的四条横带是有意的**：顶栏 48、舞台（当前句 + 运输条）、字幕列表（唯一滚动区）、底栏 32。
-  改布局时不要把整页变成滚动容器：舞台必须钉住，否则「听这一句」又要跟着列表滚走。
-  样式只读 `--dsw-alias-*`，真实可用的 token 名见 `src/client/shared/lib/styles.ts` 里的用法。
+- **页面有两个视图**：首页（接着上次、剧集行、拖放区）与练习。练习视图的四条横带是有意的：顶栏 48、
+  舞台（当前句 + 运输条）、字幕列表（唯一滚动区）、底栏。改布局时不要把整页变成滚动容器：舞台必须
+  钉住，否则「听这一句」又要跟着列表滚走。运输条只放每分钟都用的六个控件，低频的收进「更多」。
+- **样式只读宿主声明过的 token**：`bg-base`、`bg-layer-1/2`、`bg-overlay`、`border-l1/l2`、
+  `brand-primary`、`label-primary/secondary` 和四个 state。用 `cordis_inspect_query` 的 `Theme.listTokens`
+  核对。`label-tertiary`、`bg-layer-3`、`bg-mask-1`、`interactive-bg-hover` 不存在，会静默落到只对
+  一种主题调好的回退值；需要这些深浅时用 `color-mix`（见 `styles.ts` 顶部的 `--ll-*`）。
+- **React Compiler 的 lint 不让在渲染里读 ref**：把 ref 传给子元素或在 render 里调 `.current` 都会被
+  `react-hooks/refs` 拦。文件选择按钮用 `<label>` 包隐藏的 `<input>`（`FilePicker`），不要写成
+  `ref.click()` 再传下去。
 - **`layout.selectPanel` 之外的入口只有一处**：这一页由「应用」页的卡片打开，`panel` 字段写的是
   `lingualab`。改 `PANEL_ID` 就要同步改 `dsh-apps-panel` 的注册表，否则卡片点了没反应。
 

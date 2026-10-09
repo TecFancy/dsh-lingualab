@@ -3,8 +3,9 @@
  *
  * The panel is a browser page, so the things it cannot do for itself are the
  * things this half owns: say where the library is, list what is in it, let the
- * reader browse to material that is not in the library yet, hand over the bytes of
- * one episode, and read or write the notes.
+ * reader browse to material that is not in the library yet, receive the files the
+ * reader drops on the page, hand over the bytes of one episode, and read or write the
+ * notes.
  *
  * Everything is read from disk on demand rather than cached at load time. The
  * material is copied into the workspace by hand between sessions, so a library
@@ -33,6 +34,7 @@ import type {
 import { refusedBrowse, browsePlace } from './host/browse.ts'
 import { configPayload, describeConfig, validateRoot } from './host/config.ts'
 import { scanLibrary } from './host/library.ts'
+import { importFile } from './host/import.ts'
 import { readJsonBody, sendJson, serveFile, serveMedia } from './host/media.ts'
 import { readNotes, writeNotes } from './host/notes.ts'
 import { openEpisode, resolveFileMedia } from './host/open.ts'
@@ -42,6 +44,8 @@ import {
   BROWSE_PATH,
   CONFIG_PATH,
   FILE_MEDIA_PATH,
+  IMPORT_HEADER,
+  IMPORT_PATH,
   LIBRARY_PATH,
   MEDIA_PATH,
   NOTES_PATH,
@@ -362,6 +366,49 @@ function openRoute(
   }
 }
 
+/**
+ * `POST /lingualab/import` — one dropped file into the library.
+ *
+ * The one route that writes into the media folder, so it is guarded twice over. The
+ * request must carry a custom header: a plain cross-site form or `<img>` cannot set
+ * one, and a script that does is subject to the browser's own cross-origin rules. And
+ * the host decides everything that matters (the folder, the cleaned name, whether the
+ * file may land) rather than believing the page.
+ */
+function importRoute(ctx: HostContext, configured: () => string): WebRoute {
+  return {
+    kind: 'exact',
+    path: IMPORT_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['POST'])) return
+      if (req.headers[IMPORT_HEADER] !== '1') {
+        sendJson(res, 403, {
+          ok: false,
+          code: 'refused',
+          reason: '缺少导入标记，这个请求不像是从面板发来的',
+          episode: null,
+          file: null,
+          bytes: 0,
+          root: null,
+        })
+        return
+      }
+      const url = new URL(req.url ?? IMPORT_PATH, 'http://lingualab.invalid')
+      const declared = Number(req.headers['content-length'])
+      const payload = await importFile(
+        {
+          root: resolveRoot(ctx, configured()).root,
+          episode: url.searchParams.get('episode') ?? '',
+          file: url.searchParams.get('file') ?? '',
+          declaredBytes: Number.isFinite(declared) && req.headers['content-length'] !== undefined ? declared : null,
+        },
+        req,
+      )
+      sendJson(res, payload.ok ? 200 : 400, payload)
+    },
+  }
+}
+
 /** A refusal with no episode attached, for the request-level mistakes. */
 function emptyOpen(reason: string): OpenPayload {
   return { ok: false, reason, episode: null, media: null, warnings: [] }
@@ -507,6 +554,7 @@ export function apply(ctx: HostContext, config: Config): void {
     placesRoute(ctx, configured, readState),
     browseRoute(ctx, configured),
     openRoute(ctx, configured, readState, writeState),
+    importRoute(ctx, configured),
     libraryRoute(ctx, configured, readState),
     mediaRoute(ctx, configured),
     fileMediaRoute(readState),

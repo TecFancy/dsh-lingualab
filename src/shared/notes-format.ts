@@ -27,13 +27,19 @@
 import type { NotePhrase, NotesSummary } from './protocol.ts'
 
 /**
- * The per-episode ceiling from the study method.
+ * A sanity ceiling on one episode's notes, not a rule of the study method.
  *
- * Seven is a decision-forcing device, not a storage limit: when the list is full
- * the panel asks which phrase to drop rather than accepting an eighth. The cap
- * lives here so the panel and any writer agree on the number.
+ * Earlier versions capped a list at seven so that keeping a phrase forced a choice,
+ * and asked which one to replace when it was full. In use that choice came at the
+ * worst moment: mid-sentence, with the audio still running, to save a phrase you had
+ * already decided to keep. The cap is gone; what the method wanted from it is now
+ * done by the `done` tick and the tags, which let a phrase leave the working set
+ * without being deleted.
+ *
+ * This number only exists so a runaway client cannot write an unbounded file. An
+ * episode that reaches it has a different problem from a long notes list.
  */
-export const MAX_PHRASES = 7
+export const MAX_PHRASES = 500
 
 /** Tags the study method uses; anything else is allowed but not offered. */
 export const KNOWN_TAGS = ['review', 'hard'] as const
@@ -151,11 +157,21 @@ export function summarizeNotes(markdown: string | null): NotesSummary {
   }
 }
 
-/** Whether another phrase fits, and what to do when it does not. */
+/** Whether another phrase fits under the sanity ceiling. */
 export function phraseCapacity(phrases: readonly NotePhrase[]): {
   readonly full: boolean
   readonly remaining: number
 } {
   const remaining = Math.max(0, MAX_PHRASES - phrases.length)
   return { full: remaining === 0, remaining }
+}
+
+/**
+ * Whether a phrase is one the reader has marked as still worth working on.
+ *
+ * With the ceiling gone, "which ones am I still learning" is the filter that keeps a
+ * long list usable: a phrase is active until it is ticked done.
+ */
+export function isActivePhrase(phrase: NotePhrase): boolean {
+  return !phrase.done
 }

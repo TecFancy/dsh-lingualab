@@ -9,8 +9,20 @@ with the notes written back to disk where the agent can read them.
 
 ## What it does
 
+The page opens on a **home**: the episode to pick up where you left off, the rest of the
+library as rows that open on a click, and a drop target. Opening an episode switches to the
+**practice** view; its back button returns to the home.
+
+**Adding material is dropping it.** Drag an audio file and its subtitles onto the page, or press
+「Add files」. Subtitles pair up by name: a file that starts with the audio file name belongs to
+it (`s01e01.mp3` owns `s01e01.en.srt` and `s01e01.zh.srt`), and a lone subtitle beside a lone
+audio file is a pair whatever they are called. Several episodes can be dropped at once. The host
+files each one in its own folder under the media folder, **never overwrites a file that is
+already there**, and says what it skipped. With nothing in the library, the home is only the
+drop target; nobody has to learn what a media folder is first.
+
 The library root holds one folder per episode. A folder carries an audio file, up to two
-subtitle files, and an optional `notes.md`:
+subtitle files, and an optional `notes.md`; that is also the layout an import produces:
 
 ```text
 notes/learning/english/media/
@@ -27,37 +39,41 @@ tracks, because a bilingual subtitle is one file with two languages in it. A fol
 audio is listed but not playable, and an optional `manifest.json` at the root may set the
 play order, rename episodes and name the episode to open first.
 
-The folder is configurable from the page without typing a path: the 「···」 button opens the
-media-folder layer, and its primary way in is the picker's 「Browse」 tab — walk to the folder,
-click 「Use as media folder」, and the host resolves the path itself. A typed absolute path
+Where the files live is one quiet line at the bottom of the home, with 「Change」. The folder is
+set without typing a path: the layer's primary way in is 「Browse existing files」 — walk to the
+folder, click 「Use as media folder」, and the host resolves the path itself. A typed absolute path
 survives as the fallback for a mount point no workspace contains. Saving writes `libraryRoot`
 into the plugin's profile entry through the settings service, so there is one home for the value
 and no restart is needed.
 
 An episode is not required to be a folder. Audio sitting loose in the library root, or anywhere
-under a browsable place, opens on its own: the picker lists it, pairing subtitles by file name,
-and the host remembers the file so its bytes can be served and its notes have somewhere to go.
-That is the answer to the two questions the previous version could not answer — "where is the
-audio I just copied in" and "why can I only pick from a dropdown".
+under a browsable place, opens on its own: 「Browse existing files」 lists it, pairing subtitles by
+file name, and the host remembers the file so its bytes can be served and its notes have
+somewhere to go.
 
-Practice is built around the sentence, not the file: click a subtitle line to jump there and
-play it, loop the current sentence, mark an A-B region, change speed in ten steps without
-changing pitch. Subtitles put English above Chinese whatever the source order, and the Chinese
-side has four display modes so the native language never becomes the thing being read.
+Practice is built around the sentence, not the file. The transport row holds only what is used
+every minute: previous and next sentence, play, speed, loop this sentence, the Chinese display
+and the star. The A-B region, its repeat count and the list of keys sit behind 「More」. Click a
+subtitle line to jump there and play it; speed has ten steps and never changes pitch. Subtitles
+put English above Chinese whatever the source order, and the Chinese side has four display modes
+so the native language never becomes the thing being read. The page remembers where you stopped
+in each episode, in this browser, and the home offers it as 「Pick up where you left off」.
 
-Notes follow the study method this panel was built for: **at most seven phrases per
-episode**. When the list is full the eighth phrase has to replace one, which is the point —
-the ceiling is a decision-forcing device, not a storage limit. A folder episode's file is
-markdown with a checklist line per phrase, so it stays readable in an editor and greppable by
+**Keeping a sentence is a star** on the transport row and on each subtitle line, or `S`. The same
+star takes it back. The kept sentences sit in a drawer with three views, 「Practising」, 「Learned」
+and all: tick a sentence once it sticks and it leaves the first view without being deleted, so
+the working set stays short by choice rather than by a ceiling. A folder episode's notes are
+markdown with a checklist line per phrase, so they stay readable in an editor and greppable by
 the agent that runs the next-day review; a file episode's notes live in the plugin's profile,
-because the plugin does not write into the material folder.
+because the plugin does not write anywhere in the material folder except to add the files you
+hand it.
 
 ## Status
 
-Both halves are written: the library scan, the media routes with `Range` support, the browsable
-picker and the notes read/write path on the host side, and the page itself — four bands, the
-sentence stage, the subtitle list, and the layers for picking an episode, keeping notes and
-setting the media folder — on the client side.
+Both halves are written: the library scan, the import route, the media routes with `Range`
+support, the browsable picker and the notes read/write path on the host side, and the page itself
+— the home, the practice view, the notes drawer and the layers for browsing and for the media
+folder — on the client side.
 
 The page has **no rail row of its own**. It is registered as a `main` panel under the key
 `lingualab`, and the entry is a card on the 「应用」 page, which `dsh-apps-panel` draws from its
@@ -67,7 +83,6 @@ plugin, and in exchange this plugin needs a launcher to be reachable. In a profi
 
 It is developed on `development` and released by pulling into `main`; nothing here is
 published to npm.
-
 ## Releasing
 
 Work lands on `development`. A pull request into `main` is a release, and the
@@ -104,6 +119,7 @@ not an artifact on a registry.
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder, or a single audio file with the subtitles beside it |
+| `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header |
 
 ## Repository layout
 
@@ -114,7 +130,8 @@ src/host/                    library scan, places and path rules, browsing, open
                              media serving, notes read/write, remembered state
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
-src/client/                  the page, its widgets, and the two slot-free features
+src/client/                  the page, its widgets, and the slot-free features (library,
+                             import, notes, media player, resume)
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

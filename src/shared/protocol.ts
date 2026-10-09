@@ -58,6 +58,25 @@ export const OPEN_PATH = '/lingualab/open'
  */
 export const FILE_MEDIA_PATH = '/lingualab/file-media'
 
+/**
+ * Receiving one file the reader dropped on the page.
+ *
+ * One request carries one file as the raw body, with the episode folder and the file
+ * name in the query. The page sends an audio file and its subtitles as separate
+ * requests into the same folder, so a failure names exactly the file it concerns, and
+ * a file that already exists is reported rather than overwritten.
+ */
+export const IMPORT_PATH = '/lingualab/import'
+
+/**
+ * The most one imported file may weigh. The page checks it before sending so a refusal
+ * arrives as a sentence; the host checks it again because the page is only a client.
+ */
+export const MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
+
+/** The header an import request must carry, so a cross-origin page cannot send one blind. */
+export const IMPORT_HEADER = 'x-lingualab-import'
+
 /** Audio extensions the library scan accepts, in the order it prefers them. */
 export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac'] as const
 
@@ -311,6 +330,24 @@ export interface OpenPayload {
   readonly media: EpisodeMedia | null
   /** Things that are true but not fatal: `no-subtitle` is the only one today. */
   readonly warnings: readonly string[]
+}
+
+/** `POST /lingualab/import`. */
+export interface ImportPayload {
+  readonly ok: boolean
+  /**
+   * What happened to the file. `exists` is not a failure: the file was already there,
+   * nothing was overwritten, and the page carries on with the rest of the episode.
+   */
+  readonly code: 'saved' | 'exists' | 'refused'
+  readonly reason: string | null
+  /** The episode folder the file went into, which is the id to open afterwards. */
+  readonly episode: string | null
+  /** The name the file was saved under, after the host cleaned it. */
+  readonly file: string | null
+  readonly bytes: number
+  /** The library root the file landed under, so the page can say where things went. */
+  readonly root: string | null
 }
 
 /** `POST /lingualab/config` — set the library root from the picker instead of a typed path. */

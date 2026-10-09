@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { MAX_PHRASES } from '../shared/notes-format.ts'
 import { compareIds, scanLibrary } from './library.ts'
 import { resolveMediaPath, serveMedia } from './media.ts'
 import { readNotes, writeNotes } from './notes.ts'
@@ -330,14 +331,17 @@ describe('notes round-trip', () => {
     expect(read.phrases[0]?.tags).toEqual(['review'])
   })
 
-  it('refuses an eighth phrase and says why', () => {
+  it('accepts an eighth phrase, and refuses only a runaway list', () => {
     episode('S01E01', { audio: 'a.mp3' })
     const eight = Array.from({ length: 8 }, (_, index) => ({ at: index, text: `phrase ${index}` }))
-    const { payload: result } = writeNotes(root, 'S01E01', eight)
+    expect(writeNotes(root, 'S01E01', eight).payload.ok).toBe(true)
+
+    const runaway = Array.from({ length: MAX_PHRASES + 1 }, (_, index) => ({ at: index, text: `p${index}` }))
+    const { payload: result } = writeNotes(root, 'S02E01', runaway)
     expect(result.ok).toBe(false)
-    expect(result.reason).toContain('最多 7 条')
-    // Nothing was written, so the file still does not exist.
-    expect(readNotes(root, 'S01E01').phrases).toEqual([])
+    expect(result.reason).toContain(`最多 ${String(MAX_PHRASES)} 条`)
+    // Nothing was written for the refused one, so its notes are still empty.
+    expect(readNotes(root, 'S02E01').phrases).toEqual([])
   })
 
   it('refuses a notes path that resolves outside the library through a symlink', () => {

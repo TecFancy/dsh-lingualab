@@ -1,17 +1,18 @@
 /**
- * The notes list for one episode, and the ceiling that gives it its point.
+ * The notes list for one episode.
  *
- * Saving is debounced and whole-file: the panel writes after a pause in typing,
- * and each write replaces that episode's markdown. Two details are the difference
- * between "usually works" and "lost my notes once":
+ * Saving is debounced and whole-file: the panel writes after a pause, and each write
+ * replaces that episode's markdown. Two details are the difference between "usually
+ * works" and "lost my notes once":
  *
  *   · every pending write is flushed when the episode changes, so an edit made
  *     half a second before switching is not thrown away with the timer;
  *   · the list is tagged with the episode it belongs to, and a mutation that
  *     arrives after a switch is dropped rather than written under the new id.
  *
- * The ceiling is enforced here so the UI can ask *which* phrase to replace, and
- * again in the host half so a client that skips the question is still refused.
+ * There is no ceiling to ask about any more. Keeping a sentence is one gesture, and
+ * the same gesture on the same sentence takes it back, so the star on a row is a
+ * switch and not a button with a side effect.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MAX_PHRASES, phraseCapacity } from '../../../shared/notes-format.ts'
@@ -21,18 +22,26 @@ import { fetchNotes, saveNotes } from '../../../shared/lib/api.ts'
 /** How long the panel waits after the last change before writing. */
 const SAVE_DEBOUNCE_MS = 600
 
+/** Two notes within this many seconds of each other are the same sentence. */
+const SAME_SENTENCE_SECONDS = 0.05
+
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export interface NotesState {
   readonly phrases: readonly NotePhrase[]
   readonly status: SaveStatus
   readonly reason: string | null
+  /** True only at the sanity ceiling, which no listening session reaches. */
   readonly full: boolean
-  readonly remaining: number
-  /** Append a phrase; when the list is full, nothing is added and `full` is true. */
+  /** Append a phrase; nothing is added, and `false` returned, at the ceiling. */
   readonly add: (phrase: NotePhrase) => boolean
-  /** Replace the phrase at `index`, which is how the eighth phrase gets in. */
-  readonly replaceAt: (index: number, phrase: NotePhrase) => void
+  /**
+   * Keep this sentence, or take it back if it is already kept.
+   * @returns whether the sentence is kept afterwards.
+   */
+  readonly toggle: (phrase: NotePhrase) => boolean
+  /** Whether a sentence that starts at `at` is already kept. */
+  readonly has: (at: number) => boolean
   readonly update: (index: number, patch: Partial<NotePhrase>) => void
   readonly remove: (index: number) => void
 }
@@ -53,6 +62,11 @@ interface PendingWrite {
   readonly id: string
   readonly phrases: readonly NotePhrase[]
   readonly timer: ReturnType<typeof setTimeout>
+}
+
+/** Whether two timestamps name the same sentence. */
+function sameSentence(left: number, right: number): boolean {
+  return Math.abs(left - right) < SAME_SENTENCE_SECONDS
 }
 
 /** Load, edit and persist one episode's phrases. */
@@ -128,6 +142,11 @@ export function useNotes(episodeId: string | null): NotesState {
   const visible = loaded.id === episodeId ? loaded.phrases : NO_PHRASES
   const capacity = phraseCapacity(visible)
 
+  const has = useCallback(
+    (at: number): boolean => visible.some((phrase) => sameSentence(phrase.at, at)),
+    [visible],
+  )
+
   const add = useCallback(
     (phrase: NotePhrase): boolean => {
       if (capacity.full) return false
@@ -137,11 +156,15 @@ export function useNotes(episodeId: string | null): NotesState {
     [capacity.full, mutate],
   )
 
-  const replaceAt = useCallback(
-    (index: number, phrase: NotePhrase) => {
-      mutate((current) => current.map((item, at) => (at === index ? phrase : item)))
+  const toggle = useCallback(
+    (phrase: NotePhrase): boolean => {
+      if (visible.some((item) => sameSentence(item.at, phrase.at))) {
+        mutate((current) => current.filter((item) => !sameSentence(item.at, phrase.at)))
+        return false
+      }
+      return add(phrase)
     },
-    [mutate],
+    [add, mutate, visible],
   )
 
   const update = useCallback(
@@ -163,9 +186,9 @@ export function useNotes(episodeId: string | null): NotesState {
     status,
     reason,
     full: capacity.full,
-    remaining: capacity.remaining,
     add,
-    replaceAt,
+    toggle,
+    has,
     update,
     remove,
   }

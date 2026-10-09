@@ -8,11 +8,15 @@
 import {
   BROWSE_PATH,
   CONFIG_PATH,
+  IMPORT_HEADER,
+  IMPORT_PATH,
   LIBRARY_PATH,
+  MAX_IMPORT_BYTES,
   NOTES_PATH,
   OPEN_PATH,
   PLACES_PATH,
   type BrowsePayload,
+  type ImportPayload,
   type LibraryConfigPayload,
   type LibraryPayload,
   type NotePhrase,
@@ -163,6 +167,41 @@ async function postOpen(body: Record<string, string>): Promise<OpenPayload> {
     return payload
   } catch (error) {
     return EMPTY_OPEN(String(error))
+  }
+}
+
+/**
+ * Send one dropped file to the library.
+ *
+ * `fetch` is the only way to stream a `File` as a body without reading it into memory
+ * first, and the custom header is what the host checks to know the request came from
+ * this page. A refusal is an answer, not an exception: a wrong file type is a normal
+ * thing to drop.
+ * @param file - the file the reader dropped or picked.
+ * @param episode - the folder to put it in; empty lets the host name it after the file.
+ */
+export async function importMedia(file: File, episode: string): Promise<ImportPayload> {
+  const refused = (reason: string): ImportPayload => ({
+    ok: false,
+    code: 'refused',
+    reason,
+    episode: null,
+    file: file.name,
+    bytes: 0,
+    root: null,
+  })
+  if (file.size > MAX_IMPORT_BYTES) return refused('文件太大，单个最多 2 GB')
+  const params = new URLSearchParams({ file: file.name, episode })
+  try {
+    const response = await fetch(`${IMPORT_PATH}?${params.toString()}`, {
+      method: 'POST',
+      headers: { [IMPORT_HEADER]: '1', 'content-type': 'application/octet-stream' },
+      body: file,
+    })
+    const payload = (await response.json()) as ImportPayload
+    return typeof payload.ok === 'boolean' ? payload : refused('主机没有回答')
+  } catch (error) {
+    return refused(String(error))
   }
 }
 

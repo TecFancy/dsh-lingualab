@@ -16,15 +16,17 @@
 ## 目录
 
 ```text
-src/index.ts            host 半边：三条路由与配置
-src/host/               库扫描、媒体伺服（带 Range）、笔记读写
+src/index.ts            host 半边：路由与配置
+src/host/               库扫描、导入（唯一写素材目录的地方，不覆盖）、媒体伺服（带 Range）、笔记读写
 src/shared/             跨半边契约与笔记格式，只有这一份
 src/client/             客户端半边，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
   entities/cue/         字幕解析与双语分行
-  features/             library（读一集）、media-player（播放与循环）、notes（7 条上限）
-  widgets/              control-bar、subtitle-panel、notes-panel、step-tracker
-  pages/lingualab/      页面，负责组合各 feature
+  features/             library（读一集）、media-player（播放与循环）、notes（收藏，无 7 条上限）、
+                        import-media（拖入分组与上传）、resume（听到哪里的书签）
+  widgets/              library-home（首页与拖放区）、control-bar、subtitle-panel、notes-panel（抽屉）、
+                        episode-picker（只剩浏览）、media-folder、step-tracker
+  pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像
 scripts/                检查脚本，入口是 verify.mjs

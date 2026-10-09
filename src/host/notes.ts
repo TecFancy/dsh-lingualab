@@ -15,7 +15,7 @@
  * it. A file episode has no folder of its own inside the library — the audio is
  * wherever the reader keeps it — so its phrases live in the plugin state instead.
  * The ceiling and the phrase shape are the same in both, because
- * {@link sanitizePhrases} is the same in both.
+ * {@link sanitizePhrases} and the ceiling check are the same in both.
  */
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
@@ -40,7 +40,7 @@ function defaultPreamble(episode: string): string {
   return [
     `# ${episode} 笔记`,
     '',
-    `> 每集最多 ${MAX_PHRASES} 条。写满了先删一条再记，或者替换掉最不想要的那条。`,
+    '> 记得住了就打勾，勾掉的句子不再算「还在练」。',
     '> 想不起的加 `#review`，周日还记不住的加 `#hard`。',
   ].join('\n')
 }
@@ -102,10 +102,10 @@ export interface NotesWriteResult {
 /**
  * Replace an episode's notes.
  *
- * The ceiling is enforced here as well as in the panel: the panel is a client
- * and clients get bypassed, so the rule that gives the method its discipline is
- * a property of the file, not of one UI. Refusing is explicit — the caller gets
- * `ok: false` and the reason, never a silently truncated list.
+ * The sanity ceiling is enforced here, not only in the panel: the panel is a client
+ * and clients get bypassed, and a notes file is read back by the agent in full. Refusing
+ * is explicit — the caller gets `ok: false` and the reason, never a silently
+ * truncated list.
  *
  * The state comes back with the payload so the caller can persist it; a folder
  * episode returns the state it was given, untouched.
@@ -125,7 +125,7 @@ export function writeNotes(
       payload: {
         ok: false,
         episode,
-        reason: `一集最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`,
+        reason: `一集的笔记最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`,
         phrases: [],
       },
       state,
