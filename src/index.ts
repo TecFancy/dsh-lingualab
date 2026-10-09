@@ -1,9 +1,10 @@
 /**
  * dsh-lingualab — host half.
  *
- * The panel is a browser page, so the four things it cannot do for itself are the
- * four things this half owns: say where the library is, list what is in it, hand
- * over the bytes of one episode, and read or write the notes file.
+ * The panel is a browser page, so the things it cannot do for itself are the
+ * things this half owns: say where the library is, list what is in it, let the
+ * reader browse to material that is not in the library yet, hand over the bytes of
+ * one episode, and read or write the notes.
  *
  * Everything is read from disk on demand rather than cached at load time. The
  * material is copied into the workspace by hand between sessions, so a library
@@ -11,8 +12,13 @@
  * new episode lands.
  *
  * Routes live under `/lingualab/`, clear of the module system's `/plugins` prefix
- * route, and the same four are declared in `dsh-plugin.naming.json` — `npm run
+ * route, and every one of them is declared in `dsh-plugin.naming.json` — `npm run
  * verify` compares the two so a renamed route cannot silently outlive its record.
+ *
+ * The one thing this half *does* remember is which episode is open: a file episode
+ * is identified by a hash of its path, and only the plugin can turn that id back
+ * into a file. It is persisted in this plugin's own config (`openState`), through
+ * the settings service, so the profile remains the single home for plugin state.
  */
 import z from '@deepseek-ai/schemastery'
 import { join } from 'node:path'
@@ -24,17 +30,27 @@ import type {
   WorkspaceRef,
   WorkspaceRegistryService,
 } from './host-context.ts'
+import { refusedBrowse, browsePlace } from './host/browse.ts'
 import { configPayload, describeConfig, validateRoot } from './host/config.ts'
 import { scanLibrary } from './host/library.ts'
-import { readJsonBody, sendJson, serveMedia } from './host/media.ts'
+import { readJsonBody, sendJson, serveFile, serveMedia } from './host/media.ts'
 import { readNotes, writeNotes } from './host/notes.ts'
+import { openEpisode, resolveFileMedia } from './host/open.ts'
+import { findPlace, listPlaces, placesPayload, resolveInPlace } from './host/places.ts'
+import { parseState, serializeState, type OpenState } from './host/state.ts'
 import {
+  BROWSE_PATH,
   CONFIG_PATH,
+  FILE_MEDIA_PATH,
   LIBRARY_PATH,
   MEDIA_PATH,
   NOTES_PATH,
+  OPEN_PATH,
+  PLACES_PATH,
   type LibraryConfigWriteRequest,
   type NotesWriteRequest,
+  type OpenPayload,
+  type OpenRequest,
 } from './shared/protocol.ts'
 
 /** Stable plugin name (the composition row id is `lingualab`). */
@@ -73,6 +89,15 @@ export interface Config {
    * fields" — and the folder card can only report what it cannot change.
    */
   libraryRoot: VolatileField<string>
+  /**
+   * What the plugin remembers between requests, as JSON.
+   *
+   * Only file episodes need it: a folder episode is rediscovered by the scan, while
+   * an audio file picked out of a workspace is known by a hash of its path, and the
+   * notes written against it have nowhere else to live. Volatile for the same
+   * reason as `libraryRoot` — the panel writes it, and the write has to be allowed.
+   */
+  openState: VolatileField<string>
 }
 
 // No `z<Config>` annotation: `.volatile()` widens the schema's meta type, and the
@@ -80,6 +105,7 @@ export interface Config {
 // fields and types `apply`.
 export const Config = z.object({
   libraryRoot: z.string().default('').volatile(),
+  openState: z.string().default('').volatile(),
 })
 
 /** Where the library sits when the config does not say. */
@@ -133,6 +159,12 @@ function methodAllowed(req: IncomingMessage, res: ServerResponse, allowed: reado
   return false
 }
 
+/** One plain-text refusal, for the routes that answer a body of their own shape. */
+function refuseText(res: ServerResponse, status: number, text: string): void {
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' })
+  res.end(`${text}\n`)
+}
+
 /** `GET|POST /lingualab/config` — where the library is, and how to change it. */
 function configRoute(ctx: HostContext, configured: () => string): WebRoute {
   return {
@@ -164,10 +196,43 @@ function configRoute(ctx: HostContext, configured: () => string): WebRoute {
         sendJson(res, 400, { ok: false, reason: `请求体读不了：${String(error)}` })
         return
       }
-      const proposed = (body as Partial<LibraryConfigWriteRequest> | null)?.libraryRoot
-      if (typeof proposed !== 'string') {
-        sendJson(res, 400, { ok: false, reason: '缺 libraryRoot' })
+
+      // Two ways to say the same thing: a typed absolute path, or a folder the
+      // picker browsed to. Sending both is a mistake worth naming, because the two
+      // could disagree and the reader would have no way to tell which won.
+      const fields = (typeof body === 'object' && body !== null ? body : {}) as Partial<
+        LibraryConfigWriteRequest & { place: string; rel: string }
+      >
+      const typed = typeof fields.libraryRoot === 'string'
+      const mentionsPlace = fields.place !== undefined || fields.rel !== undefined
+      if (typed && mentionsPlace) {
+        sendJson(res, 400, { ok: false, reason: 'libraryRoot 与 place/rel 只能给一个' })
         return
+      }
+      if (!typed && mentionsPlace && !(typeof fields.place === 'string' && typeof fields.rel === 'string')) {
+        sendJson(res, 400, { ok: false, reason: 'place 与 rel 要么都给，要么都不给' })
+        return
+      }
+      if (!typed && !mentionsPlace) {
+        sendJson(res, 400, { ok: false, reason: '缺 libraryRoot；或者给 place 与 rel' })
+        return
+      }
+
+      let proposed: string
+      if (typeof fields.libraryRoot === 'string') {
+        proposed = fields.libraryRoot
+      } else {
+        const place = findPlace(listPlaces(workspaces, resolveRoot(ctx, configured()).root), fields.place ?? '')
+        if (place === null) {
+          sendJson(res, 400, { ok: false, reason: '找不到这个位置' })
+          return
+        }
+        const resolved = resolveInPlace(place, fields.rel ?? '')
+        if (!resolved.ok) {
+          sendJson(res, 400, { ok: false, reason: resolved.reason })
+          return
+        }
+        proposed = resolved.abs
       }
 
       const problem = validateRoot(proposed)
@@ -208,14 +273,108 @@ function configRoute(ctx: HostContext, configured: () => string): WebRoute {
   }
 }
 
+/** `GET /lingualab/places` — the roots the picker may browse, and what is open. */
+function placesRoute(ctx: HostContext, configured: () => string, readState: () => OpenState): WebRoute {
+  return {
+    kind: 'exact',
+    path: PLACES_PATH,
+    handler: (req, res) => {
+      if (!methodAllowed(req, res, ['GET'])) return
+      const root = resolveRoot(ctx, configured()).root
+      sendJson(res, 200, placesPayload(workspacesOf(ctx), root, readState().current))
+    },
+  }
+}
+
+/** `GET /lingualab/browse` — one directory under one place. */
+function browseRoute(ctx: HostContext, configured: () => string): WebRoute {
+  return {
+    kind: 'exact',
+    path: BROWSE_PATH,
+    handler: (req, res) => {
+      if (!methodAllowed(req, res, ['GET'])) return
+      const url = new URL(req.url ?? BROWSE_PATH, 'http://lingualab.invalid')
+      const root = resolveRoot(ctx, configured()).root
+      const place = findPlace(listPlaces(workspacesOf(ctx), root), url.searchParams.get('place') ?? '')
+      if (place === null) {
+        sendJson(res, 400, refusedBrowse(null, '', '找不到这个位置'))
+        return
+      }
+      const requested = Number(url.searchParams.get('limit') ?? '')
+      sendJson(
+        res,
+        200,
+        browsePlace({
+          place,
+          libraryRoot: root,
+          rel: url.searchParams.get('rel') ?? '',
+          query: url.searchParams.get('q') ?? '',
+          limit: Number.isFinite(requested) && url.searchParams.get('limit') !== null ? requested : undefined,
+          includeOther: url.searchParams.get('includeOther') === '1',
+        }),
+      )
+    },
+  }
+}
+
+/** `POST /lingualab/open` — make one folder episode, or one audio file, current. */
+function openRoute(
+  ctx: HostContext,
+  configured: () => string,
+  readState: () => OpenState,
+  writeState: (next: OpenState) => Promise<void>,
+): WebRoute {
+  return {
+    kind: 'exact',
+    path: OPEN_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['POST'])) return
+
+      let body: unknown
+      try {
+        body = await readJsonBody(req)
+      } catch (error) {
+        sendJson(res, 400, emptyOpen(`请求体读不了：${String(error)}`))
+        return
+      }
+      if (typeof body !== 'object' || body === null) {
+        sendJson(res, 400, emptyOpen('请求体不是对象'))
+        return
+      }
+      const request = body as Partial<OpenRequest>
+      const hasEpisode = typeof request.episodeId === 'string' && request.episodeId.length > 0
+      const mentionsPlace = request.place !== undefined || request.rel !== undefined
+      if (hasEpisode === mentionsPlace) {
+        sendJson(res, 400, emptyOpen('episodeId 与 place/rel 只能给一个'))
+        return
+      }
+
+      const root = resolveRoot(ctx, configured()).root
+      const state = readState()
+      const result = openEpisode(request as OpenRequest, {
+        libraryRoot: root,
+        places: listPlaces(workspacesOf(ctx), root),
+        state,
+      })
+      if (result.state !== state) await writeState(result.state)
+      sendJson(res, result.payload.ok ? 200 : 400, result.payload)
+    },
+  }
+}
+
+/** A refusal with no episode attached, for the request-level mistakes. */
+function emptyOpen(reason: string): OpenPayload {
+  return { ok: false, reason, episode: null, media: null, warnings: [] }
+}
+
 /** `GET /lingualab/library` — describe every episode folder under the root. */
-function libraryRoute(ctx: HostContext, configured: () => string): WebRoute {
+function libraryRoute(ctx: HostContext, configured: () => string, readState: () => OpenState): WebRoute {
   return {
     kind: 'exact',
     path: LIBRARY_PATH,
     handler: (req, res) => {
       if (!methodAllowed(req, res, ['GET'])) return
-      sendJson(res, 200, scanLibrary(resolveRoot(ctx, configured()).root))
+      sendJson(res, 200, scanLibrary(resolveRoot(ctx, configured()).root, readState()))
     },
   }
 }
@@ -234,18 +393,43 @@ function mediaRoute(ctx: HostContext, configured: () => string): WebRoute {
   }
 }
 
+/** `GET|HEAD /lingualab/file-media/<id>/<file>` — one picked file's bytes, with Range. */
+function fileMediaRoute(readState: () => OpenState): WebRoute {
+  return {
+    kind: 'prefix',
+    path: FILE_MEDIA_PATH,
+    handler: (req, res) => {
+      if (!methodAllowed(req, res, ['GET', 'HEAD'])) return
+      const requestPath = (req.url ?? '').split('?')[0] ?? ''
+      const rest = requestPath.startsWith(FILE_MEDIA_PATH) ? requestPath.slice(FILE_MEDIA_PATH.length) : ''
+      const target = resolveFileMedia(readState(), rest)
+      if (target === null) {
+        refuseText(res, 404, '没有这个文件')
+        return
+      }
+      serveFile(req, res, target)
+    },
+  }
+}
+
 /** `GET` and `POST /lingualab/notes` — the hand-off file between panel and agent. */
-function notesRoute(ctx: HostContext, configured: () => string): WebRoute {
+function notesRoute(
+  ctx: HostContext,
+  configured: () => string,
+  readState: () => OpenState,
+  writeState: (next: OpenState) => Promise<void>,
+): WebRoute {
   return {
     kind: 'exact',
     path: NOTES_PATH,
     handler: async (req, res) => {
       if (!methodAllowed(req, res, ['GET', 'POST'])) return
       const root = resolveRoot(ctx, configured()).root
+      const state = readState()
 
       if ((req.method ?? 'GET') === 'GET') {
         const url = new URL(req.url ?? NOTES_PATH, 'http://lingualab.invalid')
-        sendJson(res, 200, readNotes(root, url.searchParams.get('episode') ?? ''))
+        sendJson(res, 200, readNotes(root, url.searchParams.get('episode') ?? '', state))
         return
       }
 
@@ -265,13 +449,14 @@ function notesRoute(ctx: HostContext, configured: () => string): WebRoute {
         sendJson(res, 400, { ok: false, episode: '', reason: '缺 episode 或 phrases', phrases: [] })
         return
       }
-      const result = writeNotes(root, request.episode, request.phrases)
-      sendJson(res, result.ok ? 200 : 400, result)
+      const result = writeNotes(root, request.episode, request.phrases, state)
+      if (result.state !== state) await writeState(result.state)
+      sendJson(res, result.payload.ok ? 200 : 400, result.payload)
     },
   }
 }
 
-/** Mount the four routes. The config is read per request, so edits need no reload. */
+/** Mount every route. The config is read per request, so edits need no reload. */
 export function apply(ctx: HostContext, config: Config): void {
   // Through the box: a volatile field holds the value, and the settings service can
   // replace it while this closure is still alive.
@@ -282,11 +467,50 @@ export function apply(ctx: HostContext, config: Config): void {
       return ''
     }
   }
+
+  /**
+   * The state as this process last saw it.
+   *
+   * The config field is the durable copy, but a plugin cannot assume the box it
+   * reads reflects a write made moments ago in the same process — the settings
+   * service owns when that lands. So the first read parses the field and every
+   * write updates this copy, which is what the next request reads. A hand edit of
+   * the profile is picked up at the next restart, which is when a hand edit of a
+   * profile is expected to arrive.
+   */
+  let live: OpenState | null = null
+  const readState = (): OpenState => {
+    if (live !== null) return live
+    let raw = ''
+    try {
+      raw = config.openState.get()
+    } catch {
+      // Left empty: a box that cannot be read reads as nothing remembered.
+    }
+    live = parseState(raw)
+    return live
+  }
+  const writeState = async (next: OpenState): Promise<void> => {
+    live = next
+    const settings = settingsOf(ctx)
+    if (settings === null) return
+    try {
+      await settings.update(name, { openState: serializeState(next) })
+    } catch {
+      // The in-process copy is what the next request reads, so a failed write costs
+      // the memory at restart, not the session in progress.
+    }
+  }
+
   const routes = [
     configRoute(ctx, configured),
-    libraryRoute(ctx, configured),
+    placesRoute(ctx, configured, readState),
+    browseRoute(ctx, configured),
+    openRoute(ctx, configured, readState, writeState),
+    libraryRoute(ctx, configured, readState),
     mediaRoute(ctx, configured),
-    notesRoute(ctx, configured),
+    fileMediaRoute(readState),
+    notesRoute(ctx, configured, readState, writeState),
   ]
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)

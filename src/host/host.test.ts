@@ -1,12 +1,21 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { compareIds, scanLibrary } from './library.ts'
 import { resolveMediaPath, serveMedia } from './media.ts'
 import { readNotes, writeNotes } from './notes.ts'
+import {
+  EMPTY_STATE,
+  fileEpisodeIdFor,
+  withCurrent,
+  withNotes,
+  withOpenedFile,
+  type FileEpisodeRecord,
+  type OpenState,
+} from './state.ts'
 
 let root = ''
 
@@ -96,6 +105,168 @@ describe('scanLibrary', () => {
   })
 })
 
+describe('scanLibrary loose files', () => {
+  /** A loose audio file in the library root, with optional subtitles beside it. */
+  function loose(name = 'podcast.mp3', options: { en?: string; zh?: string } = {}): string {
+    writeFileSync(join(root, name), 'audio-bytes')
+    if (options.en !== undefined) writeFileSync(join(root, options.en), '1\n00:00:01,000 --> 00:00:02,000\nHi')
+    if (options.zh !== undefined) writeFileSync(join(root, options.zh), '1\n00:00:01,000 --> 00:00:02,000\n你好')
+    return fileEpisodeIdFor(realpathSync(join(root, name)))
+  }
+
+  it('lists them separately from the episodes, with their subtitles paired', () => {
+    episode('S01E01', { audio: 'a.mp3' })
+    const id = loose('podcast.mp3', { en: 'podcast.en.srt', zh: 'podcast.zh.srt' })
+
+    const payload = scanLibrary(root)
+    expect(payload.ok).toBe(true)
+    // The manifest orders episodes; a loose file has no place in that order.
+    expect(payload.episodes.map((entry) => entry.id)).toEqual(['S01E01'])
+    expect(payload.files).toHaveLength(1)
+
+    const file = payload.files[0]
+    expect(file?.id).toBe(id)
+    expect(file?.kind).toBe('file')
+    expect(file?.title).toBe('podcast')
+    expect(file?.audio).toBe('podcast.mp3')
+    expect(file?.audioBytes).toBe(11)
+    expect(file?.subtitleEn).toBe('podcast.en.srt')
+    expect(file?.subtitleZh).toBe('podcast.zh.srt')
+    expect(file?.source).toBe(join(root, 'podcast.mp3'))
+  })
+
+  it('ignores folders-as-files, hidden files and other extensions', () => {
+    mkdirSync(join(root, 'not-a-file.mp3'), { recursive: true })
+    writeFileSync(join(root, '.hidden.mp3'), 'x')
+    writeFileSync(join(root, 'notes.md'), 'x')
+    expect(scanLibrary(root).files).toEqual([])
+  })
+
+  it('lists a symlinked audio file, and drops a link that points nowhere', () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'lingualab-elsewhere-'))
+    try {
+      writeFileSync(join(elsewhere, 'linked.mp3'), 'x')
+      symlinkSync(join(elsewhere, 'linked.mp3'), join(root, 'linked.mp3'))
+      symlinkSync(join(elsewhere, 'gone.mp3'), join(root, 'gone.mp3'))
+      expect(scanLibrary(root).files.map((entry) => entry.title)).toEqual(['linked'])
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true })
+    }
+  })
+
+  it('summarises the notes held in the state for one of them', () => {
+    const id = loose('podcast.mp3')
+    const state = withNotes(EMPTY_STATE, id, [
+      { at: 1, text: 'one', zh: '', note: '', tags: ['review'], done: false },
+      { at: 2, text: 'two', zh: '', note: '', tags: [], done: true },
+    ])
+    expect(scanLibrary(root, state).files[0]?.notes).toEqual({ exists: true, count: 2, review: 1, hard: 0 })
+  })
+
+  it('does not write anything: the same state in gives the same listing out', () => {
+    loose('podcast.mp3')
+    const before = EMPTY_STATE
+    scanLibrary(root, before)
+    expect(before.files).toEqual([])
+    expect(before.notes).toEqual({})
+  })
+})
+
+describe('scanLibrary remembers what was open', () => {
+  /** A file episode record for one audio file. */
+  function recordFor(path: string, openedAt = 1): FileEpisodeRecord {
+    return {
+      id: fileEpisodeIdFor(realpathSync(path)),
+      path: realpathSync(path),
+      title: 'podcast',
+      place: 'lib',
+      rel: 'podcast.mp3',
+      audio: 'podcast.mp3',
+      subtitleEn: null,
+      subtitleZh: null,
+      openedAt,
+    }
+  }
+
+  it('resolves a remembered folder episode, and reports one that is gone', () => {
+    episode('S01E01', { audio: 'a.mp3' })
+    episode('S01E02', { audio: 'a.mp3' })
+    const here: OpenState = withCurrent(EMPTY_STATE, {
+      id: 'S01E02',
+      title: 'S01E02',
+      kind: 'folder',
+      source: join(root, 'S01E02'),
+    })
+    const present = scanLibrary(root, here)
+    expect(present.currentEpisode?.id).toBe('S01E02')
+    expect(present.currentUnavailable).toBeNull()
+
+    const gone: OpenState = withCurrent(EMPTY_STATE, {
+      id: 'S01E09',
+      title: 'S01E09',
+      kind: 'folder',
+      source: join(root, 'S01E09'),
+    })
+    const missing = scanLibrary(root, gone)
+    expect(missing.currentEpisode).toBeNull()
+    expect(missing.currentUnavailable).toEqual({
+      id: 'S01E09',
+      title: 'S01E09',
+      kind: 'folder',
+      source: join(root, 'S01E09'),
+    })
+  })
+
+  it('resolves a remembered loose file from the listing itself', () => {
+    writeFileSync(join(root, 'podcast.mp3'), 'x')
+    const record = recordFor(join(root, 'podcast.mp3'))
+    const payload = scanLibrary(root, withOpenedFile(EMPTY_STATE, record))
+    expect(payload.currentEpisode?.id).toBe(record.id)
+    expect(payload.currentEpisode?.kind).toBe('file')
+    expect(payload.currentUnavailable).toBeNull()
+  })
+
+  it('resolves a remembered file that lives outside the library, and reports a deleted one', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    try {
+      writeFileSync(join(outside, 'podcast.mp3'), 'x')
+      const record = recordFor(join(outside, 'podcast.mp3'))
+      const present = scanLibrary(root, withOpenedFile(EMPTY_STATE, record))
+      expect(present.currentEpisode?.id).toBe(record.id)
+      expect(present.files).toEqual([])
+
+      rmSync(join(outside, 'podcast.mp3'))
+      const missing = scanLibrary(root, withOpenedFile(EMPTY_STATE, record))
+      expect(missing.currentEpisode).toBeNull()
+      expect(missing.currentUnavailable?.id).toBe(record.id)
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps a remembered file episode open even when the root itself is unusable', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    try {
+      writeFileSync(join(outside, 'podcast.mp3'), 'x')
+      const state = withOpenedFile(EMPTY_STATE, recordFor(join(outside, 'podcast.mp3')))
+      const payload = scanLibrary(join(root, 'nope'), state)
+      expect(payload.ok).toBe(false)
+      expect(payload.reason).toBe('媒体目录不存在')
+      expect(payload.currentEpisode?.id).toBe(state.files[0]?.id)
+      expect(payload.currentUnavailable).toBeNull()
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves nothing when nothing was remembered', () => {
+    episode('S01E01', { audio: 'a.mp3' })
+    const payload = scanLibrary(root)
+    expect(payload.currentEpisode).toBeNull()
+    expect(payload.currentUnavailable).toBeNull()
+  })
+})
+
 describe('resolveMediaPath', () => {
   it('accepts an episode file with a served extension', () => {
     expect(resolveMediaPath('/lib', '/S01E01/audio.mp3')).toBe('/lib/S01E01/audio.mp3')
@@ -148,7 +319,7 @@ describe('serveMedia', () => {
 describe('notes round-trip', () => {
   it('writes and reads back the phrases, keeping the preamble', () => {
     episode('S01E01', { audio: 'a.mp3' })
-    const written = writeNotes(root, 'S01E01', [
+    const { payload: written } = writeNotes(root, 'S01E01', [
       { at: 12, text: 'Hello there', zh: '你好', note: '开场', tags: ['review'], done: false },
     ])
     expect(written.ok).toBe(true)
@@ -162,7 +333,7 @@ describe('notes round-trip', () => {
   it('refuses an eighth phrase and says why', () => {
     episode('S01E01', { audio: 'a.mp3' })
     const eight = Array.from({ length: 8 }, (_, index) => ({ at: index, text: `phrase ${index}` }))
-    const result = writeNotes(root, 'S01E01', eight)
+    const { payload: result } = writeNotes(root, 'S01E01', eight)
     expect(result.ok).toBe(false)
     expect(result.reason).toContain('最多 7 条')
     // Nothing was written, so the file still does not exist.
@@ -176,18 +347,18 @@ describe('notes round-trip', () => {
     const read = readNotes(root, 'S01E99')
     expect(read.ok).toBe(false)
     expect(read.reason).toContain('素材目录外面')
-    expect(writeNotes(root, 'S01E99', [{ at: 1, text: 'x' }]).ok).toBe(false)
+    expect(writeNotes(root, 'S01E99', [{ at: 1, text: 'x' }]).payload.ok).toBe(false)
     rmSync(outside, { recursive: true, force: true })
   })
 
   it('refuses an episode id that would escape the library', () => {
     expect(readNotes(root, '../etc').ok).toBe(false)
-    expect(writeNotes(root, 'a/b', []).ok).toBe(false)
+    expect(writeNotes(root, 'a/b', []).payload.ok).toBe(false)
   })
 
   it('drops a malformed phrase rather than storing it', () => {
     episode('S01E01', { audio: 'a.mp3' })
-    const result = writeNotes(root, 'S01E01', [{ at: 1, text: '  ' }, { nonsense: true }, { at: 2, text: 'kept' }])
-    expect(result.phrases.map((phrase) => phrase.text)).toEqual(['kept'])
+    const { payload } = writeNotes(root, 'S01E01', [{ at: 1, text: '  ' }, { nonsense: true }, { at: 2, text: 'kept' }])
+    expect(payload.phrases.map((phrase) => phrase.text)).toEqual(['kept'])
   })
 })

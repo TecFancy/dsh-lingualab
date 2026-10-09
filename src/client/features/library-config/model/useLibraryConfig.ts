@@ -7,7 +7,7 @@
  * snapping back to the old one.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { fetchConfig, saveConfig } from '../../../shared/lib/api.ts'
+import { fetchConfig, saveConfig, saveConfigFromPlace } from '../../../shared/lib/api.ts'
 import type { LibraryConfigPayload } from '../../../shared/protocol.ts'
 
 export interface LibraryConfigState {
@@ -18,6 +18,8 @@ export interface LibraryConfigState {
   readonly setDraft: (value: string) => void
   /** Save the draft (or one of the offered folders) and report whether it landed. */
   readonly save: (value?: string) => Promise<boolean>
+  /** Save a folder the picker browsed to, by place id and relative path. */
+  readonly useAsLibrary: (place: string, rel: string) => Promise<boolean>
 }
 
 /** Load the folder setting and let the reader change it. */
@@ -55,5 +57,23 @@ export function useLibraryConfig(): LibraryConfigState {
     [draft],
   )
 
-  return { payload, draft, saving, error, setDraft, save }
+  /**
+   * The same save, for a folder the picker browsed to.
+   *
+   * The path never travels through the browser: the page says "this place, this
+   * relative folder" and the host resolves it. That is what makes 「用作媒体库」 a
+   * click instead of a typed absolute path.
+   */
+  const useAsLibrary = useCallback(async (place: string, rel: string): Promise<boolean> => {
+    setSaving(true)
+    setError(null)
+    const result = await saveConfigFromPlace(place, rel)
+    setSaving(false)
+    setPayload(result)
+    setError(result.ok ? null : result.reason)
+    if (result.ok) setDraft(result.configured.length > 0 ? result.configured : result.root)
+    return result.ok
+  }, [])
+
+  return { payload, draft, saving, error, setDraft, save, useAsLibrary }
 }

@@ -1,139 +1,201 @@
 /**
- * The notes list: the seven-phrase ceiling, made visible and slightly annoying.
+ * The notes layer: the seven-phrase ceiling, made visible and slightly annoying.
  *
- * The ceiling is the point of the study method, so the counter is always on
- * screen and the eighth phrase cannot be added silently — the panel asks which
- * one it replaces. Tags are the method's own vocabulary (`review`, `hard`), and
- * the timestamp on each row seeks back, because "which line was that" is the
- * question the file exists to answer later.
+ * The ceiling is the point of the study method, so the counter is always on screen
+ * and the eighth phrase cannot go in silently — the panel asks which one it replaces.
+ * That question is the whole reason this is a layer rather than a card: choosing
+ * between seven recorded sentences needs the list in front of you, not a corner of a
+ * sidebar.
+ *
+ * Tags are the method's own vocabulary (`review`, `hard`), and the timestamp on each
+ * row seeks back, because "which line was that" is the question the file exists to
+ * answer later.
  */
 import { useState } from 'react'
 import { MAX_PHRASES, type NotesState } from '../../../features/notes/index.ts'
-import { formatClock, formatCount } from '../../../shared/lib/format.ts'
+import { formatClock } from '../../../shared/lib/format.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { CloseIcon } from '../../../shared/ui/icons.tsx'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
-
-export interface NotesPanelProps {
-  readonly t: Translate
-  readonly notes: NotesState
-  /** Build a phrase from whatever is playing now, or `null` when nothing is. */
-  readonly phraseFromCurrentCue: () => NotePhrase | null
-}
+import { NotesComposer, type ComposerQuote } from './NotesComposer.tsx'
 
 /** Tags the study method uses; a phrase may carry both. */
 const TAGS: readonly string[] = ['review', 'hard']
 
-/** The right-hand notes card. */
-export function NotesPanel({ t, notes, phraseFromCurrentCue }: NotesPanelProps) {
-  const [replacing, setReplacing] = useState(false)
+export interface NotesPanelProps {
+  readonly t: Translate
+  readonly notes: NotesState
+  /** Closes the layer; the page returns focus to its container. */
+  readonly onClose: () => void
+  /** The sentence a new phrase would carry, or `null` when nothing is playing. */
+  readonly quote: ComposerQuote | null
+  /**
+   * The phrase waiting to go in while the list is full.
+   *
+   * Non-null turns the list into a chooser: every row offers 「替换这条」 instead of the
+   * edit and delete pair, and the composer's save button gives way to that choice.
+   */
+  readonly pending: NotePhrase | null
+  readonly onCancelPending: () => void
+  readonly onChoose: (index: number) => void
+  readonly onSubmit: (note: string) => void
+}
+
+/** The right-hand notes layer. */
+export function NotesPanel({
+  t,
+  notes,
+  onClose,
+  quote,
+  pending,
+  onCancelPending,
+  onChoose,
+  onSubmit,
+}: NotesPanelProps) {
+  const [editing, setEditing] = useState<number | null>(null)
+  const [draft, setDraft] = useState('')
+  const [confirming, setConfirming] = useState<number | null>(null)
   const store = useMediaPlayer.getState
 
-  const onAdd = (): void => {
-    const phrase = phraseFromCurrentCue()
-    if (phrase === null) return
-    if (!notes.add(phrase)) setReplacing(true)
-  }
-
-  const onReplace = (index: number): void => {
-    const phrase = phraseFromCurrentCue()
-    if (phrase !== null) notes.replaceAt(index, phrase)
-    setReplacing(false)
+  /** Replaying a phrase is one gesture: seek there and loop that sentence. */
+  const replay = (at: number): void => {
+    store().seek(at)
+    store().setLoopMode('sentence')
   }
 
   return (
-    <div className="dsh-lingualab-card">
-      <h2>
-        {t('notes')}{' '}
-        <span className="dsh-lingualab-counter">{formatCount(notes.phrases.length, MAX_PHRASES)}</span>
-      </h2>
-      <div className="dsh-lingualab-hint">{t('notesHint')}</div>
+    <aside className="dsh-lingualab-notes">
+      <div className="dsh-lingualab-notes-head">
+        <span>
+          {t('notes')}{' '}
+          <span className="dsh-lingualab-counter">
+            {notes.phrases.length} / {MAX_PHRASES}
+          </span>
+        </span>
+        <span className="dsh-lingualab-spacer" />
+        <button type="button" className="dsh-lingualab-icon-btn" onClick={onClose} title={t('close')}>
+          <CloseIcon />
+        </button>
+      </div>
 
-      {notes.phrases.length === 0 ? <div className="dsh-lingualab-empty">{t('notesEmpty')}</div> : null}
+      {pending !== null ? (
+        <div className="dsh-lingualab-warn">
+          {t('replaceHint')} · {pending.text}
+        </div>
+      ) : null}
 
-      {notes.phrases.map((phrase, index) => (
-        <div className="dsh-lingualab-note" key={`${phrase.at}-${index}`}>
-          <input
-            type="checkbox"
-            checked={phrase.done}
-            onChange={(event) => notes.update(index, { done: event.target.checked })}
-            title={phrase.done ? t('stepUndone') : t('stepDone')}
-          />
-          <div className="dsh-lingualab-note-main">
-            <span className="dsh-lingualab-note-at" onClick={() => store().seek(phrase.at)}>
-              {formatClock(phrase.at)}
-            </span>{' '}
-            <span className="dsh-lingualab-note-text">
-              {replacing ? (
-                <button type="button" className="dsh-lingualab-btn" onClick={() => onReplace(index)}>
-                  {phrase.text}
+      <div className="dsh-lingualab-notes-body">
+        {notes.phrases.length === 0 ? <div className="dsh-lingualab-empty">{t('notesEmpty')}</div> : null}
+
+        {notes.phrases.map((phrase, index) => (
+          <div className="dsh-lingualab-note" key={`${phrase.at}-${index}`}>
+            <input
+              type="checkbox"
+              checked={phrase.done}
+              onChange={(event) => notes.update(index, { done: event.target.checked })}
+              title={phrase.done ? t('stepUndone') : t('stepDone')}
+            />
+            <div className="dsh-lingualab-note-main">
+              <button type="button" className="dsh-lingualab-note-at" onClick={() => replay(phrase.at)}>
+                {formatClock(phrase.at)}
+              </button>{' '}
+              <span className="dsh-lingualab-note-text">{phrase.text}</span>
+              {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
+              {editing === index ? (
+                <input
+                  className="dsh-lingualab-input"
+                  value={draft}
+                  autoFocus
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      notes.update(index, { note: draft.trim() })
+                      setEditing(null)
+                    }
+                    if (event.key === 'Escape') setEditing(null)
+                    event.stopPropagation()
+                  }}
+                />
+              ) : phrase.note.length > 0 ? (
+                <div className="dsh-lingualab-note-note">{phrase.note}</div>
+              ) : null}
+              <div className="dsh-lingualab-chips">
+                {TAGS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`dsh-lingualab-tag${phrase.tags.includes(tag) ? ' is-on' : ''}`}
+                    onClick={() =>
+                      notes.update(index, {
+                        tags: phrase.tags.includes(tag)
+                          ? phrase.tags.filter((item) => item !== tag)
+                          : [...phrase.tags, tag],
+                      })
+                    }
+                  >
+                    #{tag === 'review' ? t('review') : t('hard')}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dsh-lingualab-row-actions" style={{ opacity: 1 }}>
+              {pending !== null ? (
+                <button type="button" className="dsh-lingualab-btn" onClick={() => onChoose(index)}>
+                  {t('notesReplace')}
                 </button>
               ) : (
-                phrase.text
+                <>
+                  <button
+                    type="button"
+                    className="dsh-lingualab-icon-btn"
+                    title={t('notesEdit')}
+                    onClick={() => {
+                      setEditing(index)
+                      setDraft(phrase.note)
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    className="dsh-lingualab-icon-btn"
+                    title={t('notesDelete')}
+                    onClick={() => {
+                      if (confirming === index) {
+                        notes.remove(index)
+                        setConfirming(null)
+                        return
+                      }
+                      setConfirming(index)
+                    }}
+                  >
+                    {confirming === index ? t('notesDeleteConfirm') : '✕'}
+                  </button>
+                </>
               )}
-            </span>
-            {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
-            {phrase.note.length > 0 ? <div className="dsh-lingualab-note-note">{phrase.note}</div> : null}
-            <div className="dsh-lingualab-chips">
-              {TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`dsh-lingualab-chip${phrase.tags.includes(tag) ? ' is-on' : ''}`}
-                  onClick={() =>
-                    notes.update(index, {
-                      tags: phrase.tags.includes(tag)
-                        ? phrase.tags.filter((item) => item !== tag)
-                        : [...phrase.tags, tag],
-                    })
-                  }
-                >
-                  #{tag === 'review' ? t('review') : t('hard')}
-                </button>
-              ))}
             </div>
           </div>
-          <div className="dsh-lingualab-note-actions">
-            <button
-              type="button"
-              className="dsh-lingualab-icon-btn"
-              title={t('seekHere')}
-              onClick={() => store().seek(phrase.at)}
-            >
-              ▶
-            </button>
-            <button
-              type="button"
-              className="dsh-lingualab-icon-btn"
-              title={t('remove')}
-              onClick={() => notes.remove(index)}
-            >
-              ✕
+        ))}
+      </div>
+
+      {pending !== null ? (
+        <div className="dsh-lingualab-composer">
+          <div className="dsh-lingualab-composer-actions">
+            <button type="button" className="dsh-lingualab-btn" onClick={onCancelPending}>
+              {t('cancel')}
             </button>
           </div>
         </div>
-      ))}
+      ) : (
+        <NotesComposer t={t} quote={quote} full={notes.full} onSubmit={onSubmit} />
+      )}
 
-      <div className="dsh-lingualab-actions">
-        <button type="button" className="dsh-lingualab-btn" onClick={onAdd} disabled={replacing}>
-          ＋ {t('addPhrase')}
-        </button>
-        {replacing ? (
-          <>
-            <span className="dsh-lingualab-warn">{t('replaceHint')}</span>
-            <button type="button" className="dsh-lingualab-btn" onClick={() => setReplacing(false)}>
-              {t('cancel')}
-            </button>
-          </>
-        ) : null}
-        <span className="dsh-lingualab-spacer" />
-        <span className="dsh-lingualab-counter">
-          {notes.status === 'saving' ? t('saving') : null}
-          {notes.status === 'saved' ? t('saved') : null}
-          {notes.status === 'error' ? <span className="dsh-lingualab-warn">{t('saveFailed')}</span> : null}
-        </span>
+      <div className="dsh-lingualab-hint" style={{ padding: '0 12px 10px' }}>
+        {notes.status === 'saving' ? t('saving') : null}
+        {notes.status === 'saved' ? t('saved') : null}
+        {notes.status === 'error' ? <span className="dsh-lingualab-error">{t('saveFailed')}</span> : null}
       </div>
-      {notes.full && !replacing ? <div className="dsh-lingualab-hint">{t('notesFull')}</div> : null}
-    </div>
+    </aside>
   )
 }

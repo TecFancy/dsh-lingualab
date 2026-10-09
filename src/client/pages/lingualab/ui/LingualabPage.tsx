@@ -1,33 +1,44 @@
 /**
- * The page body: one episode, one audio element, and the three cards around it.
+ * The page: four bands, and the layers that do not fit in them.
  *
- * Keyboard handling lives here rather than on `window`. The earlier standalone app
- * bound its shortcuts globally and therefore owned the space bar, the arrow keys
- * and the bracket keys wherever it was open — inside a panel that shares a page
- * with a conversation, that is a hostile neighbour. The handler sits on the page
- * container, which is focusable, so the keys work while the panel has focus and
- * stop at its edge.
+ * The shape answers the two complaints that started this. The page no longer reads as
+ * a settings screen — there is one thing to look at, the sentence being worked on, and
+ * it is pinned above the list rather than scrolling away with it. And everything that
+ * is not listening — the picker, the notes, the media folder — is behind a layer that
+ * appears when asked for and gets out of the way.
+ *
+ * Keyboard handling lives here rather than on `window`. The earlier standalone app bound
+ * its shortcuts globally and therefore owned the space bar, the arrow keys and the
+ * bracket keys wherever it was open — inside a panel that shares a page with a
+ * conversation, that is a hostile neighbour. The handler sits on the page container,
+ * which is focusable, so the keys work while the panel has focus and stop at its edge.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { DEFAULT_SUBTITLE_ZH_MODE, orderCueLines, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import {
+  DEFAULT_SUBTITLE_ZH_MODE,
+  findActiveCue,
+  orderCueLines,
+  type Cue,
+  type SubtitleZhMode,
+} from '../../../entities/cue/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
-import { useNotes } from '../../../features/notes/index.ts'
+import { MAX_PHRASES, useNotes } from '../../../features/notes/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
-import { mediaUrl } from '../../../shared/lib/api.ts'
-import { formatBytes } from '../../../shared/lib/format.ts'
+import { formatClock } from '../../../shared/lib/format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
-import { ControlBar } from '../../../widgets/control-bar/index.ts'
+import { ControlBar, nextZhMode } from '../../../widgets/control-bar/index.ts'
+import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
-import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
+import { NotesComposer, NotesPanel, type ComposerQuote } from '../../../widgets/notes-panel/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 
-/** How far the arrow keys move the position. */
-const NUDGE_SECONDS = 3
+/** Which layer is over the page. Only one at a time; the steps popover is not a layer. */
+type Layer = 'none' | 'picker' | 'notes' | 'folder'
 
 export interface LingualabPageProps extends PanelProps {
   readonly t: Translate
@@ -40,188 +51,416 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === 'input' || tag === 'select' || tag === 'textarea' || target.isContentEditable
 }
 
+/** The English and Chinese halves of one cue, split the way the notes file wants them. */
+function splitCue(cue: Cue): { english: string; chinese: string } {
+  const lines = orderCueLines(cue.text)
+  return {
+    english: lines.find((line) => !line.secondary)?.text ?? cue.text,
+    chinese: lines.find((line) => line.secondary)?.text ?? '',
+  }
+}
+
 /** The panel's centre-column page. */
 export function LingualabPage({ back, t }: LingualabPageProps) {
-  const { payload, loading, error, episode, cues, selectEpisode, reload } = useLibrary()
+  const library = useLibrary()
   const folder = useLibraryConfig()
-  const notes = useNotes(episode?.id ?? null)
+  const notes = useNotes(library.episode?.id ?? null)
   const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
-  const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const [layer, setLayer] = useState<Layer>('none')
+  const [stepsOpen, setStepsOpen] = useState(false)
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [pending, setPending] = useState<NotePhrase | null>(null)
+  const [selection, setSelection] = useState<number | null>(null)
+  const [focused, setFocused] = useState(false)
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
 
-  const audioSrc =
-    episode !== null && episode.audio !== null ? mediaUrl(episode.id, episode.audio) : null
-  const audioRef = useAudioBinding(audioSrc)
+  const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const cues = library.cues
+  const audioRef = useAudioBinding(library.media?.audioUrl ?? null)
 
-  // Feature-to-feature wiring is the page's job: the library feature may not
-  // reach into the player, so loading a new cue list resets the player here.
+  // Feature-to-feature wiring is the page's job: the library feature may not reach into
+  // the player, so loading a new cue list resets the player here.
   const reset = useMediaPlayer((state) => state.reset)
   useEffect(() => {
     reset(cues)
   }, [cues, reset])
 
-  // Focus the page once so the shortcuts below are live without a click, and
-  // without stealing the conversation's focus afterwards.
+  // Focus the page once so the shortcuts below are live without a click, and without
+  // stealing the conversation's focus afterwards.
   useEffect(() => {
-    if (loading) return
-    containerRef.current?.focus()
-  }, [loading])
+    if (library.loading) return
+    containerRef.current?.focus({ preventScroll: true })
+  }, [library.loading])
 
-  const phraseFromCurrentCue = useCallback((): NotePhrase | null => {
-    const state = useMediaPlayer.getState()
-    const cue = state.cues[state.activeIndex]
+  /** The sentence a new note would carry: whatever is playing. */
+  const quote: ComposerQuote | null = useMemo(() => {
+    const cue = cues[activeIndex]
     if (cue === undefined) return null
-    const lines = orderCueLines(cue.text)
-    const english = lines.find((line) => !line.secondary)?.text ?? cue.text
-    const chinese = lines.find((line) => line.secondary)?.text ?? ''
-    return { at: cue.start, text: english, zh: chinese, note: '', tags: [], done: false }
-  }, [])
+    const { english, chinese } = splitCue(cue)
+    return { text: english, zh: chinese, at: cue.start }
+  }, [cues, activeIndex])
 
-  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (isTypingTarget(event.target)) return
-    const store = useMediaPlayer.getState()
-    // Handled keys stop here. The conversation lives in the same document, and a
-    // space bar that scrolls or submits behind the panel is a stolen keystroke.
-    const handled = (): void => {
-      event.preventDefault()
-      event.stopPropagation()
+  /** Cue indexes that already carry a note, so the list can mark them. */
+  const notedIndexes = useMemo(() => {
+    const marked = new Set<number>()
+    for (const phrase of notes.phrases) {
+      const index = findActiveCue(cues, phrase.at)
+      if (index >= 0) marked.add(index)
     }
-    switch (event.key) {
-      case ' ':
-        handled()
-        store.toggle()
-        return
-      case 'ArrowLeft':
-        handled()
-        store.seek(Math.max(0, store.currentTime - NUDGE_SECONDS))
-        return
-      case 'ArrowRight':
-        handled()
-        store.seek(store.currentTime + NUDGE_SECONDS)
-        return
-      case 'ArrowUp':
-        handled()
-        store.stepCue(-1)
-        return
-      case 'ArrowDown':
-        handled()
-        store.stepCue(1)
-        return
-      case 'l':
-      case 'L':
-        handled()
-        store.loopSentence()
-        return
-      case '[':
-        handled()
-        store.setPoint('a')
-        return
-      case ']':
-        handled()
-        store.setPoint('b')
-        return
-      case 'r':
-      case 'R':
-        handled()
-        store.clearAB()
-        return
-      case 's':
-      case 'S':
-        handled()
-        store.cycleSpeed(1)
-        return
-      default:
-    }
-  }, [])
+    return marked
+  }, [notes.phrases, cues])
 
-  const episodeList = payload?.episodes ?? []
-  const hasAudio = episode?.audio != null
+  /**
+   * Put one sentence into the notes.
+   *
+   * The ceiling decides what happens next: with room, the phrase lands and the reader
+   * keeps listening; full, the notes layer opens as a chooser, because "which of the
+   * seven goes" is a question only they can answer.
+   */
+  const record = useCallback(
+    (index: number | undefined, note = ''): void => {
+      const target = cues[index ?? activeIndex]
+      if (target === undefined) return
+      const { english, chinese } = splitCue(target)
+      const phrase: NotePhrase = {
+        at: target.start,
+        text: english,
+        zh: chinese,
+        note,
+        tags: [],
+        done: false,
+      }
+      if (notes.add(phrase)) {
+        setComposerOpen(false)
+        return
+      }
+      setPending(phrase)
+      setLayer('notes')
+    },
+    [cues, activeIndex, notes],
+  )
+
+  const onKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (isTypingTarget(event.target)) return
+      const store = useMediaPlayer.getState
+      // Handled keys stop here. The conversation lives in the same document, and a
+      // space bar that scrolls or submits behind the panel is a stolen keystroke.
+      const handled = (): void => {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      if (event.key === 'Escape') {
+        handled()
+        if (layer !== 'none') setLayer('none')
+        else if (stepsOpen) setStepsOpen(false)
+        else if (composerOpen) setComposerOpen(false)
+        else store().clearAB()
+        return
+      }
+      // A layer owns the keyboard while it is open: its own fields and buttons are the
+      // only things a keystroke should reach.
+      if (layer !== 'none') return
+
+      const current = selection ?? store().activeIndex
+      switch (event.key) {
+        case ' ':
+          handled()
+          store().toggle()
+          return
+        case 'ArrowLeft':
+          handled()
+          setSelection(null)
+          store().stepCue(-1)
+          return
+        case 'ArrowRight':
+          handled()
+          setSelection(null)
+          store().stepCue(1)
+          return
+        case 'ArrowUp':
+          handled()
+          setSelection(Math.max(0, current - 1))
+          return
+        case 'ArrowDown':
+          handled()
+          setSelection(Math.min(Math.max(0, cues.length - 1), current + 1))
+          return
+        case 'Enter': {
+          handled()
+          const cue = cues[current]
+          if (cue !== undefined) {
+            setSelection(null)
+            store().seek(cue.start)
+            store().setPlaying(true)
+          }
+          return
+        }
+        case 'l':
+        case 'L':
+          handled()
+          if (store().loopMode === 'sentence') store().setLoopMode('none')
+          else store().loopSentence(current)
+          return
+        case 'n':
+        case 'N':
+          handled()
+          setComposerOpen(true)
+          return
+        case 'c':
+        case 'C':
+          handled()
+          setZhMode(nextZhMode(zhMode))
+          return
+        case 'a':
+        case 'A':
+          handled()
+          if (store().pointA === null) store().setPoint('a')
+          else store().clearAB()
+          return
+        case 'b':
+        case 'B':
+          handled()
+          store().setPoint('b')
+          return
+        case '[':
+          handled()
+          store().cycleSpeed(-1)
+          return
+        case ']':
+          handled()
+          store().cycleSpeed(1)
+          return
+        default:
+      }
+    },
+    [composerOpen, cues, layer, selection, stepsOpen, zhMode],
+  )
+
+  const episode = library.episode
+  const hasAudio = library.media !== null
+  // The selection is an index into the cue list, and the list changes under it when
+  // the episode does; clamping here is cheaper than resetting it from an effect.
+  const selectedIndex =
+    selection === null ? activeIndex : Math.min(Math.max(0, selection), Math.max(0, cues.length - 1))
+  const stageCue = cues[activeIndex]
+  const stageLines = stageCue === undefined ? null : splitCue(stageCue)
 
   return (
-    <div className="dsh-lingualab-page" ref={containerRef} tabIndex={-1} onKeyDown={onKeyDown}>
+    <div
+      className="dsh-lingualab-page"
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false)
+      }}
+      onMouseDown={(event) => {
+        // Clicking the page's own chrome puts the keyboard back on the container; a
+        // click into a field leaves the field alone.
+        if (!isTypingTarget(event.target)) containerRef.current?.focus({ preventScroll: true })
+      }}
+    >
       <style>{STYLES}</style>
+      <audio ref={audioRef} preload="metadata" style={{ display: 'none' }} />
 
-      <div className="dsh-lingualab-head">
-        <h1>{t('title')}</h1>
-        <span className="dsh-lingualab-sub">{t('subtitle')}</span>
+      <div className="dsh-lingualab-top">
         {back !== undefined ? (
-          <button type="button" className="dsh-lingualab-back" onClick={back}>
+          <button type="button" className="dsh-lingualab-chip" onClick={back}>
             {t('back')}
           </button>
         ) : null}
+        <button
+          type="button"
+          className="dsh-lingualab-episode"
+          onClick={() => setLayer('picker')}
+          title={episode === null ? t('openEpisode') : t('changeEpisode')}
+        >
+          <span className="dsh-lingualab-episode-name">{episode?.title ?? t('openEpisode')}</span>
+          <span className="dsh-lingualab-episode-caret">▾</span>
+        </button>
+        <span className="dsh-lingualab-spacer" />
+        <button
+          type="button"
+          className={`dsh-lingualab-chip${layer === 'notes' ? ' is-on' : ''}`}
+          onClick={() => setLayer(layer === 'notes' ? 'none' : 'notes')}
+        >
+          {t('notesChip')} {notes.phrases.length}/{MAX_PHRASES}
+        </button>
+        {episode !== null ? (
+          <StepTracker
+            key={episode.id}
+            t={t}
+            episode={episode.id}
+            open={stepsOpen}
+            onToggle={() => setStepsOpen(!stepsOpen)}
+          />
+        ) : null}
+        <button
+          type="button"
+          className={`dsh-lingualab-chip${layer === 'folder' ? ' is-on' : ''}`}
+          onClick={() => setLayer(layer === 'folder' ? 'none' : 'folder')}
+        >
+          {t('mediaFolder')}
+        </button>
       </div>
 
-      {episodeList.length > 0 ? (
-        <div className="dsh-lingualab-head">
-          <span className="dsh-lingualab-sub">{t('episode')}</span>
-          <select
-            className="dsh-lingualab-select"
-            value={episode?.id ?? ''}
-            onChange={(event) => selectEpisode(event.target.value)}
-          >
-            {episodeList.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.title}
-                {entry.audioBytes === null ? '' : ` · ${formatBytes(entry.audioBytes)}`}
-              </option>
-            ))}
-          </select>
-          {episode !== null && episode.audio !== null ? (
-            <span className="dsh-lingualab-sub">
-              {episode.audio}
-              {episode.subtitleEn === null ? '' : ` · ${episode.subtitleEn}`}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* The element itself is invisible: the control bar drives it from the store. */}
-      <audio ref={audioRef} preload="metadata" style={{ display: 'none' }} />
-
-      {loading ? <div className="dsh-lingualab-empty">…</div> : null}
-
-      {!loading && episodeList.length === 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
-          <div className="dsh-lingualab-card">
-            <h2>{payload?.ok === false ? t('noLibrary') : t('noEpisodes')}</h2>
-            <div className="dsh-lingualab-hint">{t('noLibraryHint')}</div>
-          </div>
-          {/* The folder card is the way out of an empty library, so it sits where the
-              reader is looking rather than only in the side column. */}
-          <MediaFolderPanel t={t} config={folder} onSaved={reload} />
-        </div>
-      ) : null}
-
-      {!loading && payload?.ok === true && episodeList.length === 0 ? (
-        <div className="dsh-lingualab-empty">{t('noEpisodes')}</div>
-      ) : null}
-
-      {!loading && error !== null && episodeList.length > 0 ? (
-        <div className="dsh-lingualab-warn">
-          {t('loadFailed')}: {error}
-        </div>
-      ) : null}
-
-      {episode !== null ? (
-        <div className="dsh-lingualab-grid">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-            <ControlBar t={t} zhMode={zhMode} onZhMode={setZhMode} disabled={!hasAudio} />
-            {!hasAudio ? <div className="dsh-lingualab-warn">{t('noAudio')}</div> : null}
-            <div className="dsh-lingualab-card">
-              <h2>{t('subtitles')}</h2>
-              <SubtitlePanel t={t} cues={cues} activeIndex={activeIndex} zhMode={zhMode} />
-              <div className="dsh-lingualab-hint" style={{ marginTop: 8 }}>
-                {t('shortcutHint')}
-              </div>
+      {episode === null ? (
+        <div className="dsh-lingualab-blank">
+          <div className="dsh-lingualab-blank-card">
+            <h1>{library.loading ? t('stageLoading') : t('emptyTitle')}</h1>
+            <div className="dsh-lingualab-hint">
+              {library.payload?.ok === false ? library.payload.reason : t('emptyHint')}
+            </div>
+            <MediaFolderPanel t={t} config={folder} onSaved={library.reload} bare />
+            <div className="dsh-lingualab-actions">
+              <button type="button" className="dsh-lingualab-btn is-primary" onClick={() => setLayer('picker')}>
+                {t('pickerBrowse')}
+              </button>
             </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-            <MediaFolderPanel t={t} config={folder} onSaved={reload} />
-            <NotesPanel t={t} notes={notes} phraseFromCurrentCue={phraseFromCurrentCue} />
-            <StepTracker key={episode.id} t={t} episode={episode.id} />
-          </div>
         </div>
+      ) : (
+        <>
+          <div className="dsh-lingualab-stage">
+            <div className="dsh-lingualab-stage-meta">
+              <span>
+                {stageCue === undefined
+                  ? '--:--'
+                  : `${formatClock(stageCue.start)} – ${formatClock(stageCue.end)}`}
+              </span>
+              {library.cuesLoading ? <span>{t('stageLoading')}…</span> : null}
+              <span className="dsh-lingualab-spacer" />
+              {episode.audio === null ? null : <span>{episode.audio}</span>}
+            </div>
+            <div className="dsh-lingualab-stage-en">{stageLines?.english ?? t('noSubtitles')}</div>
+            {zhMode !== 'hidden' && stageLines !== null && stageLines.chinese.length > 0 ? (
+              <div className="dsh-lingualab-stage-zh">{stageLines.chinese}</div>
+            ) : null}
+            <ControlBar
+              t={t}
+              zhMode={zhMode}
+              onZhMode={setZhMode}
+              onRecord={() => setComposerOpen(true)}
+              disabled={!hasAudio || cues.length === 0}
+            />
+            {!hasAudio ? <div className="dsh-lingualab-warn">{t('noAudio')}</div> : null}
+            {library.error !== null && cues.length === 0 && hasAudio ? (
+              <div className="dsh-lingualab-error">
+                {t('subtitleFailed')}{' '}
+                <button type="button" className="dsh-lingualab-btn" onClick={library.reload}>
+                  {t('retry')}
+                </button>
+              </div>
+            ) : null}
+            {composerOpen && !notes.full ? (
+              <NotesComposer
+                t={t}
+                quote={quote}
+                full={notes.full}
+                onSubmit={(note) => record(undefined, note)}
+                onCancel={() => setComposerOpen(false)}
+              />
+            ) : null}
+          </div>
+
+          <div className="dsh-lingualab-mid">
+            <SubtitlePanel
+              t={t}
+              cues={cues}
+              activeIndex={activeIndex}
+              selectedIndex={selectedIndex}
+              zhMode={zhMode}
+              notedIndexes={notedIndexes}
+              onSelect={setSelection}
+              onPlay={(index) => {
+                const cue = cues[index]
+                if (cue === undefined) return
+                setSelection(null)
+                useMediaPlayer.getState().seek(cue.start)
+                useMediaPlayer.getState().setPlaying(true)
+              }}
+              onRecord={(index) => record(index)}
+            />
+            {layer === 'notes' ? (
+              <NotesPanel
+                t={t}
+                notes={notes}
+                onClose={() => setLayer('none')}
+                quote={quote}
+                pending={pending}
+                onCancelPending={() => {
+                  setPending(null)
+                  setLayer('none')
+                }}
+                onChoose={(index) => {
+                  if (pending !== null) notes.replaceAt(index, pending)
+                  setPending(null)
+                }}
+                onSubmit={(note) => record(undefined, note)}
+              />
+            ) : null}
+          </div>
+
+          <div className="dsh-lingualab-foot">
+            <span>{t('shortcutHint')}</span>
+            <span className="dsh-lingualab-spacer" />
+            {library.payload?.currentUnavailable != null ? (
+              <span className="dsh-lingualab-warn">{t('currentGone')}</span>
+            ) : null}
+            {!focused ? <span>{t('keysInactive')}</span> : null}
+          </div>
+        </>
+      )}
+
+      {layer === 'picker' ? (
+        <EpisodePicker
+          t={t}
+          onClose={() => setLayer('none')}
+          library={library.payload}
+          currentId={episode?.id ?? null}
+          opening={library.opening}
+          openError={library.openError}
+          onOpenEpisode={(id) => {
+            void (async () => {
+              if (!(await library.openEpisode(id))) return
+              setSelection(null)
+              setPending(null)
+              setComposerOpen(false)
+              setLayer('none')
+            })()
+          }}
+          onOpenFile={(place, rel) => {
+            void (async () => {
+              if (!(await library.openFile(place, rel))) return
+              setSelection(null)
+              setPending(null)
+              setComposerOpen(false)
+              setLayer('none')
+            })()
+          }}
+          onUseFolder={(place, rel) => {
+            void (async () => {
+              if (await folder.useAsLibrary(place, rel)) {
+                library.reload()
+                setLayer('none')
+              }
+            })()
+          }}
+          savingFolder={folder.saving}
+        />
+      ) : null}
+
+      {layer === 'folder' ? (
+        <MediaFolderPanel
+          t={t}
+          config={folder}
+          onSaved={() => {
+            library.reload()
+            setLayer('none')
+          }}
+        />
       ) : null}
     </div>
   )

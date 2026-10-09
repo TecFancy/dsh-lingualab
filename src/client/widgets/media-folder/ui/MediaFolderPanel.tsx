@@ -1,14 +1,15 @@
 /**
- * The media folder card.
+ * The media folder setting, out of the practice page and into its own layer.
  *
- * It exists because the config alone cannot be set from the page: with no
- * `libraryRoot`, the plugin opens on an empty library, and the only way out used to
- * be editing the profile's patch file by hand. So the card shows what is in effect,
- * offers the folders that look like a library on this machine, and accepts a typed
- * path.
+ * Two things changed here and both were complaints. The old card lived in the side
+ * column of every practice session — a setting you touch twice a month, sitting at the
+ * same weight as the notes you write every day — so it moved behind the top bar's 「···」.
+ * And it used to ask for an absolute path with a candidate list beside it; now the
+ * primary way in is 「浏览」, where you walk to the folder and click 「用作媒体库」. The
+ * typed path survives as the fallback for a mount point that no workspace contains.
  *
- * The reason a path was refused is rendered next to the input rather than in an
- * alert: the reader is typing, and the answer belongs where they are looking.
+ * The same component renders inline on an empty library, because there the setting is
+ * not a setting: it is the only thing the page can usefully say.
  */
 import type { Translate } from '../../../context.ts'
 import type { LibraryConfigState } from '../../../features/library-config/index.ts'
@@ -18,6 +19,8 @@ export interface MediaFolderPanelProps {
   readonly config: LibraryConfigState
   /** Called after a save lands, so the library can be re-read. */
   readonly onSaved: () => void
+  /** Rendered without the modal chrome when the library is empty. */
+  readonly bare?: boolean
 }
 
 /** How the source of the current path is described. */
@@ -26,8 +29,8 @@ function sourceKey(source: 'config' | 'workspace' | 'none'): string {
   return source === 'workspace' ? 'mediaFolderSourceWorkspace' : 'mediaFolderSourceNone'
 }
 
-/** The folder card. */
-export function MediaFolderPanel({ t, config, onSaved }: MediaFolderPanelProps) {
+/** The folder form: what is in effect, how to walk to a new one, and the typed fallback. */
+export function MediaFolderPanel({ t, config, onSaved, bare = false }: MediaFolderPanelProps) {
   const current = config.payload
 
   const onSave = (value?: string): void => {
@@ -36,65 +39,81 @@ export function MediaFolderPanel({ t, config, onSaved }: MediaFolderPanelProps) 
     })()
   }
 
-  return (
-    <div className="dsh-lingualab-card">
-      <h2>{t('mediaFolder')}</h2>
+  const body = (
+    <>
       <div className="dsh-lingualab-hint">{t('mediaFolderHint')}</div>
 
-      <div className="dsh-lingualab-folder-row">
+      <div className="dsh-lingualab-actions" style={{ marginTop: 8 }}>
         <span className="dsh-lingualab-hint">{t('mediaFolderCurrent')}</span>
         <code className="dsh-lingualab-path">{current?.root ?? t('mediaFolderSourceNone')}</code>
         <span className="dsh-lingualab-counter">{t(sourceKey(current?.source ?? 'none'))}</span>
       </div>
 
-      {config.error !== null ? <div className="dsh-lingualab-warn">{config.error}</div> : null}
+      {config.error !== null ? <div className="dsh-lingualab-error">{config.error}</div> : null}
 
-      <div className="dsh-lingualab-actions">
+      <div className="dsh-lingualab-hint">{t('mediaFolderBrowseHint')}</div>
+
+      <div className="dsh-lingualab-actions" style={{ marginTop: 8 }}>
         <input
           className="dsh-lingualab-input"
+          style={{ flex: 1, minWidth: 200 }}
           value={config.draft}
           placeholder={t('mediaFolderPlaceholder')}
           onChange={(event) => config.setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') onSave()
+            event.stopPropagation()
           }}
         />
-        <button type="button" className="dsh-lingualab-btn" onClick={() => onSave()} disabled={config.saving}>
+        <button
+          type="button"
+          className="dsh-lingualab-btn is-primary"
+          onClick={() => onSave()}
+          disabled={config.saving}
+        >
           {config.saving ? t('mediaFolderSaving') : t('mediaFolderSave')}
         </button>
       </div>
 
-      {config.payload !== null && config.payload.candidates.length > 0 ? (
-        <div className="dsh-lingualab-candidates">
-          {config.payload.candidates.map((candidate) => (
-            <div className="dsh-lingualab-candidate" key={candidate.path}>
-              <div className="dsh-lingualab-candidate-main">
-                <div className="dsh-lingualab-path">{candidate.path}</div>
-                <div className="dsh-lingualab-hint">
+      {current !== null && current.candidates.length > 0
+        ? current.candidates.map((candidate) => (
+            <button
+              key={candidate.path}
+              type="button"
+              className="dsh-lingualab-pick"
+              onClick={() => config.setDraft(candidate.path)}
+            >
+              <span className="dsh-lingualab-pick-main">
+                <span className="dsh-lingualab-pick-name dsh-lingualab-path">{candidate.path}</span>
+                <span className="dsh-lingualab-pick-sub">
                   {candidate.label} ·{' '}
                   {!candidate.exists
                     ? t('mediaFolderMissing')
                     : candidate.episodes === 0
                       ? t('mediaFolderEmpty')
                       : `${String(candidate.episodes ?? 0)} ${t('mediaFolderCount')}`}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="dsh-lingualab-btn"
-                onClick={() => onSave(candidate.path)}
-                disabled={config.saving || !candidate.exists}
-              >
-                {t('mediaFolderUse')}
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+                </span>
+              </span>
+            </button>
+          ))
+        : null}
 
-      {config.payload !== null && !config.payload.writable ? (
+      {current !== null && !current.writable ? (
         <div className="dsh-lingualab-warn">{t('mediaFolderReadOnly')}</div>
       ) : null}
+    </>
+  )
+
+  if (bare) return <div className="dsh-lingualab-card">{body}</div>
+
+  return (
+    <div className="dsh-lingualab-mask">
+      <div className="dsh-lingualab-modal">
+        <div className="dsh-lingualab-modal-head">
+          <span className="dsh-lingualab-modal-title">{t('mediaFolder')}</span>
+        </div>
+        <div className="dsh-lingualab-modal-body">{body}</div>
+      </div>
     </div>
   )
 }

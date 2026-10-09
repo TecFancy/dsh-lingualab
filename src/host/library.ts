@@ -17,17 +17,32 @@
  * Without it, folders sort naturally by name and the first episode that has no
  * notes yet is the one offered first — which is the "learn the next thing"
  * default the study method asks for.
+ *
+ * Audio files lying loose in the root are the other half of the listing. They are
+ * **not** episodes: `manifest.json` orders and renames episodes, and a loose file
+ * has no folder to be named by, so it is reported separately as `files` with an id
+ * derived from its path. The picker shows both lists; the panel can play either.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import {
   AUDIO_EXTENSIONS,
   NOTES_FILE,
-  SUBTITLE_EXTENSIONS,
   type EpisodeEntry,
   type LibraryPayload,
+  type OpenRef,
 } from '../shared/protocol.ts'
 import { summarizeNotes } from '../shared/notes-format.ts'
+import { pairSubtitles, pickAudioFile, stemOf } from './pairing.ts'
+import { realPathOf } from './places.ts'
+import {
+  EMPTY_STATE,
+  fileEpisodeIdFor,
+  findFileEpisode,
+  notesFor,
+  summarizePhrases,
+  type OpenState,
+} from './state.ts'
 
 /** Optional root file that overrides order, titles and the opening episode. */
 const MANIFEST_FILE = 'manifest.json'
@@ -73,77 +88,32 @@ function readManifest(root: string): Manifest {
   }
 }
 
-/** Extensions this module recognises as subtitles. */
-const SUBTITLE_SET = new Set<string>(SUBTITLE_EXTENSIONS)
-
-/** Whether a file name reads as Chinese rather than English. */
-function looksChinese(fileName: string): boolean {
-  return /(^|[^a-z])(zh|chs|cht|cn|chi|中文|双语)([^a-z]|$)/i.test(fileName)
-}
-
-/** Whether the first bytes of a file carry CJK text, used only to break ties. */
-function fileHasCjk(path: string): boolean {
-  try {
-    const head = readFileSync(path, 'utf8').slice(0, 4096)
-    return /[\u4e00-\u9fff]/.test(head)
-  } catch {
-    return false
-  }
-}
-
-/** Pick the audio file: the first extension in preference order wins. */
-function pickAudio(names: readonly string[]): string | null {
-  for (const extension of AUDIO_EXTENSIONS) {
-    const hit = names.find((name) => extname(name).slice(1).toLowerCase() === extension)
-    if (hit !== undefined) return hit
-  }
-  return null
-}
-
 /**
- * Decide which subtitle file is English and which is Chinese.
+ * The title a folder episode is shown under.
  *
- * The names decide when they say so. When they do not, one file is treated as
- * English and, if a second exists, as Chinese; a single file that itself carries
- * CJK text is offered as both, because a bilingual subtitle is one file with two
- * languages in it, and the panel splits it line by line.
+ * Exported because the picker offers to open a folder episode from its directory
+ * listing, and the row there should carry the same name the library shows.
+ * @param root - the library root.
+ * @param id - the folder name.
+ * @returns the manifest title when there is one, the folder name otherwise.
  */
-function pickSubtitles(
-  folder: string,
-  names: readonly string[],
-): { en: string | null; zh: string | null } {
-  const files = names.filter((name) => SUBTITLE_SET.has(extname(name).slice(1).toLowerCase()))
-  if (files.length === 0) return { en: null, zh: null }
-
-  const chinese = files.filter((name) => looksChinese(name))
-  const rest = files.filter((name) => !looksChinese(name))
-
-  if (rest.length > 0) {
-    const en = rest[0] ?? null
-    const zh = chinese[0] ?? rest[1] ?? null
-    return { en, zh }
-  }
-
-  // Every file reads as Chinese by name, so the library keeps the first as the
-  // primary subtitle and does not pretend an English track exists.
-  const first = chinese[0] ?? files[0] ?? null
-  const bilingual = first !== null && fileHasCjk(join(folder, first))
-  return { en: first, zh: bilingual ? first : (chinese[1] ?? null) }
+export function episodeTitle(root: string, id: string): string {
+  return readManifest(root).titles?.[id] ?? id
 }
 
 /** Scan one episode folder. A folder with no audio is listed but not playable. */
 function scanEpisode(root: string, id: string, title: string): EpisodeEntry {
   const folder = join(root, id)
   const names = readdirSync(folder).filter((name) => !name.startsWith('.'))
-  const audio = pickAudio(names)
-  const { en, zh } = pickSubtitles(folder, names)
+  const audio = pickAudioFile(names)
+  const { en, zh } = pairSubtitles(names, { directory: folder })
 
   let audioBytes: number | null = null
   if (audio !== null) {
     try {
       audioBytes = statSync(join(folder, audio)).size
     } catch {
-      audioBytes = null
+      // Left null: an episode whose audio cannot be measured is still an episode.
     }
   }
 
@@ -152,7 +122,91 @@ function scanEpisode(root: string, id: string, title: string): EpisodeEntry {
     ? summarizeNotes(readFileSync(notesPath, 'utf8'))
     : summarizeNotes(null)
 
-  return { id, title, audio, audioBytes, subtitleEn: en, subtitleZh: zh, notes }
+  return { id, title, audio, audioBytes, subtitleEn: en, subtitleZh: zh, notes, kind: 'folder', source: folder }
+}
+
+/** Everything one audio file turned out to be, before it is dressed as an episode. */
+export interface AudioDescription {
+  /** Episode id: `file.` plus a hash of the canonical path. */
+  readonly id: string
+  /** Canonical absolute path of the audio file. */
+  readonly path: string
+  readonly audio: string
+  /** Display title: the file name without its extension. */
+  readonly title: string
+  readonly bytes: number | null
+  readonly subtitleEn: string | null
+  readonly subtitleZh: string | null
+}
+
+/**
+ * Describe one audio file by looking at the directory it is in.
+ *
+ * One home for "what is beside this file", used both by the library listing for the
+ * loose files in the root and by the picker when it opens one. The subtitles are
+ * paired by name and content, never cached, so adding a translation and reopening
+ * the episode is enough to see it.
+ * @param path - absolute path of the audio file.
+ * @returns the description, or `null` when the directory cannot be read.
+ */
+export function describeAudioFile(path: string): AudioDescription | null {
+  let names: string[]
+  try {
+    names = readdirSync(dirname(path)).filter((name) => !name.startsWith('.'))
+  } catch {
+    return null
+  }
+  const audio = basename(path)
+  let bytes: number
+  try {
+    const stats = statSync(path)
+    // A directory named like audio is not an episode; nor is a broken symlink.
+    if (!stats.isFile()) return null
+    bytes = stats.size
+  } catch {
+    return null
+  }
+  const pair = pairSubtitles(names, { directory: dirname(path), stem: stemOf(audio) })
+  return {
+    id: fileEpisodeIdFor(path),
+    path,
+    audio,
+    title: stemOf(audio),
+    bytes,
+    subtitleEn: pair.en,
+    subtitleZh: pair.zh,
+  }
+}
+
+/** Dress one described audio file as an episode, with the notes held for it. */
+export function audioEntry(description: AudioDescription, state: OpenState): EpisodeEntry {
+  return {
+    id: description.id,
+    title: description.title,
+    audio: description.audio,
+    audioBytes: description.bytes,
+    subtitleEn: description.subtitleEn,
+    subtitleZh: description.subtitleZh,
+    notes: summarizePhrases(notesFor(state, description.id)),
+    kind: 'file',
+    source: description.path,
+  }
+}
+
+/** The loose audio files directly in the library root, in name order. */
+function scanLooseFiles(root: string, names: readonly string[], state: OpenState): EpisodeEntry[] {
+  const files: EpisodeEntry[] = []
+  for (const name of names.filter(isAudioName).sort(compareIds)) {
+    const description = describeAudioFile(realPathOf(join(root, name)))
+    if (description === null) continue
+    files.push(audioEntry(description, state))
+  }
+  return files
+}
+
+/** Whether a file name is audio the scan accepts. */
+function isAudioName(name: string): boolean {
+  return (AUDIO_EXTENSIONS as readonly string[]).includes(extname(name).slice(1).toLowerCase())
 }
 
 /** The episode the panel opens: the manifest's choice, else the first unstudied one. */
@@ -164,23 +218,71 @@ function pickCurrent(episodes: readonly EpisodeEntry[], manifest: Manifest): str
   return unstudied?.id ?? episodes[episodes.length - 1]?.id ?? null
 }
 
-/** Read the root and describe every episode in it. Never throws. */
-export function scanLibrary(root: string): LibraryPayload {
-  if (root.trim().length === 0) {
-    return { ok: false, root, reason: '媒体目录还没配置', current: null, episodes: [] }
-  }
-  if (!existsSync(root)) {
-    return { ok: false, root, reason: '媒体目录不存在', current: null, episodes: [] }
+/** What the reader had open, resolved against what is on disk now. */
+function describeCurrent(
+  state: OpenState,
+  episodes: readonly EpisodeEntry[],
+  files: readonly EpisodeEntry[],
+): { readonly currentEpisode: EpisodeEntry | null; readonly currentUnavailable: OpenRef | null } {
+  const remembered = state.current
+  if (remembered === null) return { currentEpisode: null, currentUnavailable: null }
+
+  if (remembered.kind === 'folder') {
+    const entry = episodes.find((candidate) => candidate.id === remembered.id) ?? null
+    return entry === null
+      ? { currentEpisode: null, currentUnavailable: remembered }
+      : { currentEpisode: entry, currentUnavailable: null }
   }
 
-  let folderNames: string[]
-  try {
-    folderNames = readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-      .map((entry) => entry.name)
-  } catch (error) {
-    return { ok: false, root, reason: `读不了媒体目录：${String(error)}`, current: null, episodes: [] }
+  // A file episode may be one of the loose files in the root, or a file picked
+  // somewhere else entirely; the listing knows the first and the index the second.
+  const loose = files.find((candidate) => candidate.id === remembered.id)
+  if (loose !== undefined) return { currentEpisode: loose, currentUnavailable: null }
+
+  const record = findFileEpisode(state, remembered.id)
+  if (record === null || !existsSync(record.path)) {
+    return { currentEpisode: null, currentUnavailable: remembered }
   }
+  const description = describeAudioFile(record.path)
+  if (description === null) return { currentEpisode: null, currentUnavailable: remembered }
+  return { currentEpisode: audioEntry(description, state), currentUnavailable: null }
+}
+
+/** Read the root and describe every episode in it. Never throws. */
+export function scanLibrary(root: string, state: OpenState = EMPTY_STATE): LibraryPayload {
+  const bare = (ok: boolean, reason: string | null): LibraryPayload => {
+    const resolved = describeCurrent(state, [], [])
+    return {
+      ok,
+      root,
+      reason,
+      current: null,
+      episodes: [],
+      files: [],
+      currentEpisode: resolved.currentEpisode,
+      currentUnavailable: resolved.currentUnavailable,
+    }
+  }
+
+  if (root.trim().length === 0) return bare(false, '媒体目录还没配置')
+  if (!existsSync(root)) return bare(false, '媒体目录不存在')
+
+  let entries
+  try {
+    entries = readdirSync(root, { withFileTypes: true })
+  } catch (error) {
+    return bare(false, `读不了媒体目录：${String(error)}`)
+  }
+
+  const folderNames = entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .map((entry) => entry.name)
+  const looseNames = entries
+    // Symlinks are included and then resolved by `describeAudioFile`: linking an
+    // episode in from elsewhere is how material usually arrives, and a link that
+    // points nowhere is dropped by the same stat that measures it.
+    .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && !entry.name.startsWith('.') && isAudioName(entry.name))
+    .map((entry) => entry.name)
 
   const manifest = readManifest(root)
   const ordered = manifest.episodes !== undefined && manifest.episodes.length > 0
@@ -197,5 +299,17 @@ export function scanLibrary(root: string): LibraryPayload {
       continue
     }
   }
-  return { ok: true, root, reason: null, current: pickCurrent(episodes, manifest), episodes }
+
+  const files = scanLooseFiles(root, looseNames, state)
+  const resolved = describeCurrent(state, episodes, files)
+  return {
+    ok: true,
+    root,
+    reason: null,
+    current: pickCurrent(episodes, manifest),
+    episodes,
+    files,
+    currentEpisode: resolved.currentEpisode,
+    currentUnavailable: resolved.currentUnavailable,
+  }
 }

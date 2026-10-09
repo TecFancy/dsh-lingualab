@@ -5,8 +5,10 @@ description: 在 dsh-lingualab 仓库里干活时的操作手册——两个半�
 
 # dsh-lingualab 操作手册
 
-「语言实验室」是 dsh 的一个侧栏面板插件：读工作区里的音频与字幕，做逐句精听，笔记写回磁盘给
-agent 读。仓库自带 git，默认分支 `development`，靠 PR 合进 `main` 出版本，**不发 npm**。
+「语言实验室」是 dsh 的一个整页面板插件：读工作区里的音频与字幕，做逐句精听，笔记写回磁盘给
+agent 读。页面注册在 `main` 槽的 `lingualab` 键上，**入口是「应用」页上的卡片**——
+`dsh-apps-panel` 的注册表里有一条 `panel: lingualab`，左栏没有它自己的一行。仓库自带 git，
+默认分支 `development`，靠 PR 合进 `main` 出版本，**不发 npm**。
 
 ## 两个半边，两种生效方式
 
@@ -32,18 +34,25 @@ node scripts/verify.mjs --list   # 看检查表
 
 ## 必须守住的约定
 
-1. **路由路径只有一处定义**：`src/shared/protocol.ts` 的三个常量。它们同时写在
+1. **路由路径只有一处定义**：`src/shared/protocol.ts` 的路径常量。它们同时写在
    `dsh-plugin.naming.json` 里，`check-host.mjs` 会把两边对上，改一边不改另一边会被拦下。
-2. **笔记格式只有一处解析**：`src/shared/notes-format.ts`。面板和 host 都走它，别在任一侧
-   写第二份正则。
-3. **每集 7 条上限两端都拦**：格式模块定义 `MAX_PHRASES`，host 拒绝超长写入，面板负责问用户
+   新增路由要同时改 `src/index.ts` 的注册、这份 naming 记录与 README 的路由表。
+2. **笔记格式只有一处解析**：`src/shared/notes-format.ts`。面板与 host 都走它，别在任一侧
+   写第二份正则。文件剧集（`file.` 开头的 id）的笔记不走文件，存在插件 profile 的 `openState` 里。
+3. **浏览只认 place id，不认路径**：页面传 `ws_<哈希>` 或 `lib`，由 host 自己解析成绝对路径
+   （`src/host/places.ts`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
+   每一步都 `realpath` 之后再确认仍在根内。**不要**为了让某条路由方便而接受浏览器传来的路径。
+4. **素材目录只读**：库扫描、浏览、打开都不写用户的目录；唯一写进去的是文件夹剧集里的 `notes.md`。
+   文件剧集的笔记因此落在 profile 里，不要改成在音频旁边建文件。
+5. **每集 7 条上限两端都拦**：格式模块定义 `MAX_PHRASES`，host 拒绝超长写入，面板负责问用户
    替换哪一条。见 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`。
-4. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
+6. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
    跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
    `npm run lint:fsd` 会拦。
-5. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
-6. **跨半边契约走两座桥**：`src/client/shared/protocol.ts` 与 `notes-format.ts`。
-7. **每篇 note 是三件套**：`.md`、`.zh.md`、`.i18n.yaml`。中文那份是真翻译，不是英文副本。
+7. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
+   浮层打开时容器把键盘让给浮层（页面里那个 `layer !== 'none'` 的提前返回）。
+8. **跨半边契约走两座桥**：`src/client/shared/protocol.ts` 与 `notes-format.ts`。
+9. **每篇 note 是三件套**：`.md`、`.zh.md`、`.i18n.yaml`。中文那份是真翻译，不是英文副本。
    改了一侧就跑 `npm run bilingual:check -- --write` 重记哈希。
 
 ## 已经踩过的坑
@@ -56,6 +65,11 @@ node scripts/verify.mjs --list   # 看检查表
   `--registry=https://registry.npmmirror.com --cache <可写目录>`。
 - **素材不进 git**：剧集音频放在工作区的 `notes/learning/english/media/`，那个目录自带
   `.gitignore`。别把音频提交进任何仓库。
+- **可选服务一律用 `ctx.get(name)` 读**：当成上下文属性读（`ctx.workspaceRegistry`）在服务缺席时会抛错，
+  而路由里抛错会被 web 服务兜成一个**空的 400**，页面上看起来就是「什么都没有」。这个坑吃过一次，
+  四条路由全中。
+- **volatile 的配置字段是盒子**：`z.string().default('').volatile()` 解析出来不是字符串，要 `config.x.get()`
+  才是值；写错的话路由同样全炸。它的好处是 settings 服务能在线改，改完下次读就是新值，不用重启。
 - **视频不做内嵌**，留在 NAS 上用外部播放器看，理由见
   `.agents/notes/implemented/simplification/2026-10-08-v1-without-waveform.md`。
 - **改了源码要重启隔离实例并强刷安装副本**：宿主半边要重启才生效；而 profile 用 `file:` 装 tar 包时，
@@ -64,6 +78,11 @@ node scripts/verify.mjs --list   # 看检查表
 - **只有真在浏览器里打开面板才能发现的 bug**：空列表返回新的 `[]` 会让页面的 reset 副作用每次渲染
   都跑一遍，React 报 #185。typecheck、ESLint、单测全绿也拦不住，所以改完客户端一定要在隔离实例里
   打开看一眼 console。
+- **页面的四条横带是有意的**：顶栏 48、舞台（当前句 + 运输条）、字幕列表（唯一滚动区）、底栏 32。
+  改布局时不要把整页变成滚动容器：舞台必须钉住，否则「听这一句」又要跟着列表滚走。
+  样式只读 `--dsw-alias-*`，真实可用的 token 名见 `src/client/shared/lib/styles.ts` 里的用法。
+- **`layout.selectPanel` 之外的入口只有一处**：这一页由「应用」页的卡片打开，`panel` 字段写的是
+  `lingualab`。改 `PANEL_ID` 就要同步改 `dsh-apps-panel` 的注册表，否则卡片点了没反应。
 
 ## 发版与 Release（2026-10-08 定）
 

@@ -19,6 +19,30 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
+### Changed
+
+- The page no longer takes a row in the left rail. It is reached from a card on the 「应用」 page —
+  `dsh-apps-panel` carries an entry whose `panel` names this plugin's `main` key — so the page has
+  one entry point instead of two, and the rail stops growing a row per plugin. In a profile without
+  that launcher the page is registered and there is no way in.
+- The page was redesigned around one thing to look at: a fixed stage holding the sentence being worked
+  on, the subtitle list as the only scroller, and a top bar that opens layers for picking an episode,
+  keeping notes and setting the media folder. The folder form and the notes list no longer sit
+  permanently beside the practice.
+- Picking material is browsing now, not typing. `GET /lingualab/places`, `GET /lingualab/browse` and
+  `POST /lingualab/open` let the picker walk a workspace or the library itself, open a single audio
+  file together with the subtitles beside it, and set the library root by clicking 「用作媒体库」.
+  File episodes are served from `GET /lingualab/file-media/<id>/<file>` and keep their notes in the
+  plugin's profile, because the plugin does not write into the material folder.
+
+### Fixed
+
+- Audio files sitting directly in the library root used to be invisible: the scan only looked at
+  subfolders, so the file you had just copied in appeared in no list. They now show up in the picker
+  and can be opened on their own.
+
 ## [0.1.5] - 2026-10-08
 
 ### Added
