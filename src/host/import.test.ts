@@ -171,6 +171,42 @@ describe('importFile', () => {
     expect(existsSync(join(root, 'E1', 'a.mp3'))).toBe(false)
   })
 
+  it('keeps exactly one writer when the same name arrives many times at once', async () => {
+    // These share a process, so a temporary name derived from the pid would be shared too
+    // and one request would lose its file mid-rename. Every answer must still be an answer.
+    const answers = await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        importFile({ root, episode: 'RACE', file: 'r.mp3', declaredBytes: null }, body(`writer-${String(index)}`)),
+      ),
+    )
+
+    expect(answers.every((answer) => answer.ok)).toBe(true)
+    expect(answers.filter((answer) => answer.code === 'saved')).toHaveLength(1)
+    expect(answers.filter((answer) => answer.code === 'exists')).toHaveLength(11)
+    // One file, and no temporary leftovers beside it.
+    expect(readdirSync(join(root, 'RACE'))).toEqual(['r.mp3'])
+    expect(readFileSync(join(root, 'RACE', 'r.mp3'), 'utf8')).toMatch(/^writer-\d+$/)
+  })
+
+  it('defuses a colon, so an NTFS alternate data stream cannot be named', async () => {
+    const result = await importFile({ root, episode: 'E1', file: 'a.mp3:hidden.mp3', declaredBytes: null }, body('x'))
+    expect(result.ok).toBe(true)
+    expect(result.file).not.toContain(':')
+    expect(readdirSync(join(root, 'E1'))).toEqual([result.file])
+  })
+
+  it('treats names differing only by case as the same file where the filesystem does', async () => {
+    await importFile({ root, episode: 'E1', file: 'a.mp3', declaredBytes: null }, body('first'))
+    const again = await importFile({ root, episode: 'E1', file: 'A.MP3', declaredBytes: null }, body('second'))
+
+    if (process.platform === 'linux') {
+      expect(again.code).toBe('saved')
+    } else {
+      expect(again.code).toBe('exists')
+      expect(readFileSync(join(root, 'E1', 'a.mp3'), 'utf8')).toBe('first')
+    }
+  })
+
   it('leaves no half-written file when the upload is cut off', async () => {
     const broken = new Readable({
       read() {

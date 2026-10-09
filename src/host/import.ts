@@ -29,6 +29,7 @@ import {
   statSync,
   unlinkSync,
 } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 import { extname, join } from 'node:path'
 import { Transform } from 'node:stream'
@@ -152,10 +153,18 @@ function place(temp: string, final: string): boolean {
     return true
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
-    if (code === 'EEXIST') {
-      unlinkSync(temp)
+    if (code === 'EEXIST' || existsSync(final)) {
+      try {
+        unlinkSync(temp)
+      } catch {
+        // The temporary file is already gone; the answer does not depend on it.
+      }
       return false
     }
+    // No hard links on this volume. The existence check above is the best this fallback
+    // can do, and a rename onto a name that appeared in the meantime would replace it,
+    // so refuse if one did instead of calling `renameSync` blind.
+    if (code !== 'EPERM' && code !== 'ENOTSUP' && code !== 'EXDEV' && code !== 'EOPNOTSUPP') throw error
     if (existsSync(final)) {
       unlinkSync(temp)
       return false
@@ -221,23 +230,39 @@ export async function importFile(request: ImportRequest, body: IncomingMessage):
     return { ok: true, code: 'exists', reason: null, bytes: 0, ...base }
   }
 
-  const temp = join(directory, `.${file}.${String(process.pid)}.part`)
+  // A random suffix, not the pid: every request in this process shares the pid, so two
+  // uploads of the same name raced onto one temporary file and one of them lost its
+  // file mid-rename and threw. `wx` below still refuses to reuse a name that exists.
+  const temp = join(directory, `.${file}.${randomBytes(6).toString('hex')}.part`)
   const counted = { bytes: 0 }
-  try {
-    await pipeline(body, limiter(MAX_IMPORT_BYTES, counted), createWriteStream(temp, { flags: 'wx' }))
-  } catch (error) {
+  const discard = (): void => {
     try {
       unlinkSync(temp)
     } catch {
       // Already gone, or never created: nothing half-written is left either way.
     }
+  }
+
+  try {
+    await pipeline(body, limiter(MAX_IMPORT_BYTES, counted), createWriteStream(temp, { flags: 'wx' }))
+  } catch (error) {
+    discard()
     return refuse(`没收完：${String(error instanceof Error ? error.message : error)}`, request.root)
   }
 
   if (counted.bytes === 0) {
-    unlinkSync(temp)
+    discard()
     return refuse('收到的是空文件', request.root)
   }
-  if (!place(temp, final)) return { ok: true, code: 'exists', reason: null, bytes: 0, ...base }
+
+  // The contract of this module is that it never throws, so the last step is guarded too:
+  // a rename that fails for a reason nobody predicted is a refusal with the reason, not a
+  // rejected promise that the route would turn into an empty 400.
+  try {
+    if (!place(temp, final)) return { ok: true, code: 'exists', reason: null, bytes: 0, ...base }
+  } catch (error) {
+    discard()
+    return refuse(`没能放到位：${String(error instanceof Error ? error.message : error)}`, request.root)
+  }
   return { ok: true, code: 'saved', reason: null, bytes: counted.bytes, ...base }
 }
