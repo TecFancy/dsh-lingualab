@@ -32,8 +32,15 @@ export interface LibraryHomeProps {
   readonly importer: ImportState
   /** Bookmarks, keyed by episode id. */
   readonly progress: Readonly<Record<string, Progress>>
-  /** The episode the reader had open last, for the "continue" card. */
+  /** The episode open now, which the "continue" card offers first. */
   readonly currentId: string | null
+  /**
+   * That episode's entry. Needed in addition to its id because an episode opened through
+   * 「Browse existing files」 from outside the media folder is not in the library listing,
+   * and without the entry the one episode the reader last had open could not be found
+   * from the home at all.
+   */
+  readonly current: EpisodeEntry | null
   readonly opening: boolean
   readonly openError: string | null
   readonly onOpen: (id: string) => void
@@ -44,9 +51,14 @@ export interface LibraryHomeProps {
   readonly onFolder: () => void
 }
 
-/** Every episode the library knows, folders first, the way the scan lists them. */
-function allEpisodes(library: LibraryPayload | null): readonly EpisodeEntry[] {
-  return library === null ? [] : [...library.episodes, ...library.files]
+/**
+ * Every episode worth listing: the library's, folders first, plus the one open now when
+ * it lives somewhere the scan does not look.
+ */
+function allEpisodes(library: LibraryPayload | null, current: EpisodeEntry | null): readonly EpisodeEntry[] {
+  const listed = library === null ? [] : [...library.episodes, ...library.files]
+  if (current === null || listed.some((entry) => entry.id === current.id)) return listed
+  return [current, ...listed]
 }
 
 /** What an episode's subtitles amount to, in one short word. */
@@ -66,6 +78,7 @@ export function LibraryHome({
   importer,
   progress,
   currentId,
+  current,
   opening,
   openError,
   onOpen,
@@ -73,7 +86,7 @@ export function LibraryHome({
   onBrowse,
   onFolder,
 }: LibraryHomeProps) {
-  const episodes = allEpisodes(library)
+  const episodes = allEpisodes(library, current)
   const playable = episodes.filter((entry) => entry.audio !== null)
   const resume =
     playable.find((entry) => entry.id === currentId) ??
@@ -262,8 +275,12 @@ function ImportReport({
   readonly onOpen: (id: string) => void
 }) {
   const saved = importer.outcomes.filter((item) => item.status === 'saved').length
-  const existed = importer.outcomes.filter((item) => item.status === 'exists').length
-  const refused = importer.outcomes.filter((item) => item.status === 'refused')
+  // Which folder the files that were already there are in, so "left alone" is not a
+  // mystery about where; "exists" with no folder named is the case that confused.
+  const existing = importer.outcomes.filter((item) => item.status === 'exists')
+  const existedFolders = [...new Set(existing.map((item) => item.episode))]
+  // A skipped file is a failure of its audio, shown with that reason rather than hidden.
+  const refused = importer.outcomes.filter((item) => item.status === 'refused' || item.status === 'skipped')
 
   return (
     <div className="dsh-lingualab-report" role="status">
@@ -303,7 +320,11 @@ function ImportReport({
           />
         </div>
       ) : null}
-      {existed > 0 ? <div className="dsh-lingualab-hint">{t('importExisted', { count: existed })}</div> : null}
+      {existing.length > 0 ? (
+        <div className="dsh-lingualab-hint">
+          {t('importExisted', { count: existing.length, folders: existedFolders.join('、') })}
+        </div>
+      ) : null}
       {refused.map((item) => (
         <div key={`${item.episode}/${item.name}`} className="dsh-lingualab-error">
           {item.name}：{item.reason ?? t('importFailed')}

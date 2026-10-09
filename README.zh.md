@@ -84,6 +84,8 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 
 ## 宿主路由
 
+每一条路由，包括只读的，都只回应宿主放行的请求（回环的 `Host`、匹配的 `Origin`、签名的会话 cookie），否则回 `401` 或 `403`；部署里没有 connection 服务时一律回 `403`。
+
 | 路由 | 类型 | 回答什么 |
 |---|---|---|
 | `GET /lingualab/library` | exact | 每个剧集文件夹与根目录里的散装音频、当前打开的那一集、笔记记了多少 |
@@ -94,7 +96,7 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 | `GET /lingualab/places` | exact | 选择层可以浏览的根：每个工作区，加上媒体库自己 |
 | `GET /lingualab/browse` | exact | 某个位置下的一个目录：子目录、音频、字幕，以及每个音频配到了哪些字幕 |
 | `POST /lingualab/open` | exact | 把某一集设为当前：扫描到的文件夹剧集，或一个音频文件加旁边的字幕 |
-| `POST /lingualab/import` | exact | 把拖进来的一个音频或字幕文件收进某集的文件夹，从不覆盖；要带 `x-lingualab-import: 1` 请求头 |
+| `POST /lingualab/import` | exact | 把拖进来的一个音频或字幕文件收进某集的文件夹，从不覆盖；要带 `x-lingualab-import: 1` 请求头，并且会话被宿主放行 |
 
 ## 仓库结构
 

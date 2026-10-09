@@ -22,7 +22,7 @@
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs'
-import { basename, isAbsolute, join, parse, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
 import type { OpenRef, PlaceEntry, PlacesPayload } from '../shared/protocol.ts'
 import { LIBRARY_SUBPATH } from './config.ts'
 
@@ -85,10 +85,71 @@ export function placeIdFor(path: string): string {
  */
 export function realPathOf(path: string): string {
   try {
-    return realpathSync(path)
+    // The native form on Windows: the JavaScript one leaves an 8.3 short name such as
+    // `C:\PROGRA~1` exactly as written, which is a second spelling of `C:\Program Files`
+    // that no list of folder names would ever match.
+    return realpathSync.native(path)
   } catch {
-    return resolve(path)
+    // The target does not exist (yet). Canonicalise the longest prefix that does and
+    // put the rest back. Resolving the whole thing lexically would leave a short-named
+    // root spelled one way for an existing path and another way for a missing one under
+    // it, and `isInside` would call the same folder's children outsiders.
+    const absolute = resolve(path)
+    let head = absolute
+    const tail: string[] = []
+    for (;;) {
+      const parent = dirname(head)
+      if (parent === head) return absolute
+      tail.unshift(basename(head))
+      head = parent
+      try {
+        return join(realpathSync.native(head), ...tail)
+      } catch {
+        // Keep climbing.
+      }
+    }
   }
+}
+
+/** Which flavour of path rules a check applies. */
+export type PathFlavour = 'posix' | 'win32'
+
+/**
+ * Why a canonical path may not be browsed or written to, or `null` when it may.
+ *
+ * Pure, and parameterised by flavour, so the Windows branch and the POSIX branch both run
+ * in every test environment: a rule that is only exercised on the platform it was written
+ * for is a rule that nobody notices has stopped working on the other. (It had: the POSIX
+ * literals never matched anything on Windows.)
+ * @param real - an already canonical path.
+ * @param flavour - which rules to apply.
+ * @returns the reason it is refused, or `null`.
+ */
+export function forbiddenReasonFor(real: string, flavour: PathFlavour): string | null {
+  const path = flavour === 'win32' ? win32 : posix
+  if (real.length === 0) return '不允许浏览根目录'
+  // A filesystem root is `/` on POSIX and a bare drive (`C:\`) on Windows; `parse`
+  // knows both, where comparing to `sep` only ever knew the first.
+  if (path.parse(real).root === real) return '不允许浏览根目录'
+
+  if (flavour === 'win32') {
+    const rest = real.slice(path.parse(real).root.length)
+    // Everything that matters on Windows sits directly under the drive (or the share).
+    const first = rest.split(path.sep)[0]?.toLowerCase() ?? ''
+    // A leftover 8.3 alias (`PROGRA~1`) means the path could not be expanded. A name that
+    // looks like one is not allowed to stand in for a system folder.
+    if ((WINDOWS_FORBIDDEN_NAMES as readonly string[]).includes(first) || /^[a-z0-9]{1,6}~\d+$/i.test(first)) {
+      return `${first} 下面不允许浏览`
+    }
+    return null
+  }
+
+  for (const forbidden of POSIX_FORBIDDEN_ROOTS) {
+    if (real === forbidden || real.startsWith(`${forbidden}/`)) {
+      return `${forbidden} 下面不允许浏览`
+    }
+  }
+  return null
 }
 
 /**
@@ -102,28 +163,7 @@ export function realPathOf(path: string): string {
  * @returns the reason it is refused, or `null`.
  */
 export function forbiddenReason(path: string): string | null {
-  const real = realPathOf(path)
-  if (real.length === 0) return '不允许浏览根目录'
-  // A filesystem root is `/` on POSIX and a bare drive (`C:\`) on Windows; `parse`
-  // knows both, where comparing to `sep` only ever knew the first.
-  if (parse(real).root === real) return '不允许浏览根目录'
-
-  if (process.platform === 'win32') {
-    // Everything that matters on Windows sits directly under a drive: the first path
-    // segment after the root is what names a system folder.
-    const first = real.slice(parse(real).root.length).split(sep)[0]?.toLowerCase() ?? ''
-    if ((WINDOWS_FORBIDDEN_NAMES as readonly string[]).includes(first)) {
-      return `${first} 下面不允许浏览`
-    }
-    return null
-  }
-
-  for (const forbidden of POSIX_FORBIDDEN_ROOTS) {
-    if (real === forbidden || real.startsWith(`${forbidden}${sep}`)) {
-      return `${forbidden} 下面不允许浏览`
-    }
-  }
-  return null
+  return forbiddenReasonFor(realPathOf(path), process.platform === 'win32' ? 'win32' : 'posix')
 }
 
 /**

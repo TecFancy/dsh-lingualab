@@ -5,12 +5,12 @@
  * The escape cases are the point of this file. A traversal that only rejects the
  * literal string `..` passes every happy-path test and still hands out `/etc`.
  */
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { basename, join, parse, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   forbiddenReason,
+  forbiddenReasonFor,
   isInside,
   listPlaces,
   normalizeRel,
@@ -21,13 +21,14 @@ import {
   resolveInPlace,
 } from './places.ts'
 import { LIBRARY_SUBPATH } from './config.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 let outside = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-places-'))
-  outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+  root = makeTempDir('lingualab-places-')
+  outside = makeTempDir('lingualab-outside-')
 })
 
 afterEach(() => {
@@ -47,33 +48,87 @@ describe('placeIdFor', () => {
   })
 })
 
-/** `/etc` is a system root on POSIX; its Windows counterpart is a folder on the system drive. */
 const ON_WINDOWS = process.platform === 'win32'
 const DRIVE = parse(resolve('/')).root
 
-describe('forbiddenReason', () => {
-  it('refuses the filesystem root, which is a drive on Windows', () => {
+/**
+ * The rules themselves, run for BOTH flavours on whatever machine this is.
+ *
+ * They used to be tested only through `forbiddenReason(path)`, which reads the real
+ * platform, so the Windows branch ran only on Windows and the POSIX one only elsewhere;
+ * CI is Linux, so the branch this file's last fix was about never ran in CI at all. The
+ * pure function takes the flavour as an argument and needs no filesystem.
+ */
+describe('forbiddenReasonFor', () => {
+  describe('posix', () => {
+    it('refuses the filesystem root', () => {
+      expect(forbiddenReasonFor('/', 'posix')).toBeTruthy()
+    })
+
+    it('refuses the system roots and everything under them', () => {
+      for (const path of ['/etc', '/proc', '/sys', '/dev', '/run', '/boot', '/root']) {
+        expect(forbiddenReasonFor(path, 'posix')).toBeTruthy()
+        expect(forbiddenReasonFor(`${path}/nested/deeper`, 'posix')).toBeTruthy()
+      }
+    })
+
+    it('compares whole segments, so a sibling that starts with the same letters is allowed', () => {
+      expect(forbiddenReasonFor('/etcetera', 'posix')).toBeNull()
+      expect(forbiddenReasonFor('/rootfs/media', 'posix')).toBeNull()
+    })
+
+    it('allows an ordinary directory', () => {
+      expect(forbiddenReasonFor('/srv/media', 'posix')).toBeNull()
+    })
+  })
+
+  describe('win32', () => {
+    it('refuses a drive root, however it is written', () => {
+      expect(forbiddenReasonFor('C:\\', 'win32')).toBeTruthy()
+      expect(forbiddenReasonFor('d:\\', 'win32')).toBeTruthy()
+    })
+
+    it('refuses the system folders and everything under them, in any letter case', () => {
+      for (const name of ['Windows', 'Program Files', 'Program Files (x86)', 'ProgramData']) {
+        expect(forbiddenReasonFor(`C:\\${name}`, 'win32')).toBeTruthy()
+        expect(forbiddenReasonFor(`C:\\${name.toUpperCase()}\\nested`, 'win32')).toBeTruthy()
+        expect(forbiddenReasonFor(`D:\\${name.toLowerCase()}\\a\\b`, 'win32')).toBeTruthy()
+      }
+    })
+
+    it('refuses a leftover 8.3 short name, which is how `C:\\PROGRA~1` spells Program Files', () => {
+      expect(forbiddenReasonFor('C:\\PROGRA~1', 'win32')).toBeTruthy()
+      expect(forbiddenReasonFor('C:\\PROGRA~2\\sub', 'win32')).toBeTruthy()
+      expect(forbiddenReasonFor('C:\\WINDOW~1', 'win32')).toBeTruthy()
+    })
+
+    it('refuses the system folders reached through a UNC administrative share', () => {
+      expect(forbiddenReasonFor('\\\\host\\C$\\Windows\\System32', 'win32')).toBeTruthy()
+    })
+
+    it('allows ordinary folders, including near misses', () => {
+      for (const path of ['D:\\media', 'C:\\Users\\me\\Music', 'C:\\Windows2', 'C:\\Program Files Backup', 'E:\\data\\windows-media']) {
+        expect(forbiddenReasonFor(path, 'win32')).toBeNull()
+      }
+    })
+
+    it('does not apply the POSIX literals, which is what made the old check a no-op here', () => {
+      expect(forbiddenReasonFor('C:\\etc', 'win32')).toBeNull()
+    })
+  })
+})
+
+describe('forbiddenReason (this platform, through the real filesystem)', () => {
+  it('refuses the filesystem root', () => {
     expect(forbiddenReason(DRIVE)).toBeTruthy()
     expect(forbiddenReason('/')).toBeTruthy()
   })
 
-  it.skipIf(ON_WINDOWS)('refuses the POSIX system roots and everything under them', () => {
-    for (const path of ['/etc', '/proc', '/sys', '/dev', '/run', '/boot', '/root']) {
-      expect(forbiddenReason(path)).toBeTruthy()
-      expect(forbiddenReason(join(path, 'nested'))).toBeTruthy()
-    }
-  })
-
-  it.skipIf(!ON_WINDOWS)('refuses the Windows system folders and everything under them, in any case', () => {
-    for (const name of ['Windows', 'Program Files', 'Program Files (x86)', 'ProgramData']) {
-      expect(forbiddenReason(join(DRIVE, name))).toBeTruthy()
-      expect(forbiddenReason(join(DRIVE, name.toUpperCase(), 'nested'))).toBeTruthy()
-    }
-  })
-
-  it('does not refuse a sibling that merely starts with the same letters', () => {
-    expect(forbiddenReason(join(DRIVE, 'etcetera'))).toBeNull()
-    expect(forbiddenReason(join(DRIVE, 'Windows2'))).toBeNull()
+  it.skipIf(!ON_WINDOWS)('refuses the 8.3 short name of Program Files once it is expanded', () => {
+    const short = `${DRIVE}PROGRA~1`
+    // Only meaningful where the alias exists on this machine.
+    if (!existsSync(short)) return
+    expect(forbiddenReason(short)).toBeTruthy()
   })
 
   it('allows an ordinary directory', () => {

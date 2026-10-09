@@ -6,19 +6,19 @@
  * the plugin state — and the rules that give the study method its discipline, the
  * ceiling above all, have to hold in both stores or they hold in neither.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHRASES } from '../shared/notes-format.ts'
 import { writeNotes, readNotes } from './notes.ts'
 import { EMPTY_STATE, parseState, serializeState, withNotes } from './state.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-notes-'))
+  root = makeTempDir('lingualab-notes-')
 })
 
 afterEach(() => {

@@ -18,23 +18,18 @@
  * unmatched so the page can say so.
  */
 
-/** Extensions mirrored from the host's contract; the host re-checks every file. */
-const AUDIO = ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac']
-const SUBTITLE = ['srt', 'vtt', 'lrc']
+import { AUDIO_EXTENSIONS, SUBTITLE_EXTENSIONS } from '../../../shared/protocol.ts'
+import { sameStem, stemOf } from '../../../shared/stem.ts'
 
-/** What a dropped file is, by name alone. */
+export { stemOf }
+
+/** What a dropped file is, by name alone. The host re-checks every file it receives. */
 export function kindOf(name: string): 'audio' | 'subtitle' | 'other' {
-  const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
   if (name.lastIndexOf('.') < 0) return 'other'
-  if (AUDIO.includes(extension)) return 'audio'
-  if (SUBTITLE.includes(extension)) return 'subtitle'
+  const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
+  if ((AUDIO_EXTENSIONS as readonly string[]).includes(extension)) return 'audio'
+  if ((SUBTITLE_EXTENSIONS as readonly string[]).includes(extension)) return 'subtitle'
   return 'other'
-}
-
-/** The file name without its last extension. */
-export function stemOf(name: string): string {
-  const dot = name.lastIndexOf('.')
-  return dot <= 0 ? name : name.slice(0, dot)
 }
 
 /** One episode's worth of dropped files. */
@@ -52,14 +47,6 @@ export interface DropPlan<T> {
   readonly unmatched: readonly T[]
   /** Files that are neither audio nor subtitles. */
   readonly ignored: readonly T[]
-}
-
-/** Whether a subtitle's name belongs to an audio stem, with the required separator. */
-function owns(subtitleName: string, audioStem: string): boolean {
-  const base = stemOf(subtitleName)
-  if (base === audioStem) return true
-  const next = base.slice(audioStem.length, audioStem.length + 1)
-  return base.startsWith(audioStem) && (next === '.' || next === '_' || next === '-')
 }
 
 /**
@@ -81,7 +68,7 @@ export function planDrop<T>(files: readonly T[], nameOf: (file: T) => string): D
     let bestLength = -1
     for (const candidate of audio) {
       const stem = stemOf(nameOf(candidate))
-      if (owns(name, stem) && stem.length > bestLength) {
+      if (sameStem(name, stem) && stem.length > bestLength) {
         best = candidate
         bestLength = stem.length
       }

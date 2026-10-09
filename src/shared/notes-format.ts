@@ -167,6 +167,39 @@ export function phraseCapacity(phrases: readonly NotePhrase[]): {
 }
 
 /**
+ * Whether two phrases are the same kept sentence.
+ *
+ * `notes.md` stores whole seconds (`00:12`), so a sentence kept at 12.48 s reads back as
+ * 12. Comparing the raw numbers therefore stopped matching the moment a page reloaded:
+ * the star showed empty, the wrong row showed a filled one, and pressing it again added a
+ * second copy that nothing could remove. The comparison is on the whole second the file
+ * can actually hold, and on the text as well, because two short sentences can start in
+ * the same second and must not be mistaken for each other.
+ * @param left - one phrase, or a timestamp and the sentence's text.
+ * @param right - the other.
+ * @returns true when they name the same sentence.
+ */
+export function sameKeptSentence(
+  left: { readonly at: number; readonly text: string },
+  right: { readonly at: number; readonly text: string },
+): boolean {
+  return keptSentenceKey(left) === keptSentenceKey(right)
+}
+
+/**
+ * The key two phrases share when they are the same kept sentence.
+ *
+ * Exposed so a list of hundreds of cues can be checked against hundreds of phrases with a
+ * set lookup instead of a nested loop, and so the loop and sameKeptSentence cannot
+ * disagree: one is defined by the other.
+ * @param sentence - a phrase, or a cue's start and its English text.
+ * @returns the key.
+ */
+export function keptSentenceKey(sentence: { readonly at: number; readonly text: string }): string {
+  return `${String(Math.floor(sentence.at))}\u0000${sentence.text.trim()}`
+}
+
+/**
  * Whether a phrase is one the reader has marked as still worth working on.
  *
  * With the ceiling gone, "which ones am I still learning" is the filter that keeps a

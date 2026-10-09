@@ -348,6 +348,12 @@ export interface ImportPayload {
   readonly bytes: number
   /** The library root the file landed under, so the page can say where things went. */
   readonly root: string | null
+  /**
+   * Whether the same request would be accepted a moment later. True only for "the host is
+   * already receiving as many files as it will at once"; every other refusal is about the
+   * file or the folder and will repeat.
+   */
+  readonly retryable?: boolean
 }
 
 /** `POST /lingualab/config` — set the library root from the picker instead of a typed path. */

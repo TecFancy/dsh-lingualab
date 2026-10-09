@@ -11,6 +11,18 @@
 "/changelog/unreleased":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
+"/changelog/unreleased/added":
+  en: a26e5231db4b69a4
+  zh: 6bf4a13440d2fd22
+"/changelog/unreleased/changed":
+  en: ccb465bcebcd58d4
+  zh: 548586f11cde65cf
+"/changelog/unreleased/removed":
+  en: 7ad82556dc20fc96
+  zh: e1eb04601a5421b6
+"/changelog/unreleased/fixed":
+  en: 7ea1d0c10361ff8c
+  zh: 315babb1c52d0b5e
 "/changelog/0-2-0-2026-10-09":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14

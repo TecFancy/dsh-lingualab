@@ -109,6 +109,8 @@ not an artifact on a registry.
 
 ## Host routes
 
+Every route, reads included, is answered only for a request the host admits (a loopback `Host`, a matching `Origin`, the signed session cookie): 401 or 403 otherwise, and 403 when the deployment has no connection service.
+
 | Route | Kind | What it answers |
 |---|---|---|
 | `GET /lingualab/library` | exact | Every episode folder and loose audio file, the open episode, and how much has been noted |
@@ -119,7 +121,7 @@ not an artifact on a registry.
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder, or a single audio file with the subtitles beside it |
-| `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header |
+| `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
 
 ## Repository layout
 

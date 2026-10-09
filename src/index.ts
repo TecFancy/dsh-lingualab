@@ -8,7 +8,7 @@
  * notes.
  *
  * Everything is read from disk on demand rather than cached at load time. The
- * material is copied into the workspace by hand between sessions, so a library
+ * material arrives by hand between sessions or through the import route, so a library
  * snapshot taken at boot would be stale exactly when it matters most: right after a
  * new episode lands.
  *
@@ -34,6 +34,7 @@ import type {
 import { refusedBrowse, browsePlace } from './host/browse.ts'
 import { configPayload, describeConfig, validateRoot } from './host/config.ts'
 import { scanLibrary } from './host/library.ts'
+import { guarded } from './host/guard.ts'
 import { importFile } from './host/import.ts'
 import { readJsonBody, sendJson, serveFile, serveMedia } from './host/media.ts'
 import { readNotes, writeNotes } from './host/notes.ts'
@@ -369,11 +370,14 @@ function openRoute(
 /**
  * `POST /lingualab/import` — one dropped file into the library.
  *
- * The one route that writes into the media folder, so it is guarded twice over. The
- * request must carry a custom header: a plain cross-site form or `<img>` cannot set
- * one, and a script that does is subject to the browser's own cross-origin rules. And
- * the host decides everything that matters (the folder, the cleaned name, whether the
- * file may land) rather than believing the page.
+ * The one route that writes into the media folder. Who may call it is decided by
+ * `guarded` in `register`, which asks the host's own request trust: a loopback `Host`, a
+ * matching `Origin` and the signed session cookie. That, and not the header below, is the
+ * access control. The custom header is a second, narrower check that only says "this came
+ * from the panel's code", and it would not stop a page that rebinds its hostname to
+ * 127.0.0.1 or another process on the machine. The host also decides everything that
+ * matters about the file (the folder, the cleaned name, whether it may land) rather than
+ * believing the page.
  */
 function importRoute(ctx: HostContext, configured: () => string): WebRoute {
   return {
@@ -404,7 +408,8 @@ function importRoute(ctx: HostContext, configured: () => string): WebRoute {
         },
         req,
       )
-      sendJson(res, payload.ok ? 200 : 400, payload)
+      // 429 for "try again in a moment", so a client can tell it from a refusal that will repeat.
+      sendJson(res, payload.ok ? 200 : payload.retryable === true ? 429 : 400, payload)
     },
   }
 }
@@ -549,6 +554,7 @@ export function apply(ctx: HostContext, config: Config): void {
     }
   }
 
+  // Every route goes through the host's request trust, reads included; see `guard.ts`.
   const routes = [
     configRoute(ctx, configured),
     placesRoute(ctx, configured, readState),
@@ -559,7 +565,7 @@ export function apply(ctx: HostContext, config: Config): void {
     mediaRoute(ctx, configured),
     fileMediaRoute(readState),
     notesRoute(ctx, configured, readState, writeState),
-  ]
+  ].map((route) => guarded(ctx, route))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)
   }

@@ -7,16 +7,16 @@
  * read anything, so `subtitleHint` is tested against names whose files do not exist
  * at all: any content read would throw and show up as a different state.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { classifySubtitles, pairSubtitles, pickAudioFile, sameStem, stemOf, subtitleHint } from './pairing.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-pairing-'))
+  root = makeTempDir('lingualab-pairing-')
 })
 
 afterEach(() => {

@@ -23,6 +23,7 @@ import {
   type SubtitleHint,
 } from '../shared/protocol.ts'
 import { compareIds } from './library.ts'
+import { sameStem, stemOf } from '../shared/stem.ts'
 
 /**
  * Language marks this module recognises, and only these.
@@ -41,28 +42,7 @@ const SUBTITLE_SET = new Set<string>(SUBTITLE_EXTENSIONS)
 /** How much of a file is read when the content has to break a tie. */
 const SNIFF_BYTES = 4096
 
-/** The file name without its extension: `lesson.en.srt` becomes `lesson.en`. */
-export function stemOf(fileName: string): string {
-  const extension = extname(fileName)
-  return extension.length === 0 ? fileName : fileName.slice(0, -extension.length)
-}
-
-/**
- * Whether a file name belongs to the same stem as an audio file.
- *
- * `lesson.mp3` owns `lesson.srt`, `lesson.en.srt` and `lesson_zh.srt`; it does not
- * own `lesson2.srt`. The separator is required so a numbered sequel is a different
- * lesson rather than a second subtitle track.
- * @param fileName - the candidate file name.
- * @param stem - the audio file's stem.
- * @returns true when the two belong together.
- */
-export function sameStem(fileName: string, stem: string): boolean {
-  const base = stemOf(fileName)
-  if (base === stem) return true
-  const next = base.slice(stem.length, stem.length + 1)
-  return base.startsWith(stem) && (next === '.' || next === '_' || next === '-')
-}
+export { sameStem, stemOf }
 
 /** Whether the first bytes of a file carry CJK text, used only to break ties. */
 export function fileHasCjk(path: string): boolean {

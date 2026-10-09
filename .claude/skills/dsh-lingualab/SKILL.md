@@ -42,22 +42,30 @@ node scripts/verify.mjs --list   # 看检查表
 3. **浏览只认 place id，不认路径**：页面传 `ws_<哈希>` 或 `lib`，由 host 自己解析成绝对路径
    （`src/host/places.ts`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
    每一步都 `realpath` 之后再确认仍在根内。**不要**为了让某条路由方便而接受浏览器传来的路径。
+3a. **每一条路由都先过宿主的请求信任**（`src/host/guard.ts`，`index.ts` 里 `.map(guarded)`）：它调
+   `ctx.get('connection').admit(req)`，检查回环的 `Host`、匹配的 `Origin` 与签名的会话 cookie，不满足回
+   `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
+   与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
+   都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
 4. **写素材目录只有两处，都很窄**：一是文件夹剧集里的 `notes.md`；二是 `src/host/import.ts`，
    收用户拖进来的音频与字幕。库扫描、浏览、打开仍然全部只读。导入的底线不许松：**不覆盖已有文件**
-   （名字在就报 `exists`）、只收扫描读的扩展名、名字在 host 清洗、建好文件夹后再确认仍在根内、
-   先写隐藏临时文件再链接到位、要带 `x-lingualab-import` 头、单个文件 2 GB。
-   文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
+   （名字在就报 `exists`，放到位用 `link`，不支持硬链接的卷退回 `COPYFILE_EXCL`，**不用 `rename`**，它在
+   所有平台上都会替换目标）、只收扫描读的扩展名、名字在 host 清洗、媒体目录不能是系统文件夹
+   （`forbiddenReason`）、建好文件夹后再确认仍在根内、先写随机命名的隐藏 `.part` 再放到位、崩溃留下的旧
+   `.part` 下次写这个文件夹时清掉、同时最多两个上传（超了回 `429`）、单个文件 2 GB（流式限额，不信
+   `content-length`）。文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
    见 `.agents/notes/implemented/feature/2026-10-09-home-first-and-drop-to-import.md`。
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
    「短的工作集」靠笔记抽屉的「还在练 / 已记住」视图，不靠上限。**不要**再加回弹层询问用户
    替换哪一条。旧的取舍记在 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`，
-   那是当时的决定，不要改它。
+   那是当时的决定，不要改它。**收藏的句子按「整秒 + 文本」匹配**（`keptSentenceKey`），因为 `notes.md`
+   只存整秒；别改回比较原始浮点时间。
 6. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
    跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
    `npm run lint:fsd` 会拦。
 7. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
-   浮层打开时容器把键盘让给浮层（页面里那个 `layer !== 'none'` 的提前返回）。
-8. **跨半边契约走两座桥**：`src/client/shared/protocol.ts` 与 `notes-format.ts`。
+   浮层打开时，除笔记抽屉外，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；带 Ctrl/Cmd/Alt 的组合键\n   一律不处理，那是浏览器和宿主的。
+8. **跨半边契约走三座桥**：`src/client/shared/protocol.ts`、`notes-format.ts` 与 `stem.ts`（文件名配对只有这一份规则）。
 9. **每篇 note 是三件套**：`.md`、`.zh.md`、`.i18n.yaml`。中文那份是真翻译，不是英文副本。
    改了一侧就跑 `npm run bilingual:check -- --write` 重记哈希。
 

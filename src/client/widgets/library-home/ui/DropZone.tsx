@@ -57,17 +57,22 @@ export function DropZone({ t, onFiles, disabled = false, children }: DropZonePro
   return (
     <div
       className={`dsh-lingualab-drop${over ? ' is-over' : ''}`}
+      // A file dragged over this page must always be claimed, even while an import is
+      // running. Left unclaimed, the browser's default is to open the file in the tab,
+      // which navigates the whole GUI away and kills the upload in progress. When busy the
+      // drop is claimed and then ignored.
       onDragEnter={(event) => {
-        if (disabled || !carriesFiles(event)) return
+        if (!carriesFiles(event)) return
         event.preventDefault()
+        if (disabled) return
         depth.current += 1
         setOver(true)
       }}
       onDragOver={(event) => {
-        if (disabled || !carriesFiles(event)) return
+        if (!carriesFiles(event)) return
         // Without this the browser refuses the drop and navigates to the file instead.
         event.preventDefault()
-        event.dataTransfer.dropEffect = 'copy'
+        event.dataTransfer.dropEffect = disabled ? 'none' : 'copy'
       }}
       onDragLeave={(event) => {
         if (disabled || !carriesFiles(event)) return
@@ -75,9 +80,10 @@ export function DropZone({ t, onFiles, disabled = false, children }: DropZonePro
         if (depth.current === 0) setOver(false)
       }}
       onDrop={(event) => {
-        if (disabled || !carriesFiles(event)) return
+        if (!carriesFiles(event)) return
         event.preventDefault()
         reset()
+        if (disabled) return
         if (event.dataTransfer.files.length > 0) onFiles(Array.from(event.dataTransfer.files))
       }}
     >

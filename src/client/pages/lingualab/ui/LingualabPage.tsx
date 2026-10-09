@@ -22,7 +22,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import {
   DEFAULT_SUBTITLE_ZH_MODE,
-  findActiveCue,
   orderCueLines,
   type Cue,
   type SubtitleZhMode,
@@ -32,7 +31,8 @@ import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { useNotes } from '../../../features/notes/index.ts'
-import { readAllProgress, writeProgress, type Progress } from '../../../features/resume/index.ts'
+import { readAllProgress, readProgress, writeProgress, type Progress } from '../../../features/resume/index.ts'
+import { keptSentenceKey } from '../../../shared/notes-format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
 import { formatClock } from '../../../shared/lib/format.ts'
@@ -80,7 +80,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const library = useLibrary()
   const folder = useLibraryConfig()
   const notes = useNotes(library.episode?.id ?? null)
-  const importer = useImport(library.reload)
+  // The episode folders the library lists, so a subtitle dropped on its own can join the
+  // episode it names instead of being reported as having no audio.
+  const folderNames = useMemo(() => (library.payload?.episodes ?? []).map((entry) => entry.id), [library.payload])
+  const importer = useImport(library.reload, folderNames)
   const [view, setView] = useState<View>('home')
   const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
   const [layer, setLayer] = useState<Layer>('none')
@@ -101,6 +104,42 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     reset(cues)
   }, [cues, reset])
 
+  /**
+   * Where to start the episode that was just opened, or `null` when it starts at the top.
+   *
+   * A ref, not state: it is a note to the effect below, set in an event handler and
+   * consumed once, and nothing on screen depends on it.
+   */
+  const resumeAt = useRef<number | null>(null)
+
+  // Apply the bookmark. This has to come after the reset effect above and after the audio
+  // element knows its length: the reset zeroes the position, and a seek issued before the
+  // new source has loaded is discarded by the audio binding on purpose, so that a request
+  // from the previous episode cannot move the next one. Every open hands back a fresh media,
+  // so opening an episode that is already loaded re-runs this too.
+  const media = library.media
+  const subtitled = media !== null && (media.subtitleEnUrl !== null || media.subtitleZhUrl !== null)
+  const cuesReady = cues.length > 0 || (media !== null && !subtitled)
+  useEffect(() => {
+    const target = resumeAt.current
+    const audio = audioRef.current
+    if (target === null || audio === null || !cuesReady) return
+    const apply = (): void => {
+      if (resumeAt.current === null) return
+      const at = resumeAt.current
+      resumeAt.current = null
+      // A bookmark past the end (the file was replaced by a shorter one) starts over.
+      if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
+      useMediaPlayer.getState().seek(at)
+    }
+    if (audio.readyState >= 1) {
+      apply()
+      return
+    }
+    audio.addEventListener('loadedmetadata', apply, { once: true })
+    return () => audio.removeEventListener('loadedmetadata', apply)
+  }, [audioRef, cues, cuesReady, media])
+
   // Focus the page once so the shortcuts below are live without a click, and without
   // stealing the conversation's focus afterwards.
   useEffect(() => {
@@ -120,6 +159,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    */
   const bookmark = useCallback(() => {
     if (episodeId === null) return
+    // Not while a resume is still waiting to be applied: the player sits at the start
+    // until it is, and writing that would overwrite the very bookmark it is about to use.
+    if (resumeAt.current !== null) return
     const state = useMediaPlayer.getState()
     writeProgress(episodeId, state.currentTime, state.duration)
   }, [episodeId])
@@ -151,23 +193,36 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     return { at: cue.start, text: english, zh: chinese, note: '', tags: [], done: false }
   }, [cues, activeIndex])
 
-  /** Cue indexes that already carry a note, so the list can mark them. */
+  /**
+   * Cue indexes whose sentence is kept, so the list can mark them.
+   *
+   * Decided by the same key the toggle uses (whole second plus text), not by asking
+   * which cue is playing at a phrase's timestamp: `notes.md` stores whole seconds, and
+   * the cue playing at `00:12` can be the one before the one that was kept.
+   */
   const notedIndexes = useMemo(() => {
+    const kept = new Set(notes.phrases.map((phrase) => keptSentenceKey(phrase)))
     const marked = new Set<number>()
-    for (const phrase of notes.phrases) {
-      const index = findActiveCue(cues, phrase.at)
-      if (index >= 0) marked.add(index)
-    }
+    cues.forEach((cue, index) => {
+      if (kept.has(keptSentenceKey({ at: cue.start, text: splitCue(cue).english }))) marked.add(index)
+    })
     return marked
   }, [notes.phrases, cues])
 
-  /** Keep or un-keep one sentence; the same star on the row and on the transport. */
+  /**
+   * Keep or un-keep one sentence; the same star on the row and on the transport.
+   *
+   * A sentence the reader has already worked on (a note, a tag, a tick) is not removed by
+   * a star, because a star is a reflex and the work behind it is not. The drawer opens
+   * on it instead, where removing it takes a confirmation.
+   */
   const keep = useCallback(
     (index?: number): void => {
       const target = cues[index ?? activeIndex]
       if (target === undefined) return
       const { english, chinese } = splitCue(target)
-      notes.toggle({ at: target.start, text: english, zh: chinese, note: '', tags: [], done: false })
+      const outcome = notes.toggle({ at: target.start, text: english, zh: chinese, note: '', tags: [], done: false })
+      if (outcome === 'protected') setLayer('notes')
     },
     [cues, activeIndex, notes],
   )
@@ -177,6 +232,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     (id: string): void => {
       void (async () => {
         if (!(await library.openEpisode(id))) return
+        // Set before the view switches, so the effect that applies it sees it.
+        resumeAt.current = readProgress(id)?.at ?? null
         setSelection(null)
         setLayer('none')
         setView('practice')
@@ -201,8 +258,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (isTypingTarget(event.target)) return
-      // The home has no transport, so no shortcut there would mean anything.
-      if (view !== 'practice') return
+      // A chord belongs to the browser or the host: Ctrl+S is "save", Ctrl+C is "copy",
+      // Ctrl+A is "select all". Reading them as the plain letters meant the reflex of
+      // saving a page took the star off a sentence, with its note, and Ctrl+C stopped
+      // copying. Shift stays allowed because `[` and `]` can need it on some layouts.
+      if (event.ctrlKey || event.metaKey || event.altKey) return
       const store = useMediaPlayer.getState
       // Handled keys stop here. The conversation lives in the same document, and a
       // space bar that scrolls or submits behind the panel is a stolen keystroke.
@@ -210,13 +270,20 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         event.preventDefault()
         event.stopPropagation()
       }
+      // Escape closes a layer in either view; everything else is practice-only, since
+      // the home has no transport for a shortcut to act on.
       if (event.key === 'Escape') {
-        handled()
-        if (layer !== 'none') setLayer('none')
-        else if (stepsOpen) setStepsOpen(false)
-        else store().clearAB()
+        if (layer !== 'none') {
+          handled()
+          setLayer('none')
+        } else if (view === 'practice') {
+          handled()
+          if (stepsOpen) setStepsOpen(false)
+          else store().clearAB()
+        }
         return
       }
+      if (view !== 'practice') return
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
       if (layer !== 'none' && layer !== 'notes') return
@@ -305,7 +372,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     selection === null ? activeIndex : Math.min(Math.max(0, selection), Math.max(0, cues.length - 1))
   const stageCue = cues[activeIndex]
   const stageLines = stageCue === undefined ? null : splitCue(stageCue)
-  const keptNow = stageCue !== undefined && notes.has(stageCue.start)
+  const keptNow =
+    stageCue !== undefined && stageLines !== null && notes.has({ at: stageCue.start, text: stageLines.english })
 
   return (
     <div
@@ -321,6 +389,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         // Clicking the page's own chrome puts the keyboard back on the container; a
         // click into a field leaves the field alone.
         if (!isTypingTarget(event.target)) containerRef.current?.focus({ preventScroll: true })
+      }}
+      // The practice view and the top bars have no drop target of their own, and a file
+      // let go there would otherwise be opened by the browser in place of the page. The
+      // home's drop zone claims the event first; this catches everything else.
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault()
+      }}
+      onDrop={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault()
       }}
     >
       <style>{STYLES}</style>
@@ -343,7 +420,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             loading={library.loading}
             importer={importer}
             progress={progress}
-            currentId={library.payload?.currentEpisode?.id ?? episodeId}
+            currentId={episodeId}
+            current={episode}
             opening={library.opening}
             openError={library.openError}
             onOpen={openEpisode}

@@ -39,8 +39,18 @@ only the extensions the scan already reads. Names are cleaned on the host, and t
 folder is checked to lie inside the root after it exists, so a symlinked folder cannot lead
 the write elsewhere. The body goes to a hidden temporary file in the same folder and is
 linked into place only when complete, so an interrupted upload leaves nothing that looks like
-audio. A custom request header is required, which a cross-site form cannot set. A single
-file is capped at 2 GB, checked by the page and again by the host.
+audio. A single file is capped at 2 GB, checked by the page and again by the host, and the
+limit is applied to the stream as well as to the declared length, so a body that lies about its size
+is still stopped. At most two uploads run at once; a third is answered 429 and the page waits.
+
+**Who may call it is decided by the host's own request trust, not by the file checks.** Every route of
+the plugin, reads included, goes through connection.admit (a loopback Host, a matching Origin, the
+signed session cookie) and answers 401 or 403 otherwise. The host applies that fence to /api and
+the RPC channels and to nothing a plugin registers on the web server, so without this a page that
+rebinds its hostname to 127.0.0.1 could call the import and config routes same-origin with no preflight,
+and so could any other process on the machine. The custom request header on the import route stays as a
+second check that the request came from the panel's own code; it is not the access control. With no
+connection service the plugin refuses everything rather than allowing it.
 
 **Practice keeps six controls on the row.** Previous, play, next, speed, loop this sentence
 and the Chinese display stay; the A and B marks and the repeat count move into a 「更多」
@@ -55,8 +65,9 @@ then leaves the first view without being deleted.
 refuses a list over 500 phrases, only so a runaway client cannot write an unbounded file.
 
 **The page remembers where you stopped**, per episode, in this browser's `localStorage`,
-written every five seconds while an episode plays and on the way out. The home uses it for
-the continue card.
+written every five seconds while the practice view is open and on the way out. The home uses it for
+the continue card, and opening an episode seeks to it once the audio is ready. Nothing is written
+while that seek is still pending, so a fresh episode cannot overwrite the bookmark it is about to use.
 
 ## Alternatives considered
 

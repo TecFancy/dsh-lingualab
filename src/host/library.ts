@@ -3,8 +3,8 @@
  *
  * One episode is one folder under the library root, holding an audio file, up to
  * two subtitle files and an optional `notes.md`. Nothing else is required and
- * nothing is generated here: the scan is read-only, because the material is
- * copied in by hand, one episode at a time, and a plugin that rewrites a user's
+ * nothing is generated here: the scan is read-only. Material arrives by hand or through
+ * the import route (src/host/import.ts, which never replaces a file), and a plugin that rewrites a user's
  * media folder is a plugin you stop trusting.
  *
  * An optional `manifest.json` at the root may set the play order and rename

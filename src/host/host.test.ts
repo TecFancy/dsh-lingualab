@@ -1,7 +1,6 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHRASES } from '../shared/notes-format.ts'
@@ -17,6 +16,7 @@ import {
   type FileEpisodeRecord,
   type OpenState,
 } from './state.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 
@@ -31,7 +31,7 @@ function episode(id: string, options: { audio?: string; en?: string; zh?: string
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-test-'))
+  root = makeTempDir('lingualab-test-')
 })
 
 afterEach(() => {
@@ -144,7 +144,7 @@ describe('scanLibrary loose files', () => {
   })
 
   it('lists a symlinked audio file, and drops a link that points nowhere', () => {
-    const elsewhere = mkdtempSync(join(tmpdir(), 'lingualab-elsewhere-'))
+    const elsewhere = makeTempDir('lingualab-elsewhere-')
     try {
       writeFileSync(join(elsewhere, 'linked.mp3'), 'x')
       symlinkSync(join(elsewhere, 'linked.mp3'), join(root, 'linked.mp3'))
@@ -228,7 +228,7 @@ describe('scanLibrary remembers what was open', () => {
   })
 
   it('resolves a remembered file that lives outside the library, and reports a deleted one', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    const outside = makeTempDir('lingualab-outside-')
     try {
       writeFileSync(join(outside, 'podcast.mp3'), 'x')
       const record = recordFor(join(outside, 'podcast.mp3'))
@@ -246,7 +246,7 @@ describe('scanLibrary remembers what was open', () => {
   })
 
   it('keeps a remembered file episode open even when the root itself is unusable', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    const outside = makeTempDir('lingualab-outside-')
     try {
       writeFileSync(join(outside, 'podcast.mp3'), 'x')
       const state = withOpenedFile(EMPTY_STATE, recordFor(join(outside, 'podcast.mp3')))
@@ -346,7 +346,7 @@ describe('notes round-trip', () => {
   })
 
   it('refuses a notes path that resolves outside the library through a symlink', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+    const outside = makeTempDir('lingualab-outside-')
     writeFileSync(join(outside, 'notes.md'), '- [ ] 00:01 | escaped | | |')
     symlinkSync(outside, join(root, 'S01E99'))
     const read = readNotes(root, 'S01E99')

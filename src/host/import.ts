@@ -18,14 +18,20 @@
  *     folder exists, so a symlinked folder cannot lead the write out of the library.
  *   · **A write is whole or absent.** The body goes to a dot-prefixed temporary file in
  *     the same folder, which the scan ignores, and is moved into place only when every
- *     byte has arrived. An interrupted upload leaves no half-file that looks like audio.
+ *     byte has arrived. An interrupted upload leaves no half-file that looks like audio,
+ *     and a .part left by a crash is swept the next time that folder is written to.
+ *   · **Bounded.** A file is capped at 2 GB, at most {@link MAX_CONCURRENT_IMPORTS} run at once,
+ *     and a request that is already known to be refused is cut off rather than read to the end.
  */
 import {
+  constants,
+  copyFileSync,
   createWriteStream,
   existsSync,
   linkSync,
   mkdirSync,
-  renameSync,
+  readdirSync,
+  rmdirSync,
   statSync,
   unlinkSync,
 } from 'node:fs'
@@ -40,7 +46,8 @@ import {
   SUBTITLE_EXTENSIONS,
   type ImportPayload,
 } from '../shared/protocol.ts'
-import { isInside } from './places.ts'
+import { stemOf } from '../shared/stem.ts'
+import { forbiddenReason, isInside } from './places.ts'
 
 /** The longest folder or file name accepted, which is well under every filesystem's own limit. */
 const MAX_NAME_LENGTH = 120
@@ -79,16 +86,26 @@ export function importKind(fileName: string): 'audio' | 'subtitle' | null {
   return null
 }
 
-/** The file name without its last extension, used as the folder when none is given. */
-function stemOf(fileName: string): string {
-  const extension = extname(fileName)
-  return extension.length === 0 ? fileName : fileName.slice(0, -extension.length)
+/** One refusal, shaped like every other answer from this route. */
+function refuse(reason: string, root: string | null = null, retryable = false): ImportPayload {
+  return { ok: false, code: 'refused', reason, episode: null, file: null, bytes: 0, root, retryable }
 }
 
-/** One refusal, shaped like every other answer from this route. */
-function refuse(reason: string, root: string | null = null): ImportPayload {
-  return { ok: false, code: 'refused', reason, episode: null, file: null, bytes: 0, root }
-}
+/**
+ * How many imports may be writing at once.
+ *
+ * Every request holds a file handle and up to 2 GB of disk. Two covers the page's own
+ * use (it sends one file at a time, and a second window is plausible) and stops a loop of
+ * requests from filling a disk before anyone notices. A refused request is answered
+ * immediately and the page waits and retries it.
+ */
+export const MAX_CONCURRENT_IMPORTS = 2
+
+/** Uploads in flight right now, across every request this process is serving. */
+let inFlight = 0
+
+/** A leftover `.part` file older than this is from a request that is gone. */
+const STALE_PART_MS = 60 * 60 * 1000
 
 /** What an import asks of the host. */
 export interface ImportRequest {
@@ -99,29 +116,21 @@ export interface ImportRequest {
   readonly file: string
   /** The declared body length, when the client sent one. */
   readonly declaredBytes: number | null
+  /** The ceiling for one file. Injectable so the streaming limit can be tested with small bodies. */
+  readonly maxBytes?: number
 }
 
 /**
- * Throw the rest of a body away without storing it.
+ * Stop reading the request, so the client sees the answer and not a reset.
  *
- * Used when the answer is already known to be "no": answering and then leaving the
- * browser still uploading a gigabyte makes some clients report a network error instead
- * of the sentence. Reading is capped, because discarding is not a licence to be sent
- * unbounded data.
+ * For a refusal known before any byte is wanted. Reading the rest to throw it away would
+ * make a refusal cost as much as an upload (up to 2 GB), which is the wrong way round, so
+ * a body that has not started is not read at all. The answer is written by the caller;
+ * `req.destroy()` here would cut the connection before it could be sent.
  */
-async function drain(req: IncomingMessage): Promise<void> {
-  let seen = 0
-  try {
-    for await (const chunk of req) {
-      seen += (chunk as Buffer).byteLength
-      if (seen > MAX_IMPORT_BYTES) {
-        req.destroy()
-        return
-      }
-    }
-  } catch {
-    // The client went away; there is nobody left to tell.
-  }
+function ignoreBody(req: IncomingMessage): void {
+  req.on('error', () => undefined)
+  req.resume()
 }
 
 /** A transform that fails the pipeline the moment the body outgrows its ceiling. */
@@ -138,40 +147,87 @@ function limiter(limit: number, counted: { bytes: number }): Transform {
   })
 }
 
+/** Remove a file and say nothing if it is already gone. */
+function quietUnlink(path: string): void {
+  try {
+    unlinkSync(path)
+  } catch {
+    // Already gone, or never created.
+  }
+}
+
+/**
+ * Delete stale `.part` files in an episode folder.
+ *
+ * A process that dies mid-upload cannot clean up after itself, and the scan hides
+ * dot-files, so without this they would sit in the folder for good. Only files this
+ * module names (a leading dot and a trailing `.part`) and only old ones are touched, so a
+ * live upload, which is minutes old at the most, is never in the way.
+ */
+function sweepStale(directory: string, now = Date.now()): void {
+  let names: string[]
+  try {
+    names = readdirSync(directory)
+  } catch {
+    return
+  }
+  for (const name of names) {
+    if (!name.startsWith('.') || !name.endsWith('.part')) continue
+    const path = join(directory, name)
+    try {
+      if (now - statSync(path).mtimeMs > STALE_PART_MS) unlinkSync(path)
+    } catch {
+      // Raced with its own writer finishing; nothing to do.
+    }
+  }
+}
+
+/** Remove an episode folder this request created and left empty. */
+function removeIfEmpty(directory: string): void {
+  try {
+    if (readdirSync(directory).length === 0) rmdirSync(directory)
+  } catch {
+    // Not empty, or already gone: either way it is not ours to remove.
+  }
+}
+
 /**
  * Move a finished temporary file to its final name without ever replacing a file.
  *
- * A hard link is the one call that fails when the target exists, on every filesystem
- * that supports it; where it does not (some network and removable volumes), the
- * fallback checks and renames, which has a window nobody will hit with one reader.
+ * A hard link is the one call that fails when the target exists, on every filesystem that
+ * supports it. Where it does not (some network shares and removable volumes), the
+ * fallback is a copy with `COPYFILE_EXCL`, which is also an exclusive create: two writers
+ * racing for one name cannot both succeed. A rename would not be, because on every
+ * platform it replaces its target.
  * @returns `false` when the name was taken by the time the file was ready.
+ * @throws when the file could not be placed for a reason other than the name being taken.
  */
 function place(temp: string, final: string): boolean {
   try {
     linkSync(temp, final)
-    unlinkSync(temp)
-    return true
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
     if (code === 'EEXIST' || existsSync(final)) {
-      try {
-        unlinkSync(temp)
-      } catch {
-        // The temporary file is already gone; the answer does not depend on it.
+      quietUnlink(temp)
+      return false
+    }
+    // The link failed for a reason other than the name being taken. If that is "this
+    // volume has no hard links" the exclusive copy below is the right answer; if it is
+    // anything else the copy will fail for the same reason and say so.
+    try {
+      copyFileSync(temp, final, constants.COPYFILE_EXCL)
+    } catch (copyError) {
+      if ((copyError as NodeJS.ErrnoException).code === 'EEXIST') {
+        quietUnlink(temp)
+        return false
       }
-      return false
+      throw copyError
     }
-    // No hard links on this volume. The existence check above is the best this fallback
-    // can do, and a rename onto a name that appeared in the meantime would replace it,
-    // so refuse if one did instead of calling `renameSync` blind.
-    if (code !== 'EPERM' && code !== 'ENOTSUP' && code !== 'EXDEV' && code !== 'EOPNOTSUPP') throw error
-    if (existsSync(final)) {
-      unlinkSync(temp)
-      return false
-    }
-    renameSync(temp, final)
-    return true
   }
+  // The file is in place. Removing the temporary name is housekeeping, and failing to
+  // must not turn a saved file into a reported failure.
+  quietUnlink(temp)
+  return true
 }
 
 /**
@@ -181,52 +237,83 @@ function place(temp: string, final: string): boolean {
  * @returns the payload to send; never throws.
  */
 export async function importFile(request: ImportRequest, body: IncomingMessage): Promise<ImportPayload> {
-  const answer = async (payload: ImportPayload): Promise<ImportPayload> => {
-    await drain(body)
-    return payload
+  const limit = request.maxBytes ?? MAX_IMPORT_BYTES
+  const refusal = (reason: string, retryable = false): ImportPayload => {
+    ignoreBody(body)
+    return refuse(reason, request.root.length > 0 ? request.root : null, retryable)
   }
 
-  if (request.root.trim().length === 0) {
-    return await answer(refuse('还没有媒体目录，没法放文件'))
-  }
+  if (request.root.trim().length === 0) return refusal('还没有媒体目录，没法放文件')
+
+  // The same guard the browser's folder picker is held to. A media folder pointed at a
+  // system folder (by a typo, or by a request to the config route) must not become a
+  // place this route creates folders in.
+  if (forbiddenReason(request.root) !== null) return refusal('媒体目录不能是系统文件夹')
 
   const file = cleanName(request.file)
-  if (file === null) return await answer(refuse('文件名不能用', request.root))
-  const kind = importKind(file)
-  if (kind === null) return await answer(refuse('只收音频和字幕（srt、vtt、lrc）', request.root))
+  if (file === null) return refusal('文件名不能用')
+  if (importKind(file) === null) return refusal('只收音频和字幕（srt、vtt、lrc）')
 
   const folder = cleanName(request.episode.length > 0 ? request.episode : stemOf(file))
-  if (folder === null) return await answer(refuse('剧集名不能用', request.root))
+  if (folder === null) return refusal('剧集名不能用')
 
-  if (request.declaredBytes !== null && request.declaredBytes > MAX_IMPORT_BYTES) {
-    return await answer(refuse('文件太大，单个最多 2 GB', request.root))
+  if (request.declaredBytes !== null && request.declaredBytes > limit) return refusal('文件太大，单个最多 2 GB')
+
+  if (inFlight >= MAX_CONCURRENT_IMPORTS) return refusal('正在导入别的文件，请稍后再试', true)
+  inFlight += 1
+  try {
+    return await receive(request, body, { file, folder, limit })
+  } finally {
+    inFlight -= 1
+  }
+}
+
+/** The validated parts of a request, so the receiving half reads no raw input. */
+interface Checked {
+  readonly file: string
+  readonly folder: string
+  readonly limit: number
+}
+
+/** Create the folder, stream the body into a temporary file, and move it into place. */
+async function receive(request: ImportRequest, body: IncomingMessage, checked: Checked): Promise<ImportPayload> {
+  const { file, folder, limit } = checked
+  const fail = (reason: string): ImportPayload => {
+    ignoreBody(body)
+    return refuse(reason, request.root)
   }
 
   try {
     mkdirSync(request.root, { recursive: true })
   } catch (error) {
-    return await answer(refuse(`媒体目录建不出来：${String(error)}`, request.root))
+    return fail(`媒体目录建不出来：${String(error)}`)
   }
 
   const directory = join(request.root, folder)
+  let created = false
   try {
-    if (existsSync(directory) && !statSync(directory).isDirectory()) {
-      return await answer(refuse('已经有一个同名的文件，换个剧集名', request.root))
+    if (existsSync(directory)) {
+      if (!statSync(directory).isDirectory()) return fail('已经有一个同名的文件，换个剧集名')
+    } else {
+      mkdirSync(directory)
+      created = true
     }
-    mkdirSync(directory, { recursive: true })
   } catch (error) {
-    return await answer(refuse(`剧集文件夹建不出来：${String(error)}`, request.root))
+    return fail(`剧集文件夹建不出来：${String(error)}`)
   }
   // After the folder exists: a symlink named like an episode would otherwise take the
   // write wherever it points.
   if (!isInside(request.root, directory)) {
-    return await answer(refuse('这个剧集文件夹指到媒体目录外面了', request.root))
+    if (created) removeIfEmpty(directory)
+    return fail('这个剧集文件夹指到媒体目录外面了')
   }
+
+  sweepStale(directory)
 
   const final = join(directory, file)
   const base = { episode: folder, file, root: request.root }
   if (existsSync(final)) {
-    await drain(body)
+    ignoreBody(body)
     return { ok: true, code: 'exists', reason: null, bytes: 0, ...base }
   }
 
@@ -235,34 +322,28 @@ export async function importFile(request: ImportRequest, body: IncomingMessage):
   // file mid-rename and threw. `wx` below still refuses to reuse a name that exists.
   const temp = join(directory, `.${file}.${randomBytes(6).toString('hex')}.part`)
   const counted = { bytes: 0 }
-  const discard = (): void => {
-    try {
-      unlinkSync(temp)
-    } catch {
-      // Already gone, or never created: nothing half-written is left either way.
-    }
+  const abandon = (reason: string): ImportPayload => {
+    quietUnlink(temp)
+    // A folder this request made and that holds nothing is an episode with no audio,
+    // which the home hides and "open" cannot open. Leave nothing behind.
+    if (created) removeIfEmpty(directory)
+    return refuse(reason, request.root)
   }
 
   try {
-    await pipeline(body, limiter(MAX_IMPORT_BYTES, counted), createWriteStream(temp, { flags: 'wx' }))
+    await pipeline(body, limiter(limit, counted), createWriteStream(temp, { flags: 'wx' }))
   } catch (error) {
-    discard()
-    return refuse(`没收完：${String(error instanceof Error ? error.message : error)}`, request.root)
+    return abandon(`没收完：${String(error instanceof Error ? error.message : error)}`)
   }
-
-  if (counted.bytes === 0) {
-    discard()
-    return refuse('收到的是空文件', request.root)
-  }
+  if (counted.bytes === 0) return abandon('收到的是空文件')
 
   // The contract of this module is that it never throws, so the last step is guarded too:
-  // a rename that fails for a reason nobody predicted is a refusal with the reason, not a
-  // rejected promise that the route would turn into an empty 400.
+  // a placement that fails for a reason nobody predicted is a refusal with the reason, not
+  // a rejected promise that the route would turn into an empty 400.
   try {
     if (!place(temp, final)) return { ok: true, code: 'exists', reason: null, bytes: 0, ...base }
   } catch (error) {
-    discard()
-    return refuse(`没能放到位：${String(error instanceof Error ? error.message : error)}`, request.root)
+    return abandon(`没能放到位：${String(error instanceof Error ? error.message : error)}`)
   }
   return { ok: true, code: 'saved', reason: null, bytes: counted.bytes, ...base }
 }

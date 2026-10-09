@@ -15,15 +15,12 @@
  * switch and not a button with a side effect.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MAX_PHRASES, phraseCapacity } from '../../../shared/notes-format.ts'
+import { MAX_PHRASES, phraseCapacity, sameKeptSentence } from '../../../shared/notes-format.ts'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 import { fetchNotes, saveNotes } from '../../../shared/lib/api.ts'
 
 /** How long the panel waits after the last change before writing. */
 const SAVE_DEBOUNCE_MS = 600
-
-/** Two notes within this many seconds of each other are the same sentence. */
-const SAME_SENTENCE_SECONDS = 0.05
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -37,11 +34,14 @@ export interface NotesState {
   readonly add: (phrase: NotePhrase) => boolean
   /**
    * Keep this sentence, or take it back if it is already kept.
-   * @returns whether the sentence is kept afterwards.
+   *
+   * A sentence the reader has put work into (a note, a tag, a tick) is never removed by a
+   * star: that is 'protected', and the caller opens the drawer so removing it is a
+   * deliberate act with a confirmation, not a reflex keystroke.
    */
-  readonly toggle: (phrase: NotePhrase) => boolean
-  /** Whether a sentence that starts at `at` is already kept. */
-  readonly has: (at: number) => boolean
+  readonly toggle: (phrase: NotePhrase) => 'added' | 'removed' | 'protected' | 'full'
+  /** Whether this sentence is already kept. Matches by whole second and text, as the file stores it. */
+  readonly has: (sentence: { readonly at: number; readonly text: string }) => boolean
   readonly update: (index: number, patch: Partial<NotePhrase>) => void
   readonly remove: (index: number) => void
 }
@@ -64,9 +64,9 @@ interface PendingWrite {
   readonly timer: ReturnType<typeof setTimeout>
 }
 
-/** Whether two timestamps name the same sentence. */
-function sameSentence(left: number, right: number): boolean {
-  return Math.abs(left - right) < SAME_SENTENCE_SECONDS
+/** Whether the reader has done anything to a kept sentence beyond keeping it. */
+function hasUserWork(phrase: NotePhrase): boolean {
+  return phrase.note.length > 0 || phrase.tags.length > 0 || phrase.done
 }
 
 /** Load, edit and persist one episode's phrases. */
@@ -143,7 +143,8 @@ export function useNotes(episodeId: string | null): NotesState {
   const capacity = phraseCapacity(visible)
 
   const has = useCallback(
-    (at: number): boolean => visible.some((phrase) => sameSentence(phrase.at, at)),
+    (sentence: { readonly at: number; readonly text: string }): boolean =>
+      visible.some((phrase) => sameKeptSentence(phrase, sentence)),
     [visible],
   )
 
@@ -157,12 +158,14 @@ export function useNotes(episodeId: string | null): NotesState {
   )
 
   const toggle = useCallback(
-    (phrase: NotePhrase): boolean => {
-      if (visible.some((item) => sameSentence(item.at, phrase.at))) {
-        mutate((current) => current.filter((item) => !sameSentence(item.at, phrase.at)))
-        return false
+    (phrase: NotePhrase): 'added' | 'removed' | 'protected' | 'full' => {
+      const existing = visible.find((item) => sameKeptSentence(item, phrase))
+      if (existing !== undefined) {
+        if (hasUserWork(existing)) return 'protected'
+        mutate((current) => current.filter((item) => !sameKeptSentence(item, phrase)))
+        return 'removed'
       }
-      return add(phrase)
+      return add(phrase) ? 'added' : 'full'
     },
     [add, mutate, visible],
   )

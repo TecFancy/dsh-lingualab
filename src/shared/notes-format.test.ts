@@ -5,6 +5,7 @@ import {
   parseNotes,
   parseTimestamp,
   phraseCapacity,
+  sameKeptSentence,
   serializeNotes,
   summarizeNotes,
 } from './notes-format.ts'
@@ -111,6 +112,27 @@ describe('summaries and capacity', () => {
 
   it('reports a missing file as empty rather than absent data', () => {
     expect(summarizeNotes(null)).toEqual({ exists: false, count: 0, review: 0, hard: 0 })
+  })
+
+  it('still recognises a kept sentence after the file has rounded it to whole seconds', () => {
+    // The regression this guards: kept at 12.48 s, read back from notes.md as 12.
+    const kept = phrase({ at: 12.48, text: 'Hello there' })
+    const reloaded = parseNotes(serializeNotes('# E1', [kept])).phrases[0]
+    expect(reloaded?.at).toBe(12)
+    expect(reloaded).toBeDefined()
+    expect(sameKeptSentence(kept, reloaded as NotePhrase)).toBe(true)
+  })
+
+  it('does not confuse two sentences that start in the same second', () => {
+    expect(sameKeptSentence({ at: 12.1, text: 'Yes.' }, { at: 12.7, text: 'No.' })).toBe(false)
+  })
+
+  it('does not match sentences in different seconds, however alike', () => {
+    expect(sameKeptSentence({ at: 12.9, text: 'Yes.' }, { at: 13.0, text: 'Yes.' })).toBe(false)
+  })
+
+  it('ignores whitespace around the text', () => {
+    expect(sameKeptSentence({ at: 5, text: ' Hi ' }, { at: 5.4, text: 'Hi' })).toBe(true)
   })
 
   it('stops offering room at the method ceiling', () => {
