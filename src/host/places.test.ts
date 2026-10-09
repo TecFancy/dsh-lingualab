@@ -7,7 +7,7 @@
  */
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join, parse, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   forbiddenReason,
@@ -47,17 +47,33 @@ describe('placeIdFor', () => {
   })
 })
 
+/** `/etc` is a system root on POSIX; its Windows counterpart is a folder on the system drive. */
+const ON_WINDOWS = process.platform === 'win32'
+const DRIVE = parse(resolve('/')).root
+
 describe('forbiddenReason', () => {
-  it('refuses the system roots and everything under them', () => {
+  it('refuses the filesystem root, which is a drive on Windows', () => {
+    expect(forbiddenReason(DRIVE)).toBeTruthy()
     expect(forbiddenReason('/')).toBeTruthy()
+  })
+
+  it.skipIf(ON_WINDOWS)('refuses the POSIX system roots and everything under them', () => {
     for (const path of ['/etc', '/proc', '/sys', '/dev', '/run', '/boot', '/root']) {
       expect(forbiddenReason(path)).toBeTruthy()
       expect(forbiddenReason(join(path, 'nested'))).toBeTruthy()
     }
   })
 
+  it.skipIf(!ON_WINDOWS)('refuses the Windows system folders and everything under them, in any case', () => {
+    for (const name of ['Windows', 'Program Files', 'Program Files (x86)', 'ProgramData']) {
+      expect(forbiddenReason(join(DRIVE, name))).toBeTruthy()
+      expect(forbiddenReason(join(DRIVE, name.toUpperCase(), 'nested'))).toBeTruthy()
+    }
+  })
+
   it('does not refuse a sibling that merely starts with the same letters', () => {
-    expect(forbiddenReason('/etcetera')).toBeNull()
+    expect(forbiddenReason(join(DRIVE, 'etcetera'))).toBeNull()
+    expect(forbiddenReason(join(DRIVE, 'Windows2'))).toBeNull()
   })
 
   it('allows an ordinary directory', () => {
@@ -118,7 +134,8 @@ describe('probeReadable', () => {
   })
 
   it('reports a forbidden root as such', () => {
-    expect(probeReadable('/etc').reason).toContain('不允许浏览')
+    const forbidden = ON_WINDOWS ? join(DRIVE, 'Windows') : '/etc'
+    expect(probeReadable(forbidden).reason).toContain('不允许浏览')
   })
 
   it('accepts a directory it can list', () => {
@@ -137,7 +154,7 @@ describe('listPlaces', () => {
     expect(places[0]?.label).toBe('个人')
     expect(places[0]?.suggested).toBe(true)
     expect(places[0]?.conventionRel).toBe(LIBRARY_SUBPATH)
-    expect(places[1]?.label).toBe(outside.split('/').pop())
+    expect(places[1]?.label).toBe(basename(outside))
     expect(places[1]?.suggested).toBe(false)
     expect(places[2]?.id).toBe('lib')
     expect(places[2]?.reason).toBe('这个目录不存在')

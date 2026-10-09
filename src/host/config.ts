@@ -12,7 +12,7 @@
  * second source of truth on disk.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { basename, isAbsolute, join } from 'node:path'
 import type { LibraryCandidate, LibraryConfigPayload } from '../shared/protocol.ts'
 
 /** The conventional place for material inside a workspace. */
@@ -67,7 +67,9 @@ export function candidateRoots(
     const path = join(workspace.path, LIBRARY_SUBPATH)
     if (seen.has(path)) continue
     seen.add(path)
-    candidates.push(describe(path, workspace.path.split('/').pop() ?? workspace.path))
+    // `basename` rather than splitting on `/`: a Windows path uses `\`, and splitting on
+    // the wrong separator labels the row with the whole path.
+    candidates.push(describe(path, basename(workspace.path) || workspace.path))
   }
 
   const trimmed = current.trim()

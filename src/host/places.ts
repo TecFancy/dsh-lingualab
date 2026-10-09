@@ -22,7 +22,7 @@
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs'
-import { basename, isAbsolute, join, resolve, sep } from 'node:path'
+import { basename, isAbsolute, join, parse, resolve, sep } from 'node:path'
 import type { OpenRef, PlaceEntry, PlacesPayload } from '../shared/protocol.ts'
 import { LIBRARY_SUBPATH } from './config.ts'
 
@@ -34,7 +34,17 @@ import { LIBRARY_SUBPATH } from './config.ts'
  * machine to a browser. These are the roots where nothing of the reader's media
  * lives and everything of the operating system's does.
  */
-const FORBIDDEN_ROOTS = ['/etc', '/proc', '/sys', '/dev', '/run', '/boot', '/root'] as const
+const POSIX_FORBIDDEN_ROOTS = ['/etc', '/proc', '/sys', '/dev', '/run', '/boot', '/root'] as const
+
+/**
+ * The same idea on Windows, where the operating system lives under the system drive's
+ * `Windows`, `Program Files` and `ProgramData` folders rather than under `/etc`.
+ *
+ * Without this the check was silently a no-op on Windows: `path.resolve('/etc')` there
+ * is `D:\etc`, which no list of POSIX literals would ever match. The names are compared
+ * case-insensitively because the filesystem is.
+ */
+const WINDOWS_FORBIDDEN_NAMES = ['windows', 'program files', 'program files (x86)', 'programdata'] as const
 
 /** The one place that is not a workspace: the library root currently in effect. */
 export const LIBRARY_PLACE_ID = 'lib'
@@ -93,8 +103,22 @@ export function realPathOf(path: string): string {
  */
 export function forbiddenReason(path: string): string | null {
   const real = realPathOf(path)
-  if (real === sep || real.length === 0) return '不允许浏览根目录'
-  for (const forbidden of FORBIDDEN_ROOTS) {
+  if (real.length === 0) return '不允许浏览根目录'
+  // A filesystem root is `/` on POSIX and a bare drive (`C:\`) on Windows; `parse`
+  // knows both, where comparing to `sep` only ever knew the first.
+  if (parse(real).root === real) return '不允许浏览根目录'
+
+  if (process.platform === 'win32') {
+    // Everything that matters on Windows sits directly under a drive: the first path
+    // segment after the root is what names a system folder.
+    const first = real.slice(parse(real).root.length).split(sep)[0]?.toLowerCase() ?? ''
+    if ((WINDOWS_FORBIDDEN_NAMES as readonly string[]).includes(first)) {
+      return `${first} 下面不允许浏览`
+    }
+    return null
+  }
+
+  for (const forbidden of POSIX_FORBIDDEN_ROOTS) {
     if (real === forbidden || real.startsWith(`${forbidden}${sep}`)) {
       return `${forbidden} 下面不允许浏览`
     }

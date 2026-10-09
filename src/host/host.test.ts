@@ -270,7 +270,8 @@ describe('scanLibrary remembers what was open', () => {
 
 describe('resolveMediaPath', () => {
   it('accepts an episode file with a served extension', () => {
-    expect(resolveMediaPath('/lib', '/S01E01/audio.mp3')).toBe('/lib/S01E01/audio.mp3')
+    // `join` so the expectation uses the platform's own separator, as the code does.
+    expect(resolveMediaPath('/lib', '/S01E01/audio.mp3')).toBe(join('/lib', 'S01E01', 'audio.mp3'))
   })
 
   it('refuses traversal, nesting and unknown extensions', () => {
