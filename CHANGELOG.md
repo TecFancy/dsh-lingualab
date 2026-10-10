@@ -19,6 +19,18 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- 「Browse existing files」 is redesigned. The card is larger and floats over a blurred mask. The
+  path is a row of clickable segments with an up button, and the workspace picker is styled like
+  the other controls. The list is grouped into folders, audio and other files, each with a count.
+  The footer carries the one big action, 「Use as media folder」, and says which folder it applies to.
+- The filter box takes focus when the layer opens and after every folder change. Arrow keys move
+  a highlight, Enter opens it, Backspace on an empty filter goes up one level, Esc closes.
+- Subtitle badges carry a tone: green for both tracks, amber for none, neutral for one track. The
+  size of each audio file is shown next to its subtitle files. Non-audio files are dimmed.
+- An empty folder or a filter with no match now says so and what to do next.
+
 ## [0.3.0] - 2026-10-10
 
 ### Added

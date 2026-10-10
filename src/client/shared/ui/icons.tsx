@@ -168,6 +168,14 @@ export function EditIcon(props: IconProps) {
   )
 }
 
+export function UpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 13V3.5M4 7l4-3.5L12 7" />
+    </Svg>
+  )
+}
+
 export function BackIcon(props: IconProps) {
   return (
     <Svg {...props}>
