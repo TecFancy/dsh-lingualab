@@ -100,6 +100,65 @@ const importUrl = (episode = 'E1', file = 'a.mp3'): string =>
 const post = (url: string, body: string, headers: Record<string, string> = { [IMPORT_HEADER]: '1' }): Promise<Response> =>
   fetch(url, { method: 'POST', headers, body })
 
+describe('progress shared between devices', () => {
+  const sync = async (progress: object): Promise<{ ok: boolean; progress: Record<string, { at: number }> }> => {
+    const response = await fetch(`${harness.base}/lingualab/progress`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ progress, steps: {} }),
+    })
+    return (await response.json()) as { ok: boolean; progress: Record<string, { at: number }> }
+  }
+
+  it('hands a second device the place the first one stopped', async () => {
+    mkdirSync(harness.root, { recursive: true })
+    const now = Date.now()
+    await sync({ E1: { at: 321, duration: 900, updatedAt: now } })
+
+    // A fresh browser has nothing, and asks: what the first device left comes back.
+    const fresh = await sync({})
+    expect(fresh.ok).toBe(true)
+    expect(fresh.progress.E1?.at).toBe(321)
+
+    const read = (await (await fetch(`${harness.base}/lingualab/progress`)).json()) as { progress: Record<string, { at: number }> }
+    expect(read.progress.E1?.at).toBe(321)
+  })
+
+  it('does not let an older device overwrite a newer stop', async () => {
+    mkdirSync(harness.root, { recursive: true })
+    const now = Date.now()
+    await sync({ E1: { at: 500, duration: 900, updatedAt: now } })
+    const stale = await sync({ E1: { at: 5, duration: 900, updatedAt: now - 60_000 } })
+    expect(stale.progress.E1?.at).toBe(500)
+  })
+
+  it('refuses an oversized body without touching the file', async () => {
+    mkdirSync(harness.root, { recursive: true })
+    const huge = 'x'.repeat(600 * 1024)
+    const response = await fetch(`${harness.base}/lingualab/progress`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ progress: { pad: huge } }),
+    }).catch(() => null)
+    expect(response === null || response.status === 400).toBe(true)
+    expect(existsSync(join(harness.root, '.lingualab-progress.json'))).toBe(false)
+  })
+
+  it('says the library is missing when there is nowhere to keep it', async () => {
+    const answer = await sync({ E1: { at: 9, duration: 90, updatedAt: Date.now() } })
+    expect(answer.ok).toBe(false)
+  })
+
+  it('keeps the progress file out of the library listing', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    await sync({ E1: { at: 9, duration: 90, updatedAt: Date.now() } })
+    const library = (await (await fetch(`${harness.base}/lingualab/library`)).json()) as { episodes: { id: string }[]; files: unknown[] }
+    expect(library.episodes.map((entry) => entry.id)).toEqual(['E1'])
+    expect(library.files).toEqual([])
+  })
+})
+
 describe('the access check, in front of every route', () => {
   // One request per route, covering reads, writes and the two prefix routes.
   const probes: readonly (readonly [string, string])[] = [
@@ -114,6 +173,8 @@ describe('the access check, in front of every route', () => {
     ['GET', '/lingualab/media/E1/a.mp3'],
     ['GET', '/lingualab/file-media/file.0123456789abcdef/a.mp3'],
     ['POST', '/lingualab/import?episode=E1&file=a.mp3'],
+    ['GET', '/lingualab/progress'],
+    ['POST', '/lingualab/progress'],
   ]
 
   for (const verdict of [401, 403] as const) {

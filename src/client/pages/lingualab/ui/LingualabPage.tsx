@@ -26,7 +26,13 @@ import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, useNotes } from '../../../features/notes/index.ts'
-import { readAllProgress, readProgress, writeProgress, type Progress } from '../../../features/resume/index.ts'
+import {
+  readAllProgress,
+  readProgress,
+  startProgressSync,
+  writeProgress,
+  type Progress,
+} from '../../../features/resume/index.ts'
 import { keptSentenceKey, sameKeptSentence } from '../../../shared/notes-format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
@@ -173,6 +179,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       bookmark()
     }
   }, [view, bookmark])
+
+  // Share progress with the host for as long as the page is open: what another device left
+  // arrives here, and the home picks it up the moment it does.
+  useEffect(() => startProgressSync(() => setProgress(readAllProgress())), [])
 
   /** Go home: save the position first, then refresh what the home shows about it. */
   const goHome = useCallback(() => {

@@ -57,7 +57,12 @@ and the star. The A-B region, its repeat count and the list of keys sit behind �
 subtitle line to jump there and play it; speed has ten steps and never changes pitch. Subtitles
 put English above Chinese whatever the source order, and the Chinese side has four display modes
 so the native language never becomes the thing being read. The page remembers where you stopped
-in each episode, in this browser, and the home offers it as 「Pick up where you left off」.
+in each episode and which of the five steps you ticked, and the home offers the place as
+「Pick up where you left off」. That memory is kept on the host, in a hidden
+`.lingualab-progress.json` at the library root beside the `notes.md` files, and each browser holds a
+cache of it, so a second device, a private window or a cleared cache picks up where the first one
+left off. When two devices disagree the newest stop wins. If the library folder is itself synced
+(a cloud drive, a git checkout), the progress travels with it.
 
 The practice view is a stage and a subtitle column. The stage holds the current sentence in large
 type with its neighbours faded around it; the column on the right lists every sentence, follows
@@ -143,6 +148,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder, or a single audio file with the subtitles beside it |
 | `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
+| `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 
 ## Repository layout
 

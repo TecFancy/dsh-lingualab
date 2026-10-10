@@ -47,6 +47,16 @@ the plugin that was installed and used, not an artifact on a registry.
   drawers that slide in from the right: note cards carry the tick, the note and the tags, the five steps have an
   overall progress bar, the next step is highlighted, and ticking one has a small animation.
 
+- Listening positions and the five-step ticks follow you to another device. They used to live only in one
+  browser's `localStorage`, so a second device, a private window or a cleared cache started from nothing, while the
+  notes (which are files in the library) already did not. The host now keeps them in a hidden
+  `.lingualab-progress.json` at the library root, next to the `notes.md` files, through the new
+  `GET`/`POST /lingualab/progress` route; each browser keeps a cache of it and syncs on opening, a few seconds after
+  a change, when the tab comes back and when it is hidden. A `POST` merges rather than replaces, and the newest stop
+  per episode wins, so an older device cannot overwrite a newer one. The file is written through a temporary file
+  and a rename, a corrupt one reads as empty, and the library scan ignores it. Bookmarks and ticks already in a
+  browser are kept and uploaded on the first sync.
+
 ### Changed
 
 - Floating panels (the drawers, the finish card, the popovers) no longer use the theme's `bg-overlay`. That token

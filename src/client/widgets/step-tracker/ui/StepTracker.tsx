@@ -9,10 +9,12 @@
  * a permanent panel spent a third of the page on something consulted twice a session,
  * and made every other block look equally important. It does not enforce anything —
  * no alarms, no locks, no scolding — and opening it never pauses the audio. Ticks and
- * elapsed seconds are per episode and live in `localStorage`, because they are progress
- * through today's material rather than part of the notes file the agent reads.
+ * elapsed seconds are per episode and are progress through today's material rather than
+ * part of the notes file the agent reads. They are cached in this browser and shared
+ * through the host, so another device shows the same ticks.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { readSteps, writeSteps, type StepRecord } from '../../../features/resume/index.ts'
 import { CheckIcon, CloseIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 
@@ -33,32 +35,9 @@ export const STEPS: readonly StepDefinition[] = [
   { id: 'weekly', labelKey: 'stepWeekly', minutes: 15, inSession: false },
 ]
 
-/** One step's stored progress. */
-interface StepRecord {
-  readonly done: boolean
-  readonly seconds: number
-}
-
 type StepRecords = Readonly<Record<string, StepRecord>>
 
 const EMPTY: StepRecord = { done: false, seconds: 0 }
-
-/** Where one episode's step progress is kept. */
-function storageKey(episode: string): string {
-  return `dsh-lingualab:steps:${episode}`
-}
-
-/** Read the stored progress, tolerating a cleared or corrupted entry. */
-function readRecords(episode: string): StepRecords {
-  try {
-    const raw = window.localStorage.getItem(storageKey(episode))
-    if (raw === null) return {}
-    const parsed: unknown = JSON.parse(raw)
-    return typeof parsed === 'object' && parsed !== null ? (parsed as StepRecords) : {}
-  } catch {
-    return {}
-  }
-}
 
 export interface StepTrackerProps {
   readonly t: Translate
@@ -71,18 +50,15 @@ export interface StepTrackerProps {
 
 /** The chip plus, when open, the checklist under it. */
 export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
-  const [records, setRecords] = useState<StepRecords>(() => readRecords(episode))
+  const [records, setRecords] = useState<StepRecords>(() => readSteps(episode))
   const [running, setRunning] = useState<string | null>(null)
 
+  // Ticks are cached in this browser and shared through the host (see the resume feature),
+  // so what was ticked on another device shows up here too.
   const persist = useCallback(
     (next: StepRecords) => {
       setRecords(next)
-      try {
-        window.localStorage.setItem(storageKey(episode), JSON.stringify(next))
-      } catch {
-        // A full or blocked storage must not take the page down; the ticks just stop
-        // surviving a reload.
-      }
+      writeSteps(episode, next)
     },
     [episode],
   )
@@ -93,11 +69,7 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
       setRecords((current) => {
         const record = current[running] ?? EMPTY
         const next = { ...current, [running]: { ...record, seconds: record.seconds + 1 } }
-        try {
-          window.localStorage.setItem(storageKey(episode), JSON.stringify(next))
-        } catch {
-          // Same as above: counting continues, persistence is best effort.
-        }
+        writeSteps(episode, next)
         return next
       })
     }, 1000)
