@@ -1,26 +1,26 @@
 /**
- * The media folder setting, out of the practice page and into its own layer.
+ * The media folder setting, in its own layer and never on the page you practise on.
  *
- * Two things changed here and both were complaints. The old card lived in the side
- * column of every practice session — a setting you touch twice a month, sitting at the
- * same weight as the notes you write every day — so it moved behind the top bar's 「···」.
- * And it used to ask for an absolute path with a candidate list beside it; now the
- * primary way in is 「浏览」, where you walk to the folder and click 「用作媒体库」. The
- * typed path survives as the fallback for a mount point that no workspace contains.
+ * It is reached from the one quiet line at the bottom of the home page, because it is a
+ * setting you touch twice a month. It used to ask for an absolute path with a candidate
+ * list beside it; now the primary way in is 「浏览」, where you walk to the folder and
+ * click 「用作媒体库」. The typed path survives as the fallback for a mount point that no
+ * workspace contains.
  *
- * The same component renders inline on an empty library, because there the setting is
- * not a setting: it is the only thing the page can usefully say.
+ * It no longer appears inline on an empty library: an empty library is answered by the
+ * drop zone, which does not need the reader to know what a media folder is.
  */
 import type { Translate } from '../../../context.ts'
 import type { LibraryConfigState } from '../../../features/library-config/index.ts'
+import { CloseIcon } from '../../../shared/ui/icons.tsx'
 
 export interface MediaFolderPanelProps {
   readonly t: Translate
   readonly config: LibraryConfigState
   /** Called after a save lands, so the library can be re-read. */
   readonly onSaved: () => void
-  /** Rendered without the modal chrome when the library is empty. */
-  readonly bare?: boolean
+  /** Dismisses the layer without saving. */
+  readonly onClose: () => void
 }
 
 /** How the source of the current path is described. */
@@ -30,7 +30,7 @@ function sourceKey(source: 'config' | 'workspace' | 'none'): string {
 }
 
 /** The folder form: what is in effect, how to walk to a new one, and the typed fallback. */
-export function MediaFolderPanel({ t, config, onSaved, bare = false }: MediaFolderPanelProps) {
+export function MediaFolderPanel({ t, config, onSaved, onClose }: MediaFolderPanelProps) {
   const current = config.payload
 
   const onSave = (value?: string): void => {
@@ -104,13 +104,15 @@ export function MediaFolderPanel({ t, config, onSaved, bare = false }: MediaFold
     </>
   )
 
-  if (bare) return <div className="dsh-lingualab-card">{body}</div>
-
   return (
-    <div className="dsh-lingualab-mask">
-      <div className="dsh-lingualab-modal">
+    <div className="dsh-lingualab-mask" onClick={onClose}>
+      <div className="dsh-lingualab-modal" onClick={(event) => event.stopPropagation()}>
         <div className="dsh-lingualab-modal-head">
           <span className="dsh-lingualab-modal-title">{t('mediaFolder')}</span>
+          <span className="dsh-lingualab-spacer" />
+          <button type="button" className="dsh-lingualab-icon-btn" onClick={onClose} title={t('close')}>
+            <CloseIcon />
+          </button>
         </div>
         <div className="dsh-lingualab-modal-body">{body}</div>
       </div>

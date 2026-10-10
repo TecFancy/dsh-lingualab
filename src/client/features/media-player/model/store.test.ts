@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useMediaPlayer } from './store.ts'
+import { SPEED_PRESETS, useMediaPlayer } from './store.ts'
 
 const cues = [
   { start: 10, end: 12, text: 'One' },
@@ -54,5 +54,22 @@ describe('a finished repeat count', () => {
     const after = useMediaPlayer.getState()
     expect(after.isPlaying).toBe(true)
     expect(after.seekRequest).toBe(10)
+  })
+})
+
+describe('the speed button', () => {
+  it('wraps from the fastest preset back to the slowest instead of sticking', () => {
+    const last = SPEED_PRESETS.length - 1
+    useMediaPlayer.getState().setSpeedIndex(last)
+    useMediaPlayer.getState().nextSpeedWrapping()
+    expect(useMediaPlayer.getState().speedIndex).toBe(0)
+    useMediaPlayer.getState().nextSpeedWrapping()
+    expect(useMediaPlayer.getState().speedIndex).toBe(1)
+  })
+
+  it('keeps the keyboard step clamped at both ends', () => {
+    useMediaPlayer.getState().setSpeedIndex(SPEED_PRESETS.length - 1)
+    useMediaPlayer.getState().cycleSpeed(1)
+    expect(useMediaPlayer.getState().speedIndex).toBe(SPEED_PRESETS.length - 1)
   })
 })

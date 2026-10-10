@@ -6,18 +6,19 @@
  * the plugin state — and the rules that give the study method its discipline, the
  * ceiling above all, have to hold in both stores or they hold in neither.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { MAX_PHRASES } from '../shared/notes-format.ts'
 import { writeNotes, readNotes } from './notes.ts'
 import { EMPTY_STATE, parseState, serializeState, withNotes } from './state.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-notes-'))
+  root = makeTempDir('lingualab-notes-')
 })
 
 afterEach(() => {
@@ -45,15 +46,23 @@ describe('file episode notes', () => {
     expect(existsSync(join(root, FILE_ID))).toBe(false)
   })
 
-  it('enforces the seven-phrase ceiling and changes nothing when it does', () => {
-    const eight = Array.from({ length: 8 }, (_, index) => ({ at: index, text: `phrase ${index}` }))
+  it('keeps more than seven phrases, the old ceiling is gone', () => {
+    const many = Array.from({ length: 30 }, (_, index) => ({ at: index, text: `phrase ${index}` }))
+    const result = writeNotes(root, FILE_ID, many)
+
+    expect(result.payload.ok).toBe(true)
+    expect(result.payload.phrases).toHaveLength(30)
+  })
+
+  it('still refuses a runaway list and changes nothing when it does', () => {
+    const runaway = Array.from({ length: MAX_PHRASES + 1 }, (_, index) => ({ at: index, text: `phrase ${index}` }))
     const before = withNotes(EMPTY_STATE, FILE_ID, [
       { at: 1, text: 'kept', zh: '', note: '', tags: [], done: false },
     ])
-    const result = writeNotes(root, FILE_ID, eight, before)
+    const result = writeNotes(root, FILE_ID, runaway, before)
 
     expect(result.payload.ok).toBe(false)
-    expect(result.payload.reason).toContain('最多 7 条')
+    expect(result.payload.reason).toContain(`最多 ${String(MAX_PHRASES)} 条`)
     expect(result.state).toBe(before)
   })
 

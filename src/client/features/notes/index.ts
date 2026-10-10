@@ -1,2 +1,2 @@
-/** Public API of the notes feature: the phrase list under the seven-phrase ceiling. */
+/** Public API of the notes feature: the phrases kept from one episode. */
 export { MAX_PHRASES, useNotes, type NotesState, type SaveStatus } from './model/useNotes.ts'

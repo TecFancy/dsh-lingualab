@@ -1,13 +1,13 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { candidateRoots, configPayload, describeConfig, validateRoot } from './config.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-config-'))
+  root = makeTempDir('lingualab-config-')
   mkdirSync(join(root, 'S01E01'), { recursive: true })
   mkdirSync(join(root, 'S01E02'), { recursive: true })
 })
@@ -40,8 +40,8 @@ describe('candidateRoots', () => {
     const workspaces = [{ path: '/workspace/alpha' }, { path: '/workspace/beta' }]
     const candidates = candidateRoots(workspaces, root)
     expect(candidates.map((candidate) => candidate.path)).toEqual([
-      '/workspace/alpha/notes/learning/english/media',
-      '/workspace/beta/notes/learning/english/media',
+      join('/workspace/alpha', 'notes', 'learning', 'english', 'media'),
+      join('/workspace/beta', 'notes', 'learning', 'english', 'media'),
       root,
     ])
     // The last one exists and holds two folders; the invented ones do not.
@@ -55,7 +55,7 @@ describe('candidateRoots', () => {
     const candidates = candidateRoots([{ path: root }], convention)
     expect(candidates).toHaveLength(1)
     expect(candidates[0]?.path).toBe(convention)
-    expect(candidates[0]?.label).toBe(root.split('/').pop())
+    expect(candidates[0]?.label).toBe(basename(root))
   })
 })
 

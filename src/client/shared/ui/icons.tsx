@@ -128,3 +128,50 @@ export function SubtitleIcon(props: IconProps) {
     </Svg>
   )
 }
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 10.5V3M5 5.6 8 2.8l3 2.8" />
+      <path d="M3 10.5v1.8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1.8" />
+    </Svg>
+  )
+}
+
+export function StarIcon({ filled = false, ...props }: IconProps & { readonly filled?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M8 2.2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9l-3.5 2 .8-3.9L2.4 6.3l3.9-.5Z"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+    </Svg>
+  )
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx={3.6} cy={8} r={1.1} fill="currentColor" stroke="none" />
+      <circle cx={8} cy={8} r={1.1} fill="currentColor" stroke="none" />
+      <circle cx={12.4} cy={8} r={1.1} fill="currentColor" stroke="none" />
+    </Svg>
+  )
+}
+
+export function EditIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 13v-2.4L10.6 3a1.1 1.1 0 0 1 1.5 0l.9.9a1.1 1.1 0 0 1 0 1.5L5.4 13Z" />
+      <path d="M9.4 4.2l2.4 2.4" />
+    </Svg>
+  )
+}
+
+export function BackIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 3.5 5.5 8 10 12.5" />
+    </Svg>
+  )
+}

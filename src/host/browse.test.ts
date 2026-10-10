@@ -6,22 +6,22 @@
  * scrolling into a disk scan; a listing that cuts the page before counting makes an
  * empty result look like an empty directory. Each has a test here.
  */
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { browsePlace } from './browse.ts'
 import { listPlaces } from './places.ts'
 import type { PlaceEntry } from '../shared/protocol.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 let library = ''
 let outside = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-browse-'))
-  library = mkdtempSync(join(tmpdir(), 'lingualab-library-'))
-  outside = mkdtempSync(join(tmpdir(), 'lingualab-outside-'))
+  root = makeTempDir('lingualab-browse-')
+  library = makeTempDir('lingualab-library-')
+  outside = makeTempDir('lingualab-outside-')
 })
 
 afterEach(() => {

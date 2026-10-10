@@ -27,13 +27,19 @@
 import type { NotePhrase, NotesSummary } from './protocol.ts'
 
 /**
- * The per-episode ceiling from the study method.
+ * A sanity ceiling on one episode's notes, not a rule of the study method.
  *
- * Seven is a decision-forcing device, not a storage limit: when the list is full
- * the panel asks which phrase to drop rather than accepting an eighth. The cap
- * lives here so the panel and any writer agree on the number.
+ * Earlier versions capped a list at seven so that keeping a phrase forced a choice,
+ * and asked which one to replace when it was full. In use that choice came at the
+ * worst moment: mid-sentence, with the audio still running, to save a phrase you had
+ * already decided to keep. The cap is gone; what the method wanted from it is now
+ * done by the `done` tick and the tags, which let a phrase leave the working set
+ * without being deleted.
+ *
+ * This number only exists so a runaway client cannot write an unbounded file. An
+ * episode that reaches it has a different problem from a long notes list.
  */
-export const MAX_PHRASES = 7
+export const MAX_PHRASES = 500
 
 /** Tags the study method uses; anything else is allowed but not offered. */
 export const KNOWN_TAGS = ['review', 'hard'] as const
@@ -151,11 +157,54 @@ export function summarizeNotes(markdown: string | null): NotesSummary {
   }
 }
 
-/** Whether another phrase fits, and what to do when it does not. */
+/** Whether another phrase fits under the sanity ceiling. */
 export function phraseCapacity(phrases: readonly NotePhrase[]): {
   readonly full: boolean
   readonly remaining: number
 } {
   const remaining = Math.max(0, MAX_PHRASES - phrases.length)
   return { full: remaining === 0, remaining }
+}
+
+/**
+ * Whether two phrases are the same kept sentence.
+ *
+ * `notes.md` stores whole seconds (`00:12`), so a sentence kept at 12.48 s reads back as
+ * 12. Comparing the raw numbers therefore stopped matching the moment a page reloaded:
+ * the star showed empty, the wrong row showed a filled one, and pressing it again added a
+ * second copy that nothing could remove. The comparison is on the whole second the file
+ * can actually hold, and on the text as well, because two short sentences can start in
+ * the same second and must not be mistaken for each other.
+ * @param left - one phrase, or a timestamp and the sentence's text.
+ * @param right - the other.
+ * @returns true when they name the same sentence.
+ */
+export function sameKeptSentence(
+  left: { readonly at: number; readonly text: string },
+  right: { readonly at: number; readonly text: string },
+): boolean {
+  return keptSentenceKey(left) === keptSentenceKey(right)
+}
+
+/**
+ * The key two phrases share when they are the same kept sentence.
+ *
+ * Exposed so a list of hundreds of cues can be checked against hundreds of phrases with a
+ * set lookup instead of a nested loop, and so the loop and sameKeptSentence cannot
+ * disagree: one is defined by the other.
+ * @param sentence - a phrase, or a cue's start and its English text.
+ * @returns the key.
+ */
+export function keptSentenceKey(sentence: { readonly at: number; readonly text: string }): string {
+  return `${String(Math.floor(sentence.at))}\u0000${sentence.text.trim()}`
+}
+
+/**
+ * Whether a phrase is one the reader has marked as still worth working on.
+ *
+ * With the ceiling gone, "which ones am I still learning" is the filter that keeps a
+ * long list usable: a phrase is active until it is ticked done.
+ */
+export function isActivePhrase(phrase: NotePhrase): boolean {
+  return !phrase.done
 }

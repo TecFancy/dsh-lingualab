@@ -6,15 +6,15 @@
  * `Enter` plays it. That split matters in a listening session — scanning ahead for the
  * next phrase to work on must not cost you your place in what is playing.
  *
- * The two actions a row owns sit on the active or selected row only: loop it, or note
- * it. They used to appear on hover, which put the control you needed out of sight
- * exactly when the pointer was somewhere else.
+ * The two actions a row owns sit on the active or selected row only: loop it, or keep
+ * it with the star. A kept row shows its star all the time, filled, so the list reads
+ * as a map of what you have already taken from the episode.
  */
 import { useEffect, useRef } from 'react'
 import { visibleCueLines, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
-import { LoopIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { LoopIcon, StarIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 
 export interface SubtitlePanelProps {
@@ -29,7 +29,8 @@ export interface SubtitlePanelProps {
   readonly notedIndexes: ReadonlySet<number>
   readonly onSelect: (index: number) => void
   readonly onPlay: (index: number) => void
-  readonly onRecord: (index: number) => void
+  /** Keeps the sentence, or takes it back when it is already kept. */
+  readonly onKeep: (index: number) => void
 }
 
 /** The scrolling list of cues. */
@@ -42,7 +43,7 @@ export function SubtitlePanel({
   notedIndexes,
   onSelect,
   onPlay,
-  onRecord,
+  onKeep,
 }: SubtitlePanelProps) {
   const activeRef = useRef<HTMLDivElement | null>(null)
   const selectedRef = useRef<HTMLDivElement | null>(null)
@@ -63,7 +64,7 @@ export function SubtitlePanel({
   }
 
   return (
-    <div className="dsh-lingualab-list">
+    <div className="dsh-lingualab-list" data-zh={zhMode}>
       {cues.map((cue, index) => {
         const isActive = index === activeIndex
         const isSelected = index === selectedIndex
@@ -83,14 +84,7 @@ export function SubtitlePanel({
               onPlay(index)
             }}
           >
-            <span className="dsh-lingualab-row-time">
-              {formatClock(cue.start)}
-              {notedIndexes.has(index) ? (
-                <span className="dsh-lingualab-row-flag" title={t('notesMarked')}>
-                  {' ●'}
-                </span>
-              ) : null}
-            </span>
+            <span className="dsh-lingualab-row-time">{formatClock(cue.start)}</span>
             <span>
               {lines.map((line, lineIndex) => (
                 <div
@@ -101,7 +95,9 @@ export function SubtitlePanel({
                 </div>
               ))}
             </span>
-            <span className="dsh-lingualab-row-actions">
+            <span
+              className={`dsh-lingualab-row-actions${notedIndexes.has(index) ? ' is-kept' : ''}`}
+            >
               <button
                 type="button"
                 className="dsh-lingualab-icon-btn"
@@ -118,14 +114,15 @@ export function SubtitlePanel({
               </button>
               <button
                 type="button"
-                className="dsh-lingualab-icon-btn"
-                title={t('recordHint')}
+                className={`dsh-lingualab-icon-btn is-star${notedIndexes.has(index) ? ' is-on' : ''}`}
+                title={notedIndexes.has(index) ? t('unkeepHint') : t('keepHint')}
+                aria-pressed={notedIndexes.has(index)}
                 onClick={(event) => {
                   event.stopPropagation()
-                  onRecord(index)
+                  onKeep(index)
                 }}
               >
-                <NoteIcon />
+                <StarIcon filled={notedIndexes.has(index)} />
               </button>
             </span>
           </div>

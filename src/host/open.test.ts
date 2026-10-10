@@ -8,21 +8,21 @@
  * refusals are the other half: the picker is a browsing UI, so "there is no audio in
  * this folder" has to arrive as an answer with a sentence in it.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { realpathSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openEpisode, resolveFileMedia } from './open.ts'
 import { listPlaces } from './places.ts'
 import { EMPTY_STATE, fileEpisodeIdFor, type OpenState } from './state.ts'
+import { makeTempDir } from './test-dir.ts'
 
 let root = ''
 let library = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'lingualab-open-'))
-  library = mkdtempSync(join(tmpdir(), 'lingualab-open-lib-'))
+  root = makeTempDir('lingualab-open-')
+  library = makeTempDir('lingualab-open-lib-')
 })
 
 afterEach(() => {

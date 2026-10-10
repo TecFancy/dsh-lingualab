@@ -1,30 +1,22 @@
 /**
- * The picker: one layer, two ways in.
+ * The browse layer: reach into a directory and open one audio file, subtitles and all.
  *
- * 「媒体库」 is for the thing you do most — switch to another episode of a library that
- * is already set up — so it opens first and lists what the scan knows: episode folders,
- * and audio files sitting loose in the root. 「浏览」 is for the thing that used to be
- * impossible: reach into a directory and open a single audio file, subtitles and all,
- * without copying it anywhere or typing an absolute path.
+ * The library is the home page now, so this layer no longer lists episodes. It exists
+ * for the thing the home page cannot do: material that is not in the media folder,
+ * opened without copying it anywhere or typing an absolute path.
  *
- * The rows say what the previous `<select>` could not: whether an episode has audio,
- * whether subtitles were found, and which files those are. Picking therefore becomes a
- * reading decision rather than a guess.
+ * The rows say whether a file has subtitles and which, so picking is a reading
+ * decision rather than a guess.
  */
-import { useState } from 'react'
 import { formatBytes } from '../../../shared/lib/format.ts'
 import { AudioIcon, ChevronIcon, CloseIcon, FolderIcon, SubtitleIcon } from '../../../shared/ui/icons.tsx'
-import type { BrowseEntry, EpisodeEntry, LibraryPayload, SubtitleHint } from '../../../shared/protocol.ts'
+import type { BrowseEntry, SubtitleHint } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { usePicker } from '../model/usePicker.ts'
 
 export interface EpisodePickerProps {
   readonly t: Translate
   readonly onClose: () => void
-  /** The library listing the page already has, so the layer needs no second request. */
-  readonly library: LibraryPayload | null
-  /** The episode open now, marked in the list. */
-  readonly currentId: string | null
   readonly opening: boolean
   readonly openError: string | null
   readonly onOpenEpisode: (id: string) => void
@@ -32,15 +24,6 @@ export interface EpisodePickerProps {
   /** Make the browsed directory the library root. */
   readonly onUseFolder: (place: string, rel: string) => void
   readonly savingFolder: boolean
-}
-
-/** The badge one library row shows about its subtitles. */
-function subtitleBadge(t: Translate, entry: EpisodeEntry): string {
-  if (entry.audio === null) return t('pickerNoAudio')
-  if (entry.subtitleEn !== null && entry.subtitleZh !== null) return t('subtitleBadgeBoth')
-  if (entry.subtitleEn !== null) return t('subtitleBadgeEn')
-  if (entry.subtitleZh !== null) return t('subtitleBadgeZh')
-  return t('subtitleBadgeNone')
 }
 
 /** What the browse list says about one audio file's subtitle pairing. */
@@ -52,21 +35,10 @@ function hintBadge(t: Translate, hint: SubtitleHint | null): string {
   return t('subtitleBadgeUnknown')
 }
 
-/** The one line under a library row: the files behind it. */
-function episodeSub(entry: EpisodeEntry): string {
-  const parts: string[] = []
-  if (entry.audio !== null) parts.push(entry.audio)
-  if (entry.subtitleEn !== null) parts.push(entry.subtitleEn)
-  if (entry.subtitleZh !== null && entry.subtitleZh !== entry.subtitleEn) parts.push(entry.subtitleZh)
-  return parts.join(' · ')
-}
-
-/** The picker layer. */
+/** The browse layer. */
 export function EpisodePicker({
   t,
   onClose,
-  library,
-  currentId,
   opening,
   openError,
   onOpenEpisode,
@@ -75,7 +47,6 @@ export function EpisodePicker({
   savingFolder,
 }: EpisodePickerProps) {
   const picker = usePicker(true)
-  const [tab, setTab] = useState<'library' | 'browse'>('library')
 
   // The layer stays open until the host confirms: a pick that fails must leave the
   // list on screen with the reason, not vanish and say nothing.
@@ -88,7 +59,7 @@ export function EpisodePicker({
     <div className="dsh-lingualab-mask" onClick={onClose}>
       <div className="dsh-lingualab-modal" onClick={(event) => event.stopPropagation()}>
         <div className="dsh-lingualab-modal-head">
-          <span className="dsh-lingualab-modal-title">{t('pickerTitle')}</span>
+          <span className="dsh-lingualab-modal-title">{t('pickerBrowseTitle')}</span>
           <span className="dsh-lingualab-spacer" />
           {opening ? <span className="dsh-lingualab-counter">{t('pickerLoading')}…</span> : null}
           <button type="button" className="dsh-lingualab-icon-btn" onClick={onClose} title={t('close')}>
@@ -96,125 +67,22 @@ export function EpisodePicker({
           </button>
         </div>
 
-        <div className="dsh-lingualab-tabs">
-          <button
-            type="button"
-            className={`dsh-lingualab-tab${tab === 'library' ? ' is-on' : ''}`}
-            onClick={() => setTab('library')}
-          >
-            {t('pickerLibrary')}
-          </button>
-          <button
-            type="button"
-            className={`dsh-lingualab-tab${tab === 'browse' ? ' is-on' : ''}`}
-            onClick={() => setTab('browse')}
-          >
-            {t('pickerBrowse')}
-          </button>
-        </div>
-
         {openError !== null ? <div className="dsh-lingualab-error">{openError}</div> : null}
 
         <div className="dsh-lingualab-modal-body">
-          {tab === 'library' ? (
-            <LibraryTab
-              t={t}
-              library={library}
-              currentId={currentId}
-              onPick={(id) => onOpenEpisode(id)}
-            />
-          ) : (
-            <BrowseTab
-              t={t}
-              picker={picker}
-              onPickFile={pickFile}
-              onPickEpisode={(id) => onOpenEpisode(id)}
-              onUseFolder={() => {
-                if (picker.place !== null) onUseFolder(picker.place.id, picker.rel)
-              }}
-              savingFolder={savingFolder}
-            />
-          )}
+          <BrowseTab
+            t={t}
+            picker={picker}
+            onPickFile={pickFile}
+            onPickEpisode={(id) => onOpenEpisode(id)}
+            onUseFolder={() => {
+              if (picker.place !== null) onUseFolder(picker.place.id, picker.rel)
+            }}
+            savingFolder={savingFolder}
+          />
         </div>
       </div>
     </div>
-  )
-}
-
-/** The library tab: what the scan knows, folders first. */
-function LibraryTab({
-  t,
-  library,
-  currentId,
-  onPick,
-}: {
-  readonly t: Translate
-  readonly library: LibraryPayload | null
-  readonly currentId: string | null
-  readonly onPick: (id: string) => void
-}) {
-  const [filter, setFilter] = useState('')
-  const needle = filter.trim().toLowerCase()
-  const match = (entry: EpisodeEntry): boolean =>
-    needle.length === 0 ||
-    entry.title.toLowerCase().includes(needle) ||
-    (entry.audio ?? '').toLowerCase().includes(needle)
-
-  const folders = (library?.episodes ?? []).filter(match)
-  const files = (library?.files ?? []).filter(match)
-  const empty = library === null || (folders.length === 0 && files.length === 0)
-
-  return (
-    <>
-      <input
-        className="dsh-lingualab-input"
-        value={filter}
-        placeholder={t('pickerSearch')}
-        onChange={(event) => setFilter(event.target.value)}
-        onKeyDown={(event) => event.stopPropagation()}
-      />
-      {library?.ok === false ? (
-        <div className="dsh-lingualab-warn">{library.reason ?? t('pickerNoLibrary')}</div>
-      ) : null}
-      {empty ? (
-        <div className="dsh-lingualab-empty">
-          {library === null || library.ok === false ? t('pickerNoLibraryHint') : t('pickerEmptyFolder')}
-        </div>
-      ) : null}
-      {folders.length > 0 ? <div className="dsh-lingualab-group">{t('pickerEpisodes')}</div> : null}
-      {folders.map((entry) => (
-        <button
-          key={entry.id}
-          type="button"
-          className={`dsh-lingualab-pick${entry.id === currentId ? ' is-current' : ''}`}
-          onClick={() => onPick(entry.id)}
-          disabled={entry.audio === null}
-        >
-          <FolderIcon />
-          <span className="dsh-lingualab-pick-main">
-            <span className="dsh-lingualab-pick-name">{entry.title}</span>
-            <span className="dsh-lingualab-pick-sub">{episodeSub(entry)}</span>
-          </span>
-          <span className="dsh-lingualab-badge">{subtitleBadge(t, entry)}</span>
-        </button>
-      ))}
-      {files.length > 0 ? <div className="dsh-lingualab-group">{t('pickerFiles')}</div> : null}
-      {files.map((entry) => (
-        <button
-          key={entry.id}
-          type="button"
-          className={`dsh-lingualab-pick${entry.id === currentId ? ' is-current' : ''}`}
-          onClick={() => onPick(entry.id)}
-        >
-          <AudioIcon />
-          <span className="dsh-lingualab-pick-main">
-            <span className="dsh-lingualab-pick-name">{entry.title}</span>
-            <span className="dsh-lingualab-pick-sub">{episodeSub(entry)}</span>
-          </span>
-          <span className="dsh-lingualab-badge">{formatBytes(entry.audioBytes)}</span>
-        </button>
-      ))}
-    </>
   )
 }
 

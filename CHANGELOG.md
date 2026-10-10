@@ -19,6 +19,80 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-10
+
+### Added
+
+- A home page. The panel opens on the episode to pick up where you left off, the rest of the
+  library as rows that open on a click, and a drop target; opening an episode switches to the
+  practice view and its back button returns here. The page remembers where you stopped in each
+  episode, in this browser, and 「Continue practising」 seeks there.
+- Files come in by dropping. `POST /lingualab/import` receives one audio or subtitle file into an
+  episode folder under the media folder. The page groups a drop by name, so an audio file and the
+  subtitles that start with its name go together, sends them one at a time, retries a "busy"
+  answer, and skips a group's subtitles when its audio was refused. A subtitle dropped on its own
+  joins the episode folder it names. An empty library shows a drop target instead of a path field.
+  The host never overwrites a file that exists, accepts only the extensions the scan reads, caps
+  one file at 2 GB (also against a body that lies about its length), cleans names, refuses a media
+  folder that is a system folder or a folder that resolves outside the library, writes to a hidden
+  temporary file that is placed with an exclusive create, sweeps stale `.part` files left by a
+  crash, removes an episode folder it made and could not fill, and takes at most two uploads at
+  once (a third gets `429` and `retryable`).
+- A star on the transport row and on every subtitle line keeps a sentence, and the same star (or
+  `S`) takes it back. Kept lines show a filled star at rest. A sentence that carries a note, a tag
+  or a tick is never un-kept by a star; the drawer opens instead.
+- The notes drawer has three views, 「Practising」, 「Learned」 and all. Ticking a sentence moves it to
+  「Learned」 without deleting it.
+- `src/shared/stem.ts`: the file-name pairing rule, used by the host's scan and the page's drop
+  grouping alike. There were two hand-written copies.
+
+### Changed
+
+- Every route, reads included, now goes through the host's own request trust (`connection.admit`:
+  a loopback `Host`, a matching `Origin`, the signed session cookie) and answers `401` or `403`
+  otherwise, or `403` when the deployment has no connection service. Before this the routes were
+  open to any page that rebound its hostname to 127.0.0.1 and to any local process. The custom
+  request header on `/lingualab/import` is kept as a second check, not as the access control.
+- The practice transport row holds six controls instead of thirteen. The A and B marks, the repeat
+  count and the list of keys moved behind a 「More」 menu.
+- Shortcuts ignore any chord with Ctrl, Cmd or Alt, so Ctrl+S no longer un-keeps a sentence and
+  Ctrl+C copies again. Escape closes a layer on the home page too.
+- A file dropped anywhere on the page, or while an import is running, is claimed and ignored
+  instead of being opened by the browser in place of the page.
+- The episode picker is now only 「Browse existing files」, for material outside the media folder.
+  Choosing among the episodes you already have is the home page, which also lists the episode
+  currently open when it lives outside the media folder.
+- The media folder is set from a quiet line at the bottom of the home page, and no longer appears
+  inline on an empty library.
+- The stylesheet reads only theme tokens the host declares. The four values it used to take from
+  tokens that do not exist (a tertiary label, a third layer, a mask, a hover fill) are derived from
+  declared ones, so light and dark both follow the theme.
+- `MAX_PHRASES` is 500, a sanity ceiling for a runaway client, not a rule of the method.
+
+### Removed
+
+- The seven-phrase ceiling and the chooser that asked which phrase to replace. The decision it
+  forced came mid-sentence, with the audio still playing; the 「Learned」 view gives the same short
+  working set without asking.
+- The note composer dialog. Notes are edited in the drawer.
+
+### Fixed
+
+- A bilingual subtitle paired with a separate English one showed each sentence in three lines, with the English twice. Only the Chinese lines of the second track are folded in now.
+- The speed button stopped working once it reached 2x. It now wraps back to 0.5x; the [ and ] keys still stop at the ends.
+- Chinese "always" and "dimmed" looked identical. Always now shows the Chinese at the English size and colour, dimmed keeps it small and faint.
+- A kept sentence stopped matching after a reload on folder episodes. `notes.md` stores whole
+  seconds, so one kept at 12.48 s read back as 12; the star showed empty, the wrong row showed a
+  filled one, and pressing it again wrote a duplicate nothing could remove. Matching is now by whole
+  second and text, for the transport star, the list and the toggle alike.
+- The system-folder guard never matched anything on Windows (it compared against `/etc` and the
+  like) and could be bypassed with an 8.3 short name such as `C:\PROGRA~1`. It now canonicalises
+  with the native `realpath`, knows the Windows system folders, and runs on the import root too.
+- Two uploads of the same name at once shared one temporary file and one of them threw. Temporary
+  names are random now.
+- Five host tests that failed on Windows (POSIX path literals, 8.3 temp paths) and now pass; the
+  platform rules are tested for both flavours on every platform.
+
 ## [0.2.0] - 2026-10-09
 
 ### Changed

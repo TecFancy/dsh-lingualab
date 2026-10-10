@@ -53,6 +53,10 @@
         "path": "/lingualab/open"
       },
       {
+        "kind": "exact",
+        "path": "/lingualab/import"
+      },
+      {
         "kind": "prefix",
         "path": "/lingualab/file-media"
       }

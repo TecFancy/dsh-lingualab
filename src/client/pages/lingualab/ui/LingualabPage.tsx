@@ -1,15 +1,20 @@
 /**
- * The page: four bands, and the layers that do not fit in them.
+ * The page: a home to choose from, and a practice view to listen in.
  *
- * The shape answers the two complaints that started this. The page no longer reads as
- * a settings screen — there is one thing to look at, the sentence being worked on, and
- * it is pinned above the list rather than scrolling away with it. And everything that
- * is not listening — the picker, the notes, the media folder — is behind a layer that
- * appears when asked for and gets out of the way.
+ * Two views, one rule for moving between them. The page opens on the **home**: what you
+ * can practise, the episode to continue, and where to drop new files. Opening an episode
+ * switches to the **practice** view, whose back button returns to the home rather than
+ * leaving the panel, so "pick another episode" is one click and not a layer to open.
+ *
+ * The practice view keeps the shape the last redesign settled on: a top bar, a stage that
+ * pins the sentence being worked on above the transport, the subtitle list as the only
+ * scroller, and a short line of reminders. What changed is everything around it — the
+ * episode picker became the home, keeping a sentence became a star on the transport, and
+ * the notes layer became a drawer of what you kept.
  *
  * Keyboard handling lives here rather than on `window`. The earlier standalone app bound
  * its shortcuts globally and therefore owned the space bar, the arrow keys and the
- * bracket keys wherever it was open — inside a panel that shares a page with a
+ * bracket keys wherever it was open; inside a panel that shares a page with a
  * conversation, that is a hostile neighbour. The handler sits on the page container,
  * which is focusable, so the keys work while the panel has focus and stop at its edge.
  */
@@ -17,32 +22,42 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import {
   DEFAULT_SUBTITLE_ZH_MODE,
-  findActiveCue,
   orderCueLines,
   type Cue,
   type SubtitleZhMode,
 } from '../../../entities/cue/index.ts'
+import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
-import { MAX_PHRASES, useNotes } from '../../../features/notes/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
-import { formatClock } from '../../../shared/lib/format.ts'
+import { useNotes } from '../../../features/notes/index.ts'
+import { readAllProgress, readProgress, writeProgress, type Progress } from '../../../features/resume/index.ts'
+import { keptSentenceKey } from '../../../shared/notes-format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
+import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { formatClock } from '../../../shared/lib/format.ts'
 import { ControlBar, nextZhMode } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
+import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
-import { NotesComposer, NotesPanel, type ComposerQuote } from '../../../widgets/notes-panel/index.ts'
+import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 
+/** Which view the page shows. */
+type View = 'home' | 'practice'
+
 /** Which layer is over the page. Only one at a time; the steps popover is not a layer. */
-type Layer = 'none' | 'picker' | 'notes' | 'folder'
+type Layer = 'none' | 'browse' | 'notes' | 'folder'
 
 export interface LingualabPageProps extends PanelProps {
   readonly t: Translate
 }
+
+/** How often the listening position is written down while an episode plays. */
+const BOOKMARK_MS = 5000
 
 /** Whether a keystroke belongs to a field the reader is typing in. */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -65,13 +80,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const library = useLibrary()
   const folder = useLibraryConfig()
   const notes = useNotes(library.episode?.id ?? null)
+  // The episode folders the library lists, so a subtitle dropped on its own can join the
+  // episode it names instead of being reported as having no audio.
+  const folderNames = useMemo(() => (library.payload?.episodes ?? []).map((entry) => entry.id), [library.payload])
+  const importer = useImport(library.reload, folderNames)
+  const [view, setView] = useState<View>('home')
   const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
   const [layer, setLayer] = useState<Layer>('none')
   const [stepsOpen, setStepsOpen] = useState(false)
-  const [composerOpen, setComposerOpen] = useState(false)
-  const [pending, setPending] = useState<NotePhrase | null>(null)
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
+  const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
@@ -85,64 +104,165 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     reset(cues)
   }, [cues, reset])
 
+  /**
+   * Where to start the episode that was just opened, or `null` when it starts at the top.
+   *
+   * A ref, not state: it is a note to the effect below, set in an event handler and
+   * consumed once, and nothing on screen depends on it.
+   */
+  const resumeAt = useRef<number | null>(null)
+
+  // Apply the bookmark. This has to come after the reset effect above and after the audio
+  // element knows its length: the reset zeroes the position, and a seek issued before the
+  // new source has loaded is discarded by the audio binding on purpose, so that a request
+  // from the previous episode cannot move the next one. Every open hands back a fresh media,
+  // so opening an episode that is already loaded re-runs this too.
+  const media = library.media
+  const subtitled = media !== null && (media.subtitleEnUrl !== null || media.subtitleZhUrl !== null)
+  const cuesReady = cues.length > 0 || (media !== null && !subtitled)
+  useEffect(() => {
+    const target = resumeAt.current
+    const audio = audioRef.current
+    if (target === null || audio === null || !cuesReady) return
+    const apply = (): void => {
+      if (resumeAt.current === null) return
+      const at = resumeAt.current
+      resumeAt.current = null
+      // A bookmark past the end (the file was replaced by a shorter one) starts over.
+      if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
+      useMediaPlayer.getState().seek(at)
+    }
+    if (audio.readyState >= 1) {
+      apply()
+      return
+    }
+    audio.addEventListener('loadedmetadata', apply, { once: true })
+    return () => audio.removeEventListener('loadedmetadata', apply)
+  }, [audioRef, cues, cuesReady, media])
+
   // Focus the page once so the shortcuts below are live without a click, and without
   // stealing the conversation's focus afterwards.
   useEffect(() => {
     if (library.loading) return
     containerRef.current?.focus({ preventScroll: true })
-  }, [library.loading])
+  }, [library.loading, view])
+
+  const episode = library.episode
+  const episodeId = episode?.id ?? null
+
+  /**
+   * Write the listening position down while an episode is on screen.
+   *
+   * On an interval and on the way out, not on every `timeupdate`: that event fires
+   * several times a second, and a `localStorage` write per tick is wasted work for a
+   * bookmark nobody reads until the next visit.
+   */
+  const bookmark = useCallback(() => {
+    if (episodeId === null) return
+    // Not while a resume is still waiting to be applied: the player sits at the start
+    // until it is, and writing that would overwrite the very bookmark it is about to use.
+    if (resumeAt.current !== null) return
+    const state = useMediaPlayer.getState()
+    writeProgress(episodeId, state.currentTime, state.duration)
+  }, [episodeId])
+
+  useEffect(() => {
+    if (view !== 'practice') return
+    const timer = setInterval(bookmark, BOOKMARK_MS)
+    return () => {
+      clearInterval(timer)
+      bookmark()
+    }
+  }, [view, bookmark])
+
+  /** Go home: save the position first, then refresh what the home shows about it. */
+  const goHome = useCallback(() => {
+    bookmark()
+    useMediaPlayer.getState().setPlaying(false)
+    setProgress(readAllProgress())
+    setLayer('none')
+    setStepsOpen(false)
+    setView('home')
+  }, [bookmark])
 
   /** The sentence a new note would carry: whatever is playing. */
-  const quote: ComposerQuote | null = useMemo(() => {
+  const quote: NotePhrase | null = useMemo(() => {
     const cue = cues[activeIndex]
     if (cue === undefined) return null
     const { english, chinese } = splitCue(cue)
-    return { text: english, zh: chinese, at: cue.start }
+    return { at: cue.start, text: english, zh: chinese, note: '', tags: [], done: false }
   }, [cues, activeIndex])
 
-  /** Cue indexes that already carry a note, so the list can mark them. */
+  /**
+   * Cue indexes whose sentence is kept, so the list can mark them.
+   *
+   * Decided by the same key the toggle uses (whole second plus text), not by asking
+   * which cue is playing at a phrase's timestamp: `notes.md` stores whole seconds, and
+   * the cue playing at `00:12` can be the one before the one that was kept.
+   */
   const notedIndexes = useMemo(() => {
+    const kept = new Set(notes.phrases.map((phrase) => keptSentenceKey(phrase)))
     const marked = new Set<number>()
-    for (const phrase of notes.phrases) {
-      const index = findActiveCue(cues, phrase.at)
-      if (index >= 0) marked.add(index)
-    }
+    cues.forEach((cue, index) => {
+      if (kept.has(keptSentenceKey({ at: cue.start, text: splitCue(cue).english }))) marked.add(index)
+    })
     return marked
   }, [notes.phrases, cues])
 
   /**
-   * Put one sentence into the notes.
+   * Keep or un-keep one sentence; the same star on the row and on the transport.
    *
-   * The ceiling decides what happens next: with room, the phrase lands and the reader
-   * keeps listening; full, the notes layer opens as a chooser, because "which of the
-   * seven goes" is a question only they can answer.
+   * A sentence the reader has already worked on (a note, a tag, a tick) is not removed by
+   * a star, because a star is a reflex and the work behind it is not. The drawer opens
+   * on it instead, where removing it takes a confirmation.
    */
-  const record = useCallback(
-    (index: number | undefined, note = ''): void => {
+  const keep = useCallback(
+    (index?: number): void => {
       const target = cues[index ?? activeIndex]
       if (target === undefined) return
       const { english, chinese } = splitCue(target)
-      const phrase: NotePhrase = {
-        at: target.start,
-        text: english,
-        zh: chinese,
-        note,
-        tags: [],
-        done: false,
-      }
-      if (notes.add(phrase)) {
-        setComposerOpen(false)
-        return
-      }
-      setPending(phrase)
-      setLayer('notes')
+      const outcome = notes.toggle({ at: target.start, text: english, zh: chinese, note: '', tags: [], done: false })
+      if (outcome === 'protected') setLayer('notes')
     },
     [cues, activeIndex, notes],
+  )
+
+  /** Open an episode by id and move to the practice view when the host agrees. */
+  const openEpisode = useCallback(
+    (id: string): void => {
+      void (async () => {
+        if (!(await library.openEpisode(id))) return
+        // Set before the view switches, so the effect that applies it sees it.
+        resumeAt.current = readProgress(id)?.at ?? null
+        setSelection(null)
+        setLayer('none')
+        setView('practice')
+      })()
+    },
+    [library],
+  )
+
+  /**
+   * Take dropped files into the library.
+   *
+   * Opening is left to the report's button: the reader dropped files to add them to a
+   * library, which is not the same as asking to start listening to the first one.
+   */
+  const importFiles = useCallback(
+    (files: readonly File[]): void => {
+      void importer.start(files)
+    },
+    [importer],
   )
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (isTypingTarget(event.target)) return
+      // A chord belongs to the browser or the host: Ctrl+S is "save", Ctrl+C is "copy",
+      // Ctrl+A is "select all". Reading them as the plain letters meant the reflex of
+      // saving a page took the star off a sentence, with its note, and Ctrl+C stopped
+      // copying. Shift stays allowed because `[` and `]` can need it on some layouts.
+      if (event.ctrlKey || event.metaKey || event.altKey) return
       const store = useMediaPlayer.getState
       // Handled keys stop here. The conversation lives in the same document, and a
       // space bar that scrolls or submits behind the panel is a stolen keystroke.
@@ -150,17 +270,23 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         event.preventDefault()
         event.stopPropagation()
       }
+      // Escape closes a layer in either view; everything else is practice-only, since
+      // the home has no transport for a shortcut to act on.
       if (event.key === 'Escape') {
-        handled()
-        if (layer !== 'none') setLayer('none')
-        else if (stepsOpen) setStepsOpen(false)
-        else if (composerOpen) setComposerOpen(false)
-        else store().clearAB()
+        if (layer !== 'none') {
+          handled()
+          setLayer('none')
+        } else if (view === 'practice') {
+          handled()
+          if (stepsOpen) setStepsOpen(false)
+          else store().clearAB()
+        }
         return
       }
+      if (view !== 'practice') return
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
-      if (layer !== 'none') return
+      if (layer !== 'none' && layer !== 'notes') return
 
       const current = selection ?? store().activeIndex
       switch (event.key) {
@@ -202,10 +328,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           if (store().loopMode === 'sentence') store().setLoopMode('none')
           else store().loopSentence(current)
           return
+        case 's':
+        case 'S':
         case 'n':
         case 'N':
           handled()
-          setComposerOpen(true)
+          keep(selection ?? undefined)
           return
         case 'c':
         case 'C':
@@ -234,10 +362,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         default:
       }
     },
-    [composerOpen, cues, layer, selection, stepsOpen, zhMode],
+    [cues, keep, layer, selection, stepsOpen, view, zhMode],
   )
 
-  const episode = library.episode
   const hasAudio = library.media !== null
   // The selection is an index into the cue list, and the list changes under it when
   // the episode does; clamping here is cheaper than resetting it from an effect.
@@ -245,6 +372,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     selection === null ? activeIndex : Math.min(Math.max(0, selection), Math.max(0, cues.length - 1))
   const stageCue = cues[activeIndex]
   const stageLines = stageCue === undefined ? null : splitCue(stageCue)
+  const keptNow =
+    stageCue !== undefined && stageLines !== null && notes.has({ at: stageCue.start, text: stageLines.english })
 
   return (
     <div
@@ -261,68 +390,74 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         // click into a field leaves the field alone.
         if (!isTypingTarget(event.target)) containerRef.current?.focus({ preventScroll: true })
       }}
+      // The practice view and the top bars have no drop target of their own, and a file
+      // let go there would otherwise be opened by the browser in place of the page. The
+      // home's drop zone claims the event first; this catches everything else.
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault()
+      }}
+      onDrop={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault()
+      }}
     >
       <style>{STYLES}</style>
       <audio ref={audioRef} preload="metadata" style={{ display: 'none' }} />
 
-      <div className="dsh-lingualab-top">
-        {back !== undefined ? (
-          <button type="button" className="dsh-lingualab-chip" onClick={back}>
-            {t('back')}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="dsh-lingualab-episode"
-          onClick={() => setLayer('picker')}
-          title={episode === null ? t('openEpisode') : t('changeEpisode')}
-        >
-          <span className="dsh-lingualab-episode-name">{episode?.title ?? t('openEpisode')}</span>
-          <span className="dsh-lingualab-episode-caret">▾</span>
-        </button>
-        <span className="dsh-lingualab-spacer" />
-        <button
-          type="button"
-          className={`dsh-lingualab-chip${layer === 'notes' ? ' is-on' : ''}`}
-          onClick={() => setLayer(layer === 'notes' ? 'none' : 'notes')}
-        >
-          {t('notesChip')} {notes.phrases.length}/{MAX_PHRASES}
-        </button>
-        {episode !== null ? (
-          <StepTracker
-            key={episode.id}
-            t={t}
-            episode={episode.id}
-            open={stepsOpen}
-            onToggle={() => setStepsOpen(!stepsOpen)}
-          />
-        ) : null}
-        <button
-          type="button"
-          className={`dsh-lingualab-chip${layer === 'folder' ? ' is-on' : ''}`}
-          onClick={() => setLayer(layer === 'folder' ? 'none' : 'folder')}
-        >
-          {t('mediaFolder')}
-        </button>
-      </div>
-
-      {episode === null ? (
-        <div className="dsh-lingualab-blank">
-          <div className="dsh-lingualab-blank-card">
-            <h1>{library.loading ? t('stageLoading') : t('emptyTitle')}</h1>
-            <div className="dsh-lingualab-hint">
-              {library.payload?.ok === false ? library.payload.reason : t('emptyHint')}
-            </div>
-            <MediaFolderPanel t={t} config={folder} onSaved={library.reload} bare />
-            <div className="dsh-lingualab-actions">
-              <button type="button" className="dsh-lingualab-btn is-primary" onClick={() => setLayer('picker')}>
-                {t('pickerBrowse')}
+      {view === 'home' ? (
+        <>
+          <div className="dsh-lingualab-top">
+            {back !== undefined ? (
+              <button type="button" className="dsh-lingualab-chip" onClick={back}>
+                {t('back')}
               </button>
-            </div>
+            ) : null}
+            <span className="dsh-lingualab-top-title">{t('appTitle')}</span>
+            <span className="dsh-lingualab-spacer" />
           </div>
-        </div>
+          <LibraryHome
+            t={t}
+            library={library.payload}
+            loading={library.loading}
+            importer={importer}
+            progress={progress}
+            currentId={episodeId}
+            current={episode}
+            opening={library.opening}
+            openError={library.openError}
+            onOpen={openEpisode}
+            onFiles={importFiles}
+            onBrowse={() => setLayer('browse')}
+            onFolder={() => setLayer('folder')}
+          />
+        </>
       ) : (
         <>
+          <div className="dsh-lingualab-top">
+            <button type="button" className="dsh-lingualab-chip" onClick={goHome} title={t('backToList')}>
+              <BackIcon size={14} /> {t('backToList')}
+            </button>
+            <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
+              {episode?.title ?? t('openEpisode')}
+            </span>
+            <span className="dsh-lingualab-spacer" />
+            <button
+              type="button"
+              className={`dsh-lingualab-chip${layer === 'notes' ? ' is-on' : ''}`}
+              onClick={() => setLayer(layer === 'notes' ? 'none' : 'notes')}
+            >
+              <NoteIcon size={13} /> {t('notesChip')} {notes.phrases.length > 0 ? notes.phrases.length : ''}
+            </button>
+            {episode !== null ? (
+              <StepTracker
+                key={episode.id}
+                t={t}
+                episode={episode.id}
+                open={stepsOpen}
+                onToggle={() => setStepsOpen(!stepsOpen)}
+              />
+            ) : null}
+          </div>
+
           <div className="dsh-lingualab-stage">
             <div className="dsh-lingualab-stage-meta">
               <span>
@@ -331,18 +466,19 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   : `${formatClock(stageCue.start)} – ${formatClock(stageCue.end)}`}
               </span>
               {library.cuesLoading ? <span>{t('stageLoading')}…</span> : null}
-              <span className="dsh-lingualab-spacer" />
-              {episode.audio === null ? null : <span>{episode.audio}</span>}
             </div>
             <div className="dsh-lingualab-stage-en">{stageLines?.english ?? t('noSubtitles')}</div>
             {zhMode !== 'hidden' && stageLines !== null && stageLines.chinese.length > 0 ? (
-              <div className="dsh-lingualab-stage-zh">{stageLines.chinese}</div>
+              <div className="dsh-lingualab-stage-zh" data-zh={zhMode}>
+                {stageLines.chinese}
+              </div>
             ) : null}
             <ControlBar
               t={t}
               zhMode={zhMode}
               onZhMode={setZhMode}
-              onRecord={() => setComposerOpen(true)}
+              kept={keptNow}
+              onToggleKeep={() => keep()}
               disabled={!hasAudio || cues.length === 0}
             />
             {!hasAudio ? <div className="dsh-lingualab-warn">{t('noAudio')}</div> : null}
@@ -353,15 +489,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   {t('retry')}
                 </button>
               </div>
-            ) : null}
-            {composerOpen && !notes.full ? (
-              <NotesComposer
-                t={t}
-                quote={quote}
-                full={notes.full}
-                onSubmit={(note) => record(undefined, note)}
-                onCancel={() => setComposerOpen(false)}
-              />
             ) : null}
           </div>
 
@@ -381,63 +508,33 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 useMediaPlayer.getState().seek(cue.start)
                 useMediaPlayer.getState().setPlaying(true)
               }}
-              onRecord={(index) => record(index)}
+              onKeep={(index) => keep(index)}
             />
-            {layer === 'notes' ? (
-              <NotesPanel
-                t={t}
-                notes={notes}
-                onClose={() => setLayer('none')}
-                quote={quote}
-                pending={pending}
-                onCancelPending={() => {
-                  setPending(null)
-                  setLayer('none')
-                }}
-                onChoose={(index) => {
-                  if (pending !== null) notes.replaceAt(index, pending)
-                  setPending(null)
-                }}
-                onSubmit={(note) => record(undefined, note)}
-              />
-            ) : null}
+            {layer === 'notes' ? <NotesPanel t={t} notes={notes} onClose={() => setLayer('none')} /> : null}
           </div>
 
           <div className="dsh-lingualab-foot">
             <span>{t('shortcutHint')}</span>
             <span className="dsh-lingualab-spacer" />
-            {library.payload?.currentUnavailable != null ? (
-              <span className="dsh-lingualab-warn">{t('currentGone')}</span>
-            ) : null}
+            {quote === null ? null : <span>{t('keepWith')}</span>}
             {!focused ? <span>{t('keysInactive')}</span> : null}
           </div>
         </>
       )}
 
-      {layer === 'picker' ? (
+      {layer === 'browse' ? (
         <EpisodePicker
           t={t}
           onClose={() => setLayer('none')}
-          library={library.payload}
-          currentId={episode?.id ?? null}
           opening={library.opening}
           openError={library.openError}
-          onOpenEpisode={(id) => {
-            void (async () => {
-              if (!(await library.openEpisode(id))) return
-              setSelection(null)
-              setPending(null)
-              setComposerOpen(false)
-              setLayer('none')
-            })()
-          }}
+          onOpenEpisode={(id) => openEpisode(id)}
           onOpenFile={(place, rel) => {
             void (async () => {
               if (!(await library.openFile(place, rel))) return
               setSelection(null)
-              setPending(null)
-              setComposerOpen(false)
               setLayer('none')
+              setView('practice')
             })()
           }}
           onUseFolder={(place, rel) => {
@@ -456,6 +553,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         <MediaFolderPanel
           t={t}
           config={folder}
+          onClose={() => setLayer('none')}
           onSaved={() => {
             library.reload()
             setLayer('none')
