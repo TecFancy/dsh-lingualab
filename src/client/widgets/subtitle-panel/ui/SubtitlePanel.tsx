@@ -64,7 +64,7 @@ export function SubtitlePanel({
   }
 
   return (
-    <div className="dsh-lingualab-list">
+    <div className="dsh-lingualab-list" data-zh={zhMode}>
       {cues.map((cue, index) => {
         const isActive = index === activeIndex
         const isSelected = index === selectedIndex

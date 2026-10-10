@@ -76,6 +76,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Fixed
 
+- A bilingual subtitle paired with a separate English one showed each sentence in three lines, with the English twice. Only the Chinese lines of the second track are folded in now.
+- Chinese "always" and "dimmed" looked identical. Always now shows the Chinese at the English size and colour, dimmed keeps it small and faint.
 - A kept sentence stopped matching after a reload on folder episodes. `notes.md` stores whole
   seconds, so one kept at 12.48 s read back as 12; the star showed empty, the wrong row showed a
   filled one, and pressing it again wrote a duplicate nothing could remove. Matching is now by whole

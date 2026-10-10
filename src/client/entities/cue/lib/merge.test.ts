@@ -23,6 +23,17 @@ describe('mergeBilingual', () => {
     expect(merged.map((item) => item.text)).toEqual(['One\n一', 'Two', 'Three\n三'])
   })
 
+  it('keeps only the Chinese of a bilingual track so the English is not shown twice', () => {
+    const merged = mergeBilingual([cue(1, 'Kids, breakfast!')], [cue(1, '孩子们  吃早饭了\nKids, breakfast!')])
+    expect(merged[0]?.text).toBe('Kids, breakfast!\n孩子们  吃早饭了')
+  })
+
+  it('drops lines of a mislabelled track that the English already says', () => {
+    const merged = mergeBilingual([cue(1, 'Hello')], [cue(1, 'Hello\nHi there')])
+    expect(merged[0]?.text).toBe('Hello\nHi there')
+    expect(mergeBilingual([cue(1, 'Hello')], [cue(1, 'Hello')])[0]?.text).toBe('Hello')
+  })
+
   it('returns a copy when there is no Chinese track at all', () => {
     const english = [cue(1, 'Hello')]
     const merged = mergeBilingual(english, [])

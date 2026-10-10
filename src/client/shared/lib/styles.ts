@@ -99,7 +99,9 @@ export const STYLES = `
   color:var(--dsw-alias-label-secondary,#8a8f98);font-variant-numeric:tabular-nums}
 .dsh-lingualab-stage-en{font-size:20px;line-height:1.35;font-weight:600;max-height:5.4em;overflow:auto;
   word-break:break-word}
-.dsh-lingualab-stage-zh{margin-top:4px;font-size:14px;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-stage-zh{margin-top:4px;font-size:14px;
+  color:color-mix(in srgb,var(--dsw-alias-label-secondary,#8a8f98) 65%,transparent)}
+.dsh-lingualab-stage-zh[data-zh="always"]{font-size:16px;color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-transport{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dsh-lingualab-play{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex:none;
   border:0;border-radius:999px;background:var(--dsw-alias-brand-primary,#4d6bfe);color:var(--ll-on-brand);cursor:pointer}
@@ -144,7 +146,16 @@ export const STYLES = `
   font-variant-numeric:tabular-nums;padding-top:2px}
 .dsh-lingualab-row-en{min-width:0;word-break:break-word;color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-row.is-active .dsh-lingualab-row-en{color:var(--dsw-alias-label-primary,inherit)}
-.dsh-lingualab-row-zh{margin-top:2px;font-size:12.5px;color:var(--ll-muted)}
+/* Dimmed is small and faint, so the English leads; always is the same size and weight of
+   colour as the English, so both languages read as one block. */
+.dsh-lingualab-row-zh{margin-top:2px;font-size:12px;
+  color:color-mix(in srgb,var(--dsw-alias-label-secondary,#8a8f98) 55%,transparent)}
+.dsh-lingualab-row.is-active .dsh-lingualab-row-zh{
+  color:color-mix(in srgb,var(--dsw-alias-label-secondary,#8a8f98) 80%,transparent)}
+.dsh-lingualab-list[data-zh="always"] .dsh-lingualab-row-zh{font-size:inherit;
+  color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-list[data-zh="always"] .dsh-lingualab-row.is-active .dsh-lingualab-row-zh{
+  color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-row-actions{display:flex;align-items:center;gap:4px;opacity:0;visibility:hidden;transition:opacity .12s ease}
 .dsh-lingualab-row:hover .dsh-lingualab-row-actions,.dsh-lingualab-row.is-active .dsh-lingualab-row-actions{
   opacity:1;visibility:visible}

@@ -469,7 +469,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             </div>
             <div className="dsh-lingualab-stage-en">{stageLines?.english ?? t('noSubtitles')}</div>
             {zhMode !== 'hidden' && stageLines !== null && stageLines.chinese.length > 0 ? (
-              <div className="dsh-lingualab-stage-zh">{stageLines.chinese}</div>
+              <div className="dsh-lingualab-stage-zh" data-zh={zhMode}>
+                {stageLines.chinese}
+              </div>
             ) : null}
             <ControlBar
               t={t}

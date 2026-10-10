@@ -10,6 +10,7 @@
  * must not shift every later line by one.
  */
 import type { Cue } from '../model/types.ts'
+import { hasCjk } from './lines.ts'
 
 /** How far apart two starts may be and still count as the same line. */
 const MATCH_TOLERANCE_SECONDS = 0.6
@@ -37,6 +38,27 @@ export function mergeBilingual(english: readonly Cue[], chinese: readonly Cue[])
     if (candidate === undefined || Math.abs(candidate.start - cue.start) > MATCH_TOLERANCE_SECONDS) {
       return cue
     }
-    return { ...cue, text: `${cue.text}\n${candidate.text}` }
+    const addition = chineseLinesOf(candidate.text, cue.text)
+    return addition.length === 0 ? cue : { ...cue, text: `${cue.text}\n${addition}` }
   })
+}
+
+/**
+ * What of a Chinese-track cue is worth appending to an English cue.
+ *
+ * The track is often a bilingual file (`xxx_双语.srt`) paired with a plain English
+ * one, so its cues already carry the English line. Appending them whole would show
+ * the English twice, so only the lines with Chinese in them are kept. A track with
+ * no Chinese at all is a mislabelled one: its lines are kept except the ones the
+ * English cue already says.
+ */
+function chineseLinesOf(chineseText: string, englishText: string): string {
+  const lines = chineseText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+  const chinese = lines.filter(hasCjk)
+  if (chinese.length > 0) return chinese.join('\n')
+  const known = new Set(englishText.split('\n').map((line) => line.trim()))
+  return lines.filter((line) => !known.has(line)).join('\n')
 }
