@@ -219,3 +219,27 @@ export function BackIcon(props: IconProps) {
     </Svg>
   )
 }
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.8 4.4h10.4M6.2 4.4V3a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1v1.4M4 4.4l.6 8a1.2 1.2 0 0 0 1.2 1.1h4.4a1.2 1.2 0 0 0 1.2-1.1l.6-8M6.8 7v4M9.2 7v4" />
+    </Svg>
+  )
+}
+
+export function UndoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.8 5v3.4h3.4M2.8 8.4A5.2 5.2 0 1 0 4.6 4.5L2.8 6" />
+    </Svg>
+  )
+}
+
+export function BookIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 12.6A1.6 1.6 0 0 1 4.6 11H13V2.6H4.6A1.6 1.6 0 0 0 3 4.2ZM3 12.6v.8h10" />
+    </Svg>
+  )
+}

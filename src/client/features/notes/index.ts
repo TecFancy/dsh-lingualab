@@ -1,3 +1,3 @@
 /** Public API of the notes feature: the phrases kept from one episode. */
 export { MAX_PHRASES, useNotes, type NotesState, type SaveStatus } from './model/useNotes.ts'
-export { addWordToNote, noteHasWord } from './lib/words.ts'
+export { addWordToNote, noteHasWord, splitNote } from './lib/words.ts'

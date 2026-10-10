@@ -52,9 +52,15 @@ the plugin that was installed and used, not an artifact on a registry.
 - Floating panels (the drawers, the finish card, the popovers) no longer use the theme's `bg-overlay`. That token
   is the host's scrim colour, a light gray in dark mode, and a panel painted with it looked washed out. They use
   `bg-layer-1` now.
+- The kept-sentences drawer is redesigned to match the design file: pill tabs, a card per sentence with a replay
+  chip, edit and delete icons, words picked from the stage shown as chips in a memo box, and an empty state with
+  an icon. The five-steps drawer shares its header.
 
 ### Fixed
 
+- Deleting a kept sentence did nothing. The two-click confirmation was cancelled by the page taking focus back on
+  every mouse-down, so the second click never found the armed button. Delete now removes the row at once and a
+  toast offers an undo for six seconds.
 - The page container no longer draws an inset ring when it has focus. After clicking the page's blank space or
   pressing a shortcut, that ring looked like a black border.
 - A tick left focus on its checkbox, which switched off `Esc` and the other shortcuts; a checkbox no longer counts

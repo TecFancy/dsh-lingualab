@@ -152,7 +152,10 @@ export const zh: Record<string, string> = {
   notesEditorPlaceholder: '备注：谁说的、什么场景',
   notesEdit: '编辑备注',
   notesDelete: '删掉',
-  notesDeleteConfirm: '再点一次删掉',
+  notesDeleted: '已删掉 {time} 那一句',
+  notesUndo: '撤销',
+  notesReplay: '回放并循环这一句',
+  notesSubtitle: '{episode} · 共 {count} 句',
   review: '想不起',
   hard: '还记不住',
 
@@ -342,7 +345,10 @@ export const en: Record<string, string> = {
   notesEditorPlaceholder: 'Note: who said it, in what scene',
   notesEdit: 'Edit note',
   notesDelete: 'Delete',
-  notesDeleteConfirm: 'Click again to delete',
+  notesDeleted: 'Deleted the sentence at {time}',
+  notesUndo: 'Undo',
+  notesReplay: 'Replay and loop this sentence',
+  notesSubtitle: '{episode} · {count} kept',
   review: 'Review',
   hard: 'Hard',
 

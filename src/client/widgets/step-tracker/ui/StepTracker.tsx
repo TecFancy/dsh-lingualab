@@ -115,7 +115,12 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
       {open ? (
         <aside className="dsh-lingualab-popover">
           <div className="dsh-lingualab-notes-head">
-            <span>{t('stepsTitle')}</span>
+            <span className="dsh-lingualab-drawer-titles">
+              <span className="dsh-lingualab-drawer-title">{t('stepsTitle')}</span>
+              <span className="dsh-lingualab-drawer-sub">
+                {t('stepsProgress', { done, total: STEPS.length })}
+              </span>
+            </span>
             <span className="dsh-lingualab-spacer" />
             <button type="button" className="dsh-lingualab-icon-btn" onClick={onToggle} title={t('close')}>
               <CloseIcon />
@@ -123,7 +128,6 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
           </div>
           <div className="dsh-lingualab-steps-body">
             <div className="dsh-lingualab-steps-total">
-              <span>{t('stepsProgress', { done, total: STEPS.length })}</span>
               <div className="dsh-lingualab-bar" aria-hidden>
                 <div className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
               </div>

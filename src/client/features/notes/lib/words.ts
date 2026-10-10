@@ -24,3 +24,19 @@ export function addWordToNote(note: string, word: string): string {
   if (clean.length === 0 || noteHasWord(note, clean)) return note
   return note.length === 0 ? marked(clean) : `${note} ${marked(clean)}`
 }
+
+/**
+ * A note pulled apart for display: the [word] markers as a list, and what is left as text.
+ * The stored note is never changed by this, only shown differently.
+ */
+export function splitNote(note: string): { readonly words: readonly string[]; readonly text: string } {
+  const words: string[] = []
+  const text = note
+    .replace(/\[([^\]]+)\]/g, (_match, word: string) => {
+      words.push(word.trim())
+      return ' '
+    })
+    .replace(/\s+/g, ' ')
+    .trim()
+  return { words, text }
+}

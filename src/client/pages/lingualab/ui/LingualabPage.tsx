@@ -619,7 +619,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               }}
             />
           ) : null}
-          {layer === 'notes' ? <NotesPanel t={t} notes={notes} onClose={() => setLayer('none')} /> : null}
+          {layer === 'notes' ? <NotesPanel t={t} notes={notes} episodeTitle={episode?.title ?? ''} onClose={() => setLayer('none')} /> : null}
         </>
       )}
       {layer === 'browse' ? (
