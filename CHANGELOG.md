@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-10
+
 ### Changed
 
 - 「Browse existing files」 is redesigned. The card is larger and floats over a blurred mask. The
