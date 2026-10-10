@@ -19,6 +19,49 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- The practice page is redesigned, drafted in Figma. The left side is a stage: the current sentence in large bold
+  type, centred, the previous and next sentences faded above and below, the Chinese under the English. Under it is a
+  rounded player card with the scrubber on top, speed, loop and shadow on the left, previous, play and next in the
+  middle, and the Chinese display, the star and More on the right. The right side is the subtitle column, with the
+  current sentence tinted in the brand colour and marked by a bar on its left edge, and an auto-follow switch in
+  its header.
+- The progress bar now spans the episode. Every sentence start is a hairline on it, hovering shows the time and
+  the English of the sentence under the pointer, and a click or drag lands on the sentence that contains the
+  point. A drag seeks once, on release, so the audio does not stutter through every sentence the pointer crossed.
+- A sentence change has a motion: the new sentence fades in and lifts slightly, and the subtitle column scrolls
+  smoothly to the current sentence and keeps it in a middle band rather than at the edge. All of it is off under
+  the system's reduced-motion setting.
+- Clicking an English word opens a small popover to copy it or add it to that sentence's note (written as
+  `[word]`, and the sentence is kept if it was not). Playback is not interrupted.
+- Shadowing mode (the Shadow button): each sentence stops after it plays and its English is blurred, so you say it
+  first and then press `R` (or click Reveal) to read it. The next sentence, or pressing play again, covers it
+  again.
+- Finishing an episode shows a summary card: sentences heard, sentences kept, how many are still being practised,
+  with Next episode, Listen again and All episodes. `Esc` or Not now dismisses it and stays put.
+- The key hints are key caps, and the cap for a key the page just handled lights up. `R` reveals the English
+  while shadowing.
+- On the home page, Pick up where you left off is a large brand-tinted card, the episodes are a three-column card
+  grid (subtitle badge and progress bar), and a dashed drop strip sits at the bottom. Notes and the five steps are
+  drawers that slide in from the right: note cards carry the tick, the note and the tags, the five steps have an
+  overall progress bar, the next step is highlighted, and ticking one has a small animation.
+
+### Changed
+
+- Floating panels (the drawers, the finish card, the popovers) no longer use the theme's `bg-overlay`. That token
+  is the host's scrim colour, a light gray in dark mode, and a panel painted with it looked washed out. They use
+  `bg-layer-1` now.
+
+### Fixed
+
+- The page container no longer draws an inset ring when it has focus. After clicking the page's blank space or
+  pressing a shortcut, that ring looked like a black border.
+- A tick left focus on its checkbox, which switched off `Esc` and the other shortcuts; a checkbox no longer counts
+  as typing.
+- The total length was cleared to 00:00 when the subtitles finished loading after the audio's metadata, which
+  left the progress bar unusable; it is kept now.
+
 ## [0.3.1] - 2026-10-10
 
 ### Changed

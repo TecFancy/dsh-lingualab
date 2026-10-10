@@ -59,6 +59,17 @@ put English above Chinese whatever the source order, and the Chinese side has fo
 so the native language never becomes the thing being read. The page remembers where you stopped
 in each episode, in this browser, and the home offers it as 「Pick up where you left off」.
 
+The practice view is a stage and a subtitle column. The stage holds the current sentence in large
+type with its neighbours faded around it; the column on the right lists every sentence, follows
+playback unless you switch 「Auto-follow」 off, and marks the kept ones. A few details earn their
+place by being used every session. The progress bar spans the episode with a hairline at every
+sentence start, shows the time and the sentence under the pointer on hover, and seeks once, on
+release, when dragged. Clicking an English word copies it or adds it to that sentence's note
+without stopping the audio. **Shadowing** stops after each sentence with the English blurred, so
+you say it first and press `R` to check. Reaching the end shows a summary with the next episode,
+and the key caps under the player light up for the key the page just handled. Motion is off under
+the system's reduced-motion setting.
+
 **Keeping a sentence is a star** on the transport row and on each subtitle line, or `S`. The same
 star takes it back. The kept sentences sit in a drawer with three views, 「Practising」, 「Learned」
 and all: tick a sentence once it sticks and it leaves the first view without being deleted, so

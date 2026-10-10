@@ -20,31 +20,25 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import {
-  DEFAULT_SUBTITLE_ZH_MODE,
-  orderCueLines,
-  type Cue,
-  type SubtitleZhMode,
-} from '../../../entities/cue/index.ts'
+import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { useLibrary } from '../../../features/library/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
-import { useNotes } from '../../../features/notes/index.ts'
+import { addWordToNote, noteHasWord, useNotes } from '../../../features/notes/index.ts'
 import { readAllProgress, readProgress, writeProgress, type Progress } from '../../../features/resume/index.ts'
-import { keptSentenceKey } from '../../../shared/notes-format.ts'
+import { keptSentenceKey, sameKeptSentence } from '../../../shared/notes-format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
-import { formatClock } from '../../../shared/lib/format.ts'
 import { ControlBar, nextZhMode } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
+import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/index.ts'
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
-import type { NotePhrase } from '../../../shared/protocol.ts'
 
 /** Which view the page shows. */
 type View = 'home' | 'practice'
@@ -59,20 +53,17 @@ export interface LingualabPageProps extends PanelProps {
 /** How often the listening position is written down while an episode plays. */
 const BOOKMARK_MS = 5000
 
+/** How long a key cap stays lit after the page handles its key. */
+const FLASH_MS = 260
+
 /** Whether a keystroke belongs to a field the reader is typing in. */
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const tag = target.tagName.toLowerCase()
-  return tag === 'input' || tag === 'select' || tag === 'textarea' || target.isContentEditable
-}
-
-/** The English and Chinese halves of one cue, split the way the notes file wants them. */
-function splitCue(cue: Cue): { english: string; chinese: string } {
-  const lines = orderCueLines(cue.text)
-  return {
-    english: lines.find((line) => !line.secondary)?.text ?? cue.text,
-    chinese: lines.find((line) => line.secondary)?.text ?? '',
-  }
+  // A checkbox or a button-like input takes no typing, and a tick that leaves focus on it
+  // must not switch the page's keys (Escape included) off for the rest of the visit.
+  if (target instanceof HTMLInputElement) return !['checkbox', 'radio', 'button', 'submit', 'range', 'file'].includes(target.type)
+  return tag === 'select' || tag === 'textarea' || target.isContentEditable
 }
 
 /** The panel's centre-column page. */
@@ -90,10 +81,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
+  const [follow, setFollow] = useState(true)
+  const [flashed, setFlashed] = useState<string | null>(null)
+  const [dismissedFinish, setDismissedFinish] = useState(0)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
+  const revealed = useMediaPlayer((state) => state.revealed)
+  const finished = useMediaPlayer((state) => state.finished)
+  const finishCount = useMediaPlayer((state) => state.finishCount)
   const cues = library.cues
   const audioRef = useAudioBinding(library.media?.audioUrl ?? null)
 
@@ -185,14 +184,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     setView('home')
   }, [bookmark])
 
-  /** The sentence a new note would carry: whatever is playing. */
-  const quote: NotePhrase | null = useMemo(() => {
-    const cue = cues[activeIndex]
-    if (cue === undefined) return null
-    const { english, chinese } = splitCue(cue)
-    return { at: cue.start, text: english, zh: chinese, note: '', tags: [], done: false }
-  }, [cues, activeIndex])
-
   /**
    * Cue indexes whose sentence is kept, so the list can mark them.
    *
@@ -227,6 +218,55 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [cues, activeIndex, notes],
   )
 
+  /** Light the key cap for a key the page just handled. */
+  const flash = useCallback((id: string): void => {
+    setFlashed(id)
+    if (flashTimer.current !== null) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlashed(null), FLASH_MS)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current !== null) clearTimeout(flashTimer.current)
+    },
+    [],
+  )
+
+  /** The kept phrase for the sentence on stage, with its place in the stored list. */
+  const stagePhrase = useMemo(() => {
+    const cue = cues[activeIndex]
+    if (cue === undefined) return null
+    const key = { at: cue.start, text: splitCue(cue).english }
+    const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
+    return index < 0 ? null : { index, phrase: notes.phrases[index] }
+  }, [cues, activeIndex, notes.phrases])
+
+  /** Put a clicked word into the note of the sentence on stage, keeping the sentence if it was not. */
+  const addWord = useCallback(
+    (word: string): void => {
+      const cue = cues[activeIndex]
+      if (cue === undefined) return
+      const existing = stagePhrase?.phrase
+      if (stagePhrase !== null && existing !== undefined) {
+        notes.update(stagePhrase.index, { note: addWordToNote(existing.note, word) })
+        return
+      }
+      const { english, chinese } = splitCue(cue)
+      notes.add({ at: cue.start, text: english, zh: chinese, note: addWordToNote('', word), tags: [], done: false })
+    },
+    [cues, activeIndex, notes, stagePhrase],
+  )
+
+  /** The episodes that can be played, in library order; "next" is the one after the open one. */
+  const playable = useMemo(
+    () => [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].filter((entry) => entry.audio !== null),
+    [library.payload],
+  )
+  const nextEpisode = useMemo(() => {
+    const at = playable.findIndex((entry) => entry.id === library.episode?.id)
+    return at >= 0 ? (playable[at + 1] ?? null) : null
+  }, [playable, library.episode])
+
   /** Open an episode by id and move to the practice view when the host agrees. */
   const openEpisode = useCallback(
     (id: string): void => {
@@ -255,6 +295,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [importer],
   )
 
+  // The end-of-episode card: shown once per time the audio ends, until it is answered.
+  const finishOpen = view === 'practice' && finished && finishCount > dismissedFinish && cues.length > 0
+
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (isTypingTarget(event.target)) return
@@ -273,7 +316,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // Escape closes a layer in either view; everything else is practice-only, since
       // the home has no transport for a shortcut to act on.
       if (event.key === 'Escape') {
-        if (layer !== 'none') {
+        if (finishOpen) {
+          handled()
+          setDismissedFinish(finishCount)
+        } else if (layer !== 'none') {
           handled()
           setLayer('none')
         } else if (view === 'practice') {
@@ -292,15 +338,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       switch (event.key) {
         case ' ':
           handled()
+          flash('space')
           store().toggle()
           return
         case 'ArrowLeft':
           handled()
+          flash('arrows')
           setSelection(null)
           store().stepCue(-1)
           return
         case 'ArrowRight':
           handled()
+          flash('arrows')
           setSelection(null)
           store().stepCue(1)
           return
@@ -325,6 +374,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         case 'l':
         case 'L':
           handled()
+          flash('l')
           if (store().loopMode === 'sentence') store().setLoopMode('none')
           else store().loopSentence(current)
           return
@@ -333,12 +383,20 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         case 'n':
         case 'N':
           handled()
+          flash('s')
           keep(selection ?? undefined)
           return
         case 'c':
         case 'C':
           handled()
+          flash('c')
           setZhMode(nextZhMode(zhMode))
+          return
+        case 'r':
+        case 'R':
+          handled()
+          flash('r')
+          store().reveal(store().activeIndex)
           return
         case 'a':
         case 'A':
@@ -362,7 +420,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         default:
       }
     },
-    [cues, keep, layer, selection, stepsOpen, view, zhMode],
+    [cues, finishCount, finishOpen, flash, keep, layer, selection, stepsOpen, view, zhMode],
   )
 
   const hasAudio = library.media !== null
@@ -374,7 +432,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const stageLines = stageCue === undefined ? null : splitCue(stageCue)
   const keptNow =
     stageCue !== undefined && stageLines !== null && notes.has({ at: stageCue.start, text: stageLines.english })
-
+  // Shadowing hides the English of the sentence being repeated until it has been heard.
+  const masked = shadow && stageCue !== undefined && revealed !== activeIndex
+  const practising = notes.phrases.filter((phrase) => !phrase.done).length
+  const drawerOpen = layer === 'notes' || stepsOpen
   return (
     <div
       className="dsh-lingualab-page"
@@ -436,14 +497,22 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             <button type="button" className="dsh-lingualab-chip" onClick={goHome} title={t('backToList')}>
               <BackIcon size={14} /> {t('backToList')}
             </button>
-            <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
-              {episode?.title ?? t('openEpisode')}
-            </span>
+            <div className="dsh-lingualab-top-heading">
+              <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
+                {episode?.title ?? t('openEpisode')}
+              </span>
+              {cues.length > 0 && stageCue !== undefined ? (
+                <span className="dsh-lingualab-top-sub">{t('cueOf', { n: activeIndex + 1, total: cues.length })}</span>
+              ) : null}
+            </div>
             <span className="dsh-lingualab-spacer" />
             <button
               type="button"
               className={`dsh-lingualab-chip${layer === 'notes' ? ' is-on' : ''}`}
-              onClick={() => setLayer(layer === 'notes' ? 'none' : 'notes')}
+              onClick={() => {
+                setStepsOpen(false)
+                setLayer(layer === 'notes' ? 'none' : 'notes')
+              }}
             >
               <NoteIcon size={13} /> {t('notesChip')} {notes.phrases.length > 0 ? notes.phrases.length : ''}
             </button>
@@ -453,46 +522,73 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 t={t}
                 episode={episode.id}
                 open={stepsOpen}
-                onToggle={() => setStepsOpen(!stepsOpen)}
+                onToggle={() => {
+                  setLayer('none')
+                  setStepsOpen(!stepsOpen)
+                }}
               />
             ) : null}
           </div>
 
-          <div className="dsh-lingualab-stage">
-            <div className="dsh-lingualab-stage-meta">
-              <span>
-                {stageCue === undefined
-                  ? '--:--'
-                  : `${formatClock(stageCue.start)} – ${formatClock(stageCue.end)}`}
-              </span>
-              {library.cuesLoading ? <span>{t('stageLoading')}…</span> : null}
+          <div className="dsh-lingualab-body">
+            <div className="dsh-lingualab-practice">
+              <Stage
+                t={t}
+                cues={cues}
+                activeIndex={activeIndex}
+                zhMode={zhMode}
+                masked={masked}
+                onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
+                onAddWord={addWord}
+                hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
+                loading={library.cuesLoading}
+                hasAudio={hasAudio}
+              />
+              <div className="dsh-lingualab-deck">
+                <ControlBar
+                  t={t}
+                  zhMode={zhMode}
+                  onZhMode={setZhMode}
+                  kept={keptNow}
+                  onToggleKeep={() => keep()}
+                  disabled={!hasAudio || cues.length === 0}
+                />
+                <KeyHints t={t} flash={flashed} active={focused} />
+              </div>
+              {library.error !== null && cues.length === 0 && hasAudio ? (
+                <div className="dsh-lingualab-error" style={{ textAlign: 'center' }}>
+                  {t('subtitleFailed')}{' '}
+                  <button type="button" className="dsh-lingualab-btn" onClick={library.reload}>
+                    {t('retry')}
+                  </button>
+                </div>
+              ) : null}
+              {finishOpen ? (
+                <FinishCard
+                  t={t}
+                  title={episode?.title ?? ''}
+                  sentences={cues.length}
+                  kept={notes.phrases.length}
+                  practising={practising}
+                  nextTitle={nextEpisode?.title ?? null}
+                  onAgain={() => {
+                    setDismissedFinish(finishCount)
+                    useMediaPlayer.getState().seek(0)
+                    useMediaPlayer.getState().setPlaying(true)
+                  }}
+                  onNext={() => {
+                    setDismissedFinish(finishCount)
+                    if (nextEpisode !== null) openEpisode(nextEpisode.id)
+                  }}
+                  onHome={() => {
+                    setDismissedFinish(finishCount)
+                    goHome()
+                  }}
+                  onClose={() => setDismissedFinish(finishCount)}
+                />
+              ) : null}
             </div>
-            <div className="dsh-lingualab-stage-en">{stageLines?.english ?? t('noSubtitles')}</div>
-            {zhMode !== 'hidden' && stageLines !== null && stageLines.chinese.length > 0 ? (
-              <div className="dsh-lingualab-stage-zh" data-zh={zhMode}>
-                {stageLines.chinese}
-              </div>
-            ) : null}
-            <ControlBar
-              t={t}
-              zhMode={zhMode}
-              onZhMode={setZhMode}
-              kept={keptNow}
-              onToggleKeep={() => keep()}
-              disabled={!hasAudio || cues.length === 0}
-            />
-            {!hasAudio ? <div className="dsh-lingualab-warn">{t('noAudio')}</div> : null}
-            {library.error !== null && cues.length === 0 && hasAudio ? (
-              <div className="dsh-lingualab-error">
-                {t('subtitleFailed')}{' '}
-                <button type="button" className="dsh-lingualab-btn" onClick={library.reload}>
-                  {t('retry')}
-                </button>
-              </div>
-            ) : null}
-          </div>
 
-          <div className="dsh-lingualab-mid">
             <SubtitlePanel
               t={t}
               cues={cues}
@@ -500,6 +596,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               selectedIndex={selectedIndex}
               zhMode={zhMode}
               notedIndexes={notedIndexes}
+              follow={follow}
+              onFollow={setFollow}
               onSelect={setSelection}
               onPlay={(index) => {
                 const cue = cues[index]
@@ -510,18 +608,20 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               }}
               onKeep={(index) => keep(index)}
             />
-            {layer === 'notes' ? <NotesPanel t={t} notes={notes} onClose={() => setLayer('none')} /> : null}
           </div>
 
-          <div className="dsh-lingualab-foot">
-            <span>{t('shortcutHint')}</span>
-            <span className="dsh-lingualab-spacer" />
-            {quote === null ? null : <span>{t('keepWith')}</span>}
-            {!focused ? <span>{t('keysInactive')}</span> : null}
-          </div>
+          {drawerOpen ? (
+            <div
+              className="dsh-lingualab-scrim"
+              onClick={() => {
+                setLayer('none')
+                setStepsOpen(false)
+              }}
+            />
+          ) : null}
+          {layer === 'notes' ? <NotesPanel t={t} notes={notes} onClose={() => setLayer('none')} /> : null}
         </>
       )}
-
       {layer === 'browse' ? (
         <EpisodePicker
           t={t}

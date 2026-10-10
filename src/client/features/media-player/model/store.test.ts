@@ -73,3 +73,72 @@ describe('the speed button', () => {
     expect(useMediaPlayer.getState().speedIndex).toBe(SPEED_PRESETS.length - 1)
   })
 })
+
+describe('shadow mode', () => {
+  it('pauses at the end of the sentence and rewinds to its start', () => {
+    const store = useMediaPlayer.getState()
+    store.setPauseAfterSentence(true)
+    store.seek(10)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().setPlaying(true)
+    useMediaPlayer.getState().onTime(11)
+    expect(useMediaPlayer.getState().isPlaying).toBe(true)
+
+    useMediaPlayer.getState().onTime(12.1)
+    const after = useMediaPlayer.getState()
+    expect(after.isPlaying).toBe(false)
+    expect(after.seekRequest).toBe(10)
+  })
+
+  it('does not stop for a sentence the reader seeked past', () => {
+    const store = useMediaPlayer.getState()
+    store.setPauseAfterSentence(true)
+    store.seek(16)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().setPlaying(true)
+    useMediaPlayer.getState().onTime(16.2)
+    expect(useMediaPlayer.getState().isPlaying).toBe(true)
+  })
+
+  it('leaves an active loop in charge of the end', () => {
+    const store = useMediaPlayer.getState()
+    store.setPauseAfterSentence(true)
+    store.loopSentence(0)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().onTime(12.1)
+    expect(useMediaPlayer.getState().isPlaying).toBe(true)
+  })
+})
+
+describe('the end of the audio', () => {
+  it('is remembered until something plays or moves again', () => {
+    useMediaPlayer.getState().markFinished()
+    expect(useMediaPlayer.getState().finished).toBe(true)
+    expect(useMediaPlayer.getState().isPlaying).toBe(false)
+    useMediaPlayer.getState().seek(10)
+    expect(useMediaPlayer.getState().finished).toBe(false)
+  })
+})
+
+describe('shadow reveal', () => {
+  it('uncovers the sentence that just ended, and only that one', () => {
+    const store = useMediaPlayer.getState()
+    store.setPauseAfterSentence(true)
+    store.seek(10)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().setPlaying(true)
+    useMediaPlayer.getState().onTime(12.1)
+    expect(useMediaPlayer.getState().revealed).toBe(0)
+    useMediaPlayer.getState().stepCue(1)
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+    expect(useMediaPlayer.getState().revealed).toBe(0)
+  })
+})
+
+describe('the audio length', () => {
+  it('survives the subtitles loading after the metadata', () => {
+    useMediaPlayer.getState().setDuration(40)
+    useMediaPlayer.getState().reset(cues)
+    expect(useMediaPlayer.getState().duration).toBe(40)
+  })
+})

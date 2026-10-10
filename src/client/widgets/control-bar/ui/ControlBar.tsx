@@ -16,8 +16,10 @@ import { useEffect, useRef, useState } from 'react'
 import { SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
+import { Scrubber } from './Scrubber.tsx'
 import {
   LoopIcon,
+  MicIcon,
   MoreIcon,
   NextIcon,
   PauseIcon,
@@ -64,23 +66,16 @@ export interface ControlBarProps {
 /** The row under the sentence. */
 export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled = false }: ControlBarProps) {
   const isPlaying = useMediaPlayer((state) => state.isPlaying)
-  const currentTime = useMediaPlayer((state) => state.currentTime)
   const speedIndex = useMediaPlayer((state) => state.speedIndex)
   const loopMode = useMediaPlayer((state) => state.loopMode)
   const repeats = useMediaPlayer((state) => state.repeats)
   const pointA = useMediaPlayer((state) => state.pointA)
   const pointB = useMediaPlayer((state) => state.pointB)
-  const cues = useMediaPlayer((state) => state.cues)
-  const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
 
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
   const store = useMediaPlayer.getState
-  const cue = cues[activeIndex]
-  const start = cue?.start ?? 0
-  const end = cue?.end ?? 0
-  const span = Math.max(0.001, end - start)
-  const within = Math.min(1, Math.max(0, (currentTime - start) / span))
 
   // A menu that stays open after you click elsewhere is a menu you have to close twice.
   useEffect(() => {
@@ -96,85 +91,90 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
 
   return (
     <div className="dsh-lingualab-transport">
-      <button
-        type="button"
-        className="dsh-lingualab-bar-btn"
-        onClick={() => store().stepCue(-1)}
-        disabled={disabled}
-        title={t('prevCue')}
-      >
-        <PrevIcon />
-      </button>
-      <button
-        type="button"
-        className="dsh-lingualab-play"
-        onClick={() => store().toggle()}
-        disabled={disabled}
-        title={isPlaying ? t('pause') : t('play')}
-      >
-        {isPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
-      </button>
-      <button
-        type="button"
-        className="dsh-lingualab-bar-btn"
-        onClick={() => store().stepCue(1)}
-        disabled={disabled}
-        title={t('nextCue')}
-      >
-        <NextIcon />
-      </button>
+      <Scrubber t={t} disabled={disabled} />
 
-      <span className="dsh-lingualab-time">
-        {formatClock(currentTime)} / {formatClock(end)}
-      </span>
-      {/* Sentence progress: read-only on purpose. Dragging inside one sentence is a
-          different gesture from seeking the episode, and shipping the wrong one is
-          worse than shipping none. */}
-      <span className="dsh-lingualab-progress" title={`${formatClock(start)} – ${formatClock(end)}`}>
-        <span className="dsh-lingualab-progress-fill" style={{ width: `${String(within * 100)}%` }} />
-      </span>
+      <div className="dsh-lingualab-transport-row">
+        <div className="dsh-lingualab-transport-side">
+          <button
+            type="button"
+            className="dsh-lingualab-bar-btn"
+            onClick={() => store().nextSpeedWrapping()}
+            disabled={disabled}
+            title={t('speed')}
+          >
+            {SPEED_PRESETS[speedIndex] ?? 1}×
+          </button>
+          <button
+            type="button"
+            className={`dsh-lingualab-bar-btn${loopMode === 'sentence' ? ' is-on' : ''}`}
+            onClick={() => (loopMode === 'sentence' ? store().setLoopMode('none') : store().loopSentence())}
+            disabled={disabled}
+            title={t('loopSentence')}
+          >
+            <LoopIcon /> {t('loopShort')}
+          </button>
+          <button
+            type="button"
+            className={`dsh-lingualab-bar-btn${shadow ? ' is-on' : ''}`}
+            onClick={() => store().setPauseAfterSentence(!shadow)}
+            disabled={disabled}
+            title={t('shadowHint')}
+            aria-pressed={shadow}
+          >
+            <MicIcon /> {t('shadowShort')}
+          </button>
+        </div>
 
-      <span className="dsh-lingualab-spacer" />
+        <div className="dsh-lingualab-transport-main">
+          <button
+            type="button"
+            className="dsh-lingualab-round"
+            onClick={() => store().stepCue(-1)}
+            disabled={disabled}
+            title={t('prevCue')}
+          >
+            <PrevIcon />
+          </button>
+          <button
+            type="button"
+            className="dsh-lingualab-play"
+            onClick={() => store().toggle()}
+            disabled={disabled}
+            title={isPlaying ? t('pause') : t('play')}
+          >
+            {isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
+          </button>
+          <button
+            type="button"
+            className="dsh-lingualab-round"
+            onClick={() => store().stepCue(1)}
+            disabled={disabled}
+            title={t('nextCue')}
+          >
+            <NextIcon />
+          </button>
+        </div>
 
-      <button
-        type="button"
-        className="dsh-lingualab-bar-btn"
-        onClick={() => store().nextSpeedWrapping()}
-        disabled={disabled}
-        title={t('speed')}
-      >
-        {SPEED_PRESETS[speedIndex] ?? 1}×
-      </button>
+        <div className="dsh-lingualab-transport-side is-end">
+          <button
+            type="button"
+            className="dsh-lingualab-bar-btn"
+            onClick={() => onZhMode(nextZhMode(zhMode))}
+            title={t('zhMode')}
+          >
+            {t(ZH_MODE_KEYS[zhMode])}
+          </button>
 
-      <button
-        type="button"
-        className={`dsh-lingualab-bar-btn${loopMode === 'sentence' ? ' is-on' : ''}`}
-        onClick={() => (loopMode === 'sentence' ? store().setLoopMode('none') : store().loopSentence())}
-        disabled={disabled}
-        title={t('loopSentence')}
-      >
-        <LoopIcon /> {t('loopShort')}
-      </button>
-
-      <button
-        type="button"
-        className="dsh-lingualab-bar-btn"
-        onClick={() => onZhMode(nextZhMode(zhMode))}
-        title={t('zhMode')}
-      >
-        {t(ZH_MODE_KEYS[zhMode])}
-      </button>
-
-      <button
-        type="button"
-        className={`dsh-lingualab-bar-btn is-star${kept ? ' is-on' : ''}`}
-        onClick={onToggleKeep}
-        disabled={disabled}
-        title={kept ? t('unkeepHint') : t('keepHint')}
-        aria-pressed={kept}
-      >
-        <StarIcon filled={kept} /> {kept ? t('kept') : t('keep')}
-      </button>
+          <button
+            type="button"
+            className={`dsh-lingualab-bar-btn is-star${kept ? ' is-on' : ''}`}
+            onClick={onToggleKeep}
+            disabled={disabled}
+            title={kept ? t('unkeepHint') : t('keepHint')}
+            aria-pressed={kept}
+          >
+            <StarIcon filled={kept} /> {kept ? t('kept') : t('keep')}
+          </button>
 
       <span className="dsh-lingualab-menu-holder" ref={holder}>
         <button
@@ -241,6 +241,8 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
           </div>
         ) : null}
       </span>
+        </div>
+      </div>
     </div>
   )
 }

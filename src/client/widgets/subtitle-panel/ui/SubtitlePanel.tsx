@@ -27,10 +27,35 @@ export interface SubtitlePanelProps {
   readonly zhMode: SubtitleZhMode
   /** Cue indexes that already carry a note, so the row can show it. */
   readonly notedIndexes: ReadonlySet<number>
+  /** Whether the list scrolls itself to the playing sentence. */
+  readonly follow: boolean
+  readonly onFollow: (on: boolean) => void
   readonly onSelect: (index: number) => void
   readonly onPlay: (index: number) => void
   /** Keeps the sentence, or takes it back when it is already kept. */
   readonly onKeep: (index: number) => void
+}
+
+/** Whether the reader asked the system for less motion. */
+function reducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * Bring one row into the list's middle band by scrolling the list itself.
+ *
+ * `scrollIntoView` also scrolls every ancestor, which on a page that shares a document
+ * with a conversation moves the wrong thing. Scrolling the one container we own does not.
+ */
+function bringIntoView(list: HTMLElement, row: HTMLElement, smooth: boolean): void {
+  const top = row.offsetTop
+  const bottom = top + row.offsetHeight
+  const margin = list.clientHeight * 0.28
+  if (top >= list.scrollTop + margin && bottom <= list.scrollTop + list.clientHeight - margin) return
+  list.scrollTo({
+    top: Math.max(0, top - list.clientHeight / 2 + row.offsetHeight / 2),
+    behavior: smooth && !reducedMotion() ? 'smooth' : 'auto',
+  })
 }
 
 /** The scrolling list of cues. */
@@ -41,93 +66,109 @@ export function SubtitlePanel({
   selectedIndex,
   zhMode,
   notedIndexes,
+  follow,
+  onFollow,
   onSelect,
   onPlay,
   onKeep,
 }: SubtitlePanelProps) {
+  const listRef = useRef<HTMLDivElement | null>(null)
   const activeRef = useRef<HTMLDivElement | null>(null)
   const selectedRef = useRef<HTMLDivElement | null>(null)
 
-  // Follow playback, but never fight the reader: `block: 'nearest'` leaves the list
-  // alone while the active row is already on screen.
+  // Follow playback, but never fight the reader: nothing moves while the active row is
+  // already in the middle band, and nothing moves at all once follow is switched off.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [activeIndex])
+    if (!follow || listRef.current === null || activeRef.current === null) return
+    bringIntoView(listRef.current, activeRef.current, true)
+  }, [activeIndex, follow])
 
-  // A keyboard move is a deliberate jump, so that one does get scrolled to.
+  // A keyboard move is a deliberate jump, so that one is scrolled to even without follow.
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+    if (listRef.current === null || selectedRef.current === null) return
+    bringIntoView(listRef.current, selectedRef.current, false)
   }, [selectedIndex])
 
-  if (cues.length === 0) {
-    return <div className="dsh-lingualab-empty">{t('noSubtitles')}</div>
-  }
-
   return (
-    <div className="dsh-lingualab-list" data-zh={zhMode}>
-      {cues.map((cue, index) => {
-        const isActive = index === activeIndex
-        const isSelected = index === selectedIndex
-        const lines = visibleCueLines(cue.text, zhMode, isActive)
-        return (
-          <div
-            key={`${cue.start}-${index}`}
-            ref={isActive ? activeRef : isSelected ? selectedRef : null}
-            className={`dsh-lingualab-row${isActive ? ' is-active' : ''}`}
-            style={
-              isSelected && !isActive
-                ? { background: 'var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,0.1))' }
-                : undefined
-            }
-            onClick={() => {
-              onSelect(index)
-              onPlay(index)
-            }}
-          >
-            <span className="dsh-lingualab-row-time">{formatClock(cue.start)}</span>
-            <span>
-              {lines.map((line, lineIndex) => (
-                <div
-                  key={lineIndex}
-                  className={line.secondary ? 'dsh-lingualab-row-zh' : 'dsh-lingualab-row-en'}
-                >
-                  {line.text}
-                </div>
-              ))}
-            </span>
-            <span
-              className={`dsh-lingualab-row-actions${notedIndexes.has(index) ? ' is-kept' : ''}`}
-            >
-              <button
-                type="button"
-                className="dsh-lingualab-icon-btn"
-                title={t('loopSentence')}
-                onClick={(event) => {
-                  // The row itself plays; the loop button must not also seek, or the
-                  // click would land twice and the second one would win.
-                  event.stopPropagation()
+    <aside className="dsh-lingualab-transcript">
+      <div className="dsh-lingualab-transcript-head">
+        <span className="dsh-lingualab-transcript-title">{t('transcript')}</span>
+        <span className="dsh-lingualab-counter">{t('transcriptCount', { count: cues.length })}</span>
+        <span className="dsh-lingualab-spacer" />
+        <label className="dsh-lingualab-switch" title={t('followHint')}>
+          <input
+            type="checkbox"
+            className="dsh-lingualab-visually-hidden"
+            checked={follow}
+            onChange={(event) => onFollow(event.target.checked)}
+          />
+          <span className="dsh-lingualab-switch-track" aria-hidden>
+            <span className="dsh-lingualab-switch-knob" />
+          </span>
+          {t('follow')}
+        </label>
+      </div>
+
+      {cues.length === 0 ? (
+        <div className="dsh-lingualab-empty">{t('noSubtitles')}</div>
+      ) : (
+        <div className="dsh-lingualab-list" data-zh={zhMode} ref={listRef}>
+          {cues.map((cue, index) => {
+            const isActive = index === activeIndex
+            const isSelected = index === selectedIndex
+            const kept = notedIndexes.has(index)
+            const lines = visibleCueLines(cue.text, zhMode, isActive)
+            return (
+              <div
+                key={`${cue.start}-${index}`}
+                ref={isActive ? activeRef : isSelected ? selectedRef : null}
+                className={`dsh-lingualab-row${isActive ? ' is-active' : ''}${isSelected && !isActive ? ' is-selected' : ''}`}
+                onClick={() => {
                   onSelect(index)
-                  useMediaPlayer.getState().loopSentence(index)
+                  onPlay(index)
                 }}
               >
-                <LoopIcon />
-              </button>
-              <button
-                type="button"
-                className={`dsh-lingualab-icon-btn is-star${notedIndexes.has(index) ? ' is-on' : ''}`}
-                title={notedIndexes.has(index) ? t('unkeepHint') : t('keepHint')}
-                aria-pressed={notedIndexes.has(index)}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onKeep(index)
-                }}
-              >
-                <StarIcon filled={notedIndexes.has(index)} />
-              </button>
-            </span>
-          </div>
-        )
-      })}
-    </div>
+                <span className="dsh-lingualab-row-time">{formatClock(cue.start)}</span>
+                <span>
+                  {lines.map((line, lineIndex) => (
+                    <div key={lineIndex} className={line.secondary ? 'dsh-lingualab-row-zh' : 'dsh-lingualab-row-en'}>
+                      {line.text}
+                    </div>
+                  ))}
+                </span>
+                <span className={`dsh-lingualab-row-actions${kept ? ' is-kept' : ''}`}>
+                  <button
+                    type="button"
+                    className="dsh-lingualab-icon-btn is-small"
+                    title={t('loopSentence')}
+                    onClick={(event) => {
+                      // The row itself plays; the loop button must not also seek, or the
+                      // click would land twice and the second one would win.
+                      event.stopPropagation()
+                      onSelect(index)
+                      useMediaPlayer.getState().loopSentence(index)
+                    }}
+                  >
+                    <LoopIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className={`dsh-lingualab-icon-btn is-small is-star${kept ? ' is-on' : ''}`}
+                    title={kept ? t('unkeepHint') : t('keepHint')}
+                    aria-pressed={kept}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onKeep(index)
+                    }}
+                  >
+                    <StarIcon filled={kept} />
+                  </button>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </aside>
   )
 }

@@ -35,6 +35,8 @@ export function useAudioBinding(src: string | null): AudioRef {
   useEffect(() => {
     const audio = ref.current
     appliedSeek.current = useMediaPlayer.getState().seekToken
+    // A new source has no known length until its own metadata arrives.
+    useMediaPlayer.getState().setDuration(0)
     if (audio === null) return
     if (src === null) {
       audio.removeAttribute('src')
@@ -82,7 +84,7 @@ export function useAudioBinding(src: string | null): AudioRef {
 
     const onTime = (): void => store().onTime(audio.currentTime)
     const onMeta = (): void => store().setDuration(audio.duration)
-    const onEnded = (): void => store().setPlaying(false)
+    const onEnded = (): void => store().markFinished()
     const onError = (): void => store().setPlaying(false)
     // The seek gate's release signal: the element itself says the position moved.
     const onSeeked = (): void => store().clearGuard()

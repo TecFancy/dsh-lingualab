@@ -13,6 +13,7 @@
  * through today's material rather than part of the notes file the agent reads.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { CheckIcon, CloseIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 
 interface StepDefinition {
@@ -104,6 +105,7 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
   }, [running, episode])
 
   const done = STEPS.filter((step) => (records[step.id] ?? EMPTY).done).length
+  const fraction = done / STEPS.length
 
   return (
     <>
@@ -111,44 +113,68 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
         {t('stepsChip')} {done}/{STEPS.length}
       </button>
       {open ? (
-        <div className="dsh-lingualab-popover">
-          <div className="dsh-lingualab-steps">
-            {STEPS.map((step) => {
-              const record = records[step.id] ?? EMPTY
-              const isRunning = running === step.id
-              return (
-                <div
-                  key={step.id}
-                  className={`dsh-lingualab-step${record.done ? ' is-done' : ''}${isRunning ? ' is-current' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={record.done}
-                    onChange={(event) =>
-                      persist({ ...records, [step.id]: { ...record, done: event.target.checked } })
-                    }
-                    title={record.done ? t('stepUndone') : t('stepDone')}
-                  />
-                  <span className="dsh-lingualab-step-label">{t(step.labelKey)}</span>
-                  <span className="dsh-lingualab-step-mins">
-                    {step.inSession
-                      ? `${step.minutes} ${t('minutes')} · ${Math.floor(record.seconds / 60)}:${String(record.seconds % 60).padStart(2, '0')}`
-                      : t('stepInSession')}
-                  </span>
-                  {step.inSession ? (
-                    <button
-                      type="button"
-                      className={`dsh-lingualab-btn${isRunning ? ' is-primary' : ''}`}
-                      onClick={() => setRunning(isRunning ? null : step.id)}
-                    >
-                      {isRunning ? t('stepStop') : t('stepStart')}
-                    </button>
-                  ) : null}
-                </div>
-              )
-            })}
+        <aside className="dsh-lingualab-popover">
+          <div className="dsh-lingualab-notes-head">
+            <span>{t('stepsTitle')}</span>
+            <span className="dsh-lingualab-spacer" />
+            <button type="button" className="dsh-lingualab-icon-btn" onClick={onToggle} title={t('close')}>
+              <CloseIcon />
+            </button>
           </div>
-        </div>
+          <div className="dsh-lingualab-steps-body">
+            <div className="dsh-lingualab-steps-total">
+              <span>{t('stepsProgress', { done, total: STEPS.length })}</span>
+              <div className="dsh-lingualab-bar" aria-hidden>
+                <div className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
+              </div>
+            </div>
+            <div className="dsh-lingualab-steps">
+              {STEPS.map((step, index) => {
+                const record = records[step.id] ?? EMPTY
+                const isRunning = running === step.id
+                // The step to do next: the first one not yet ticked, so the card says where you are.
+                const isNext = !record.done && STEPS.slice(0, index).every((before) => (records[before.id] ?? EMPTY).done)
+                const clock = `${String(Math.floor(record.seconds / 60))}:${String(record.seconds % 60).padStart(2, '0')}`
+                return (
+                  <div
+                    key={step.id}
+                    className={`dsh-lingualab-step${record.done ? ' is-done' : ''}${isRunning || isNext ? ' is-current' : ''}`}
+                  >
+                    <label
+                      className={`dsh-lingualab-step-check${record.done ? ' is-on' : ''}`}
+                      title={record.done ? t('stepUndone') : t('stepDone')}
+                    >
+                      <input
+                        type="checkbox"
+                        className="dsh-lingualab-visually-hidden"
+                        checked={record.done}
+                        onChange={(event) =>
+                          persist({ ...records, [step.id]: { ...record, done: event.target.checked } })
+                        }
+                      />
+                      {record.done ? <CheckIcon size={14} /> : <span>{index + 1}</span>}
+                    </label>
+                    <span className="dsh-lingualab-step-main">
+                      <span className="dsh-lingualab-step-label">{t(step.labelKey)}</span>
+                      <span className="dsh-lingualab-step-mins">
+                        {step.inSession ? `${String(step.minutes)} ${t('minutes')} · ${clock}` : t('stepInSession')}
+                      </span>
+                    </span>
+                    {step.inSession ? (
+                      <button
+                        type="button"
+                        className={`dsh-lingualab-btn${isRunning ? ' is-primary' : ''}`}
+                        onClick={() => setRunning(isRunning ? null : step.id)}
+                      >
+                        {isRunning ? t('stepStop') : t('stepStart')}
+                      </button>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </aside>
       ) : null}
     </>
   )

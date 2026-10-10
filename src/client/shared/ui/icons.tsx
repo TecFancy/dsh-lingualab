@@ -168,6 +168,42 @@ export function EditIcon(props: IconProps) {
   )
 }
 
+export function MicIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={6} y={2.2} width={4} height={7} rx={2} />
+      <path d="M3.8 7.8a4.2 4.2 0 0 0 8.4 0M8 12v2" />
+    </Svg>
+  )
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={5.2} y={5.2} width={7.6} height={7.6} rx={1.4} />
+      <path d="M10.8 5.2V4a1.2 1.2 0 0 0-1.2-1.2H4A1.2 1.2 0 0 0 2.8 4v5.6A1.2 1.2 0 0 0 4 10.8h1.2" />
+    </Svg>
+  )
+}
+
+export function EyeIcon({ off = false, ...props }: IconProps & { readonly off?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path d="M1.8 8S4 3.8 8 3.8 14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8Z" />
+      <circle cx={8} cy={8} r={1.8} />
+      {off ? <path d="M3 13 13 3" /> : null}
+    </Svg>
+  )
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.4 8.4 6.6 11.4 12.6 4.8" />
+    </Svg>
+  )
+}
+
 export function UpIcon(props: IconProps) {
   return (
     <Svg {...props}>

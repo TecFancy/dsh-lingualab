@@ -29,6 +29,9 @@ export const DEFAULT_SPEED_INDEX = 5
 /** How long a programmatic seek may keep ignoring reported positions. */
 const SEEK_GUARD_MS = 1200
 
+/** How far past a sentence's end a position still counts as having just finished it. */
+const SHADOW_WINDOW_S = 1.5
+
 /** How many times a wrap repeats before the loop stops by itself. `0` is endless. */
 const DEFAULT_REPEATS = 0
 
@@ -52,9 +55,23 @@ export interface MediaPlayerState {
   readonly seekRequest: number | null
   readonly seekToken: number
   readonly guard: SeekGuard | null
+  /**
+   * Pause when a sentence ends and wait for the reader, who is repeating it aloud.
+   * Only acts while no loop is on: a loop already decides what happens at the end.
+   */
+  readonly pauseAfterSentence: boolean
+  /** True from the moment the audio reaches its end until anything moves or plays again. */
+  readonly finished: boolean
+  /** How many times the audio has reached its end; a card is dismissed per count, not per episode. */
+  readonly finishCount: number
+  /** The sentence whose English the reader has uncovered in shadow mode, or -1. */
+  readonly revealed: number
 
   reset: (cues: readonly Cue[]) => void
   setPlaying: (playing: boolean) => void
+  setPauseAfterSentence: (on: boolean) => void
+  markFinished: () => void
+  reveal: (index: number) => void
   toggle: () => void
   seek: (time: number) => void
   onTime: (time: number) => void
@@ -92,6 +109,10 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
   seekRequest: null,
   seekToken: 0,
   guard: null,
+  pauseAfterSentence: false,
+  finished: false,
+  finishCount: 0,
+  revealed: -1,
 
   // A new episode starts with no loop and the default repeat count. The speed is
   // deliberately *not* reset: it is a preference about how the reader listens, not
@@ -102,7 +123,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       activeIndex: findActiveCue(cues, 0),
       isPlaying: false,
       currentTime: 0,
-      duration: 0,
+      // Not zeroed: the length belongs to the audio source, and the subtitles usually finish
+      // loading after the audio's metadata has already said how long it is.
       loopMode: 'none',
       repeats: DEFAULT_REPEATS,
       playsDone: 0,
@@ -111,11 +133,32 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       seekRequest: null,
       seekToken: state.seekToken + 1,
       guard: null,
+      finished: false,
+      revealed: -1,
     })),
 
-  setPlaying: (playing) => set({ isPlaying: playing }),
+  // Starting to play covers the English again in shadow mode: the reveal belongs to one pass.
+  setPlaying: (playing) =>
+    set((state) => ({
+      isPlaying: playing,
+      finished: playing ? false : state.finished,
+      revealed: playing ? -1 : state.revealed,
+    })),
 
-  toggle: () => set((state) => ({ isPlaying: !state.isPlaying })),
+  setPauseAfterSentence: (on) => set({ pauseAfterSentence: on }),
+
+  // The element's nded event: playback stopped because there was nothing left, which is
+  // not the same as the reader pressing pause, and the page answers it with a summary.
+  markFinished: () => set((state) => ({ isPlaying: false, finished: true, finishCount: state.finishCount + 1 })),
+
+  reveal: (index) => set({ revealed: index }),
+
+  toggle: () =>
+    set((state) => ({
+      isPlaying: !state.isPlaying,
+      finished: false,
+      revealed: state.isPlaying ? state.revealed : -1,
+    })),
 
   seek: (time) =>
     set((state) => ({
@@ -124,6 +167,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       currentTime: Math.max(0, time),
       activeIndex: findActiveCue(state.cues, time),
       guard: { target: Math.max(0, time), expiresAt: Date.now() + SEEK_GUARD_MS },
+      finished: false,
     })),
 
   onTime: (time) => {
@@ -137,6 +181,25 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     }
 
     const state = get()
+    const heard = state.cues[state.activeIndex]
+    if (
+      state.pauseAfterSentence &&
+      state.loopMode === 'none' &&
+      state.isPlaying &&
+      heard !== undefined &&
+      time >= heard.end &&
+      // Only the sentence ending under the playhead. A reader who seeks into the silence
+      // after a sentence is not asking to be stopped for a sentence they skipped.
+      time < heard.end + SHADOW_WINDOW_S
+    ) {
+      // Judged on the sentence that was playing at the previous tick, not the one the
+      // position now falls in: a tick can land just inside the next sentence, and its
+      // start must not be what the reader hears first when they press play again.
+      // The sentence is over, so the English it hid is uncovered for the self-check.
+      set({ isPlaying: false, revealed: state.activeIndex })
+      get().seek(heard.start)
+      return
+    }
     const decision = planLoop({
       time,
       mode: state.loopMode,
@@ -219,6 +282,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     if (cue === undefined) return
     set({ activeIndex: next, playsDone: 0 })
     state.seek(cue.start)
+    // Shadowing is one sentence at a time, so moving to another one means 'play it'.
+    if (state.pauseAfterSentence) set({ isPlaying: true })
   },
 }))
 
