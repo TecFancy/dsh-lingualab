@@ -21,6 +21,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { splitCue, tokenizeEnglish, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, CopyIcon, EyeIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { StageSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { Translate } from '../../../context.ts'
 
 /** Past this many characters the sentence is set a size smaller so it still fits. */
@@ -136,6 +137,14 @@ export function Stage({ t, cues, activeIndex, zhMode, masked, onReveal, onAddWor
           <strong>{t('noAudio')}</strong>
           <span>{t('noAudioHint')}</span>
         </div>
+      </div>
+    )
+  }
+
+  if ((cue === undefined || lines === null) && loading) {
+    return (
+      <div className="dsh-lingualab-stage">
+        <StageSkeleton label={`${t('stageLoading')}…`} />
       </div>
     )
   }

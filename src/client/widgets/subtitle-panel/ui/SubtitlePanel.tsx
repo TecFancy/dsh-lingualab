@@ -15,11 +15,14 @@ import { visibleCueLines, type Cue, type SubtitleZhMode } from '../../../entitie
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { LoopIcon, StarIcon } from '../../../shared/ui/icons.tsx'
+import { ListSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { Translate } from '../../../context.ts'
 
 export interface SubtitlePanelProps {
   readonly t: Translate
   readonly cues: readonly Cue[]
+  /** The subtitles are still being fetched, so an empty list is not yet "no subtitles". */
+  readonly loading: boolean
   /** The sentence the audio is inside right now. */
   readonly activeIndex: number
   /** The sentence the keyboard points at; may differ from {@link activeIndex}. */
@@ -62,6 +65,7 @@ function bringIntoView(list: HTMLElement, row: HTMLElement, smooth: boolean): vo
 export function SubtitlePanel({
   t,
   cues,
+  loading,
   activeIndex,
   selectedIndex,
   zhMode,
@@ -109,7 +113,9 @@ export function SubtitlePanel({
         </label>
       </div>
 
-      {cues.length === 0 ? (
+      {cues.length === 0 && loading ? (
+        <ListSkeleton label={`${t('stageLoading')}…`} />
+      ) : cues.length === 0 ? (
         <div className="dsh-lingualab-empty">{t('noSubtitles')}</div>
       ) : (
         <div className="dsh-lingualab-list" data-zh={zhMode} ref={listRef}>

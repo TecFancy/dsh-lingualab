@@ -592,6 +592,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             <SubtitlePanel
               t={t}
               cues={cues}
+              loading={library.cuesLoading}
               activeIndex={activeIndex}
               selectedIndex={selectedIndex}
               zhMode={zhMode}

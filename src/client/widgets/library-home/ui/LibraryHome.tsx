@@ -21,6 +21,7 @@ import { fractionOf, type Progress } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
 import { AudioIcon, FolderIcon, PlayIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
+import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { EpisodeEntry, LibraryPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
@@ -116,9 +117,7 @@ export function LibraryHome({
 
             {openError !== null ? <div className="dsh-lingualab-error">{openError}</div> : null}
 
-            {loading && playable.length === 0 ? (
-              <div className="dsh-lingualab-empty">{t('stageLoading')}…</div>
-            ) : null}
+            {loading && playable.length === 0 ? <HomeSkeleton label={t('libraryLoading')} /> : null}
 
             {empty ? (
               <div className="dsh-lingualab-welcome">
@@ -192,7 +191,7 @@ export function LibraryHome({
               </div>
             ) : null}
 
-            <FolderLine t={t} library={library} onChange={onFolder} />
+            {loading && playable.length === 0 ? null : <FolderLine t={t} library={library} onChange={onFolder} />}
           </div>
       </DropZone>
     </div>
@@ -240,7 +239,8 @@ function ResumeCard({
           onClick={() => onOpen(entry.id)}
           disabled={opening}
         >
-          <PlayIcon size={16} /> {progress === null ? t('startPractice') : t('resumePractice')}
+          {opening ? <span className="dsh-lingualab-spinner" aria-hidden /> : <PlayIcon size={16} />}{' '}
+          {progress === null ? t('startPractice') : t('resumePractice')}
         </button>
       </div>
     </section>

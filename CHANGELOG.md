@@ -55,6 +55,10 @@ the plugin that was installed and used, not an artifact on a registry.
 - The kept-sentences drawer is redesigned to match the design file: pill tabs, a card per sentence with a replay
   chip, edit and delete icons, words picked from the stage shown as chips in a memo box, and an empty state with
   an icon. The five-steps drawer shares its header.
+- Loading states are skeletons now, not a line of text. The home page shows placeholders shaped like the resume card
+  and the episode grid, the practice page shows placeholders for the sentence and for the transcript column, and
+  the start button shows a spinner while an episode opens. The placeholders fade in after a short delay, so a fast
+  load never flashes one. The transcript column no longer claims "no subtitles" while they are still loading.
 
 ### Fixed
 

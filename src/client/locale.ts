@@ -64,6 +64,7 @@ export const zh: Record<string, string> = {
 
   // ── 舞台与运输条 ──────────────────────────────────────────────
   stageLoading: '正在读取这一集',
+  libraryLoading: '正在读取你的素材库',
   play: '播放',
   pause: '暂停',
   prevCue: '上一句',
@@ -261,6 +262,7 @@ export const en: Record<string, string> = {
   dismiss: 'Got it',
 
   stageLoading: 'Loading this episode',
+  libraryLoading: 'Loading your library',
   play: 'Play',
   pause: 'Pause',
   prevCue: 'Previous sentence',
