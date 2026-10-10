@@ -24,7 +24,6 @@ export const STYLES = `
   position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;
   background:var(--dsw-alias-bg-base,transparent);color:var(--dsw-alias-label-primary,inherit);
   font-size:14px;line-height:1.5;outline:none}
-.dsh-lingualab-page:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-page button{font-family:inherit}
 .dsh-lingualab-page button:focus-visible,.dsh-lingualab-page select:focus-visible,
 .dsh-lingualab-page input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#4d6bfe);outline-offset:1px}
