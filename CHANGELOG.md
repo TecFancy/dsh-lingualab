@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-10
+
 ### Added
 
 - The practice page is redesigned, drafted in Figma. The left side is a stage: the current sentence in large bold
