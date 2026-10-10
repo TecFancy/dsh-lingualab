@@ -62,6 +62,15 @@ client 那边是页面本身——首页、练习视图、笔记抽屉，以及�
 这一页注册着，但没有入口。
 
 开发在 `development` 分支，靠合进 `main` 出版本，这里的东西不发 npm。
+
+## 设计稿
+
+首页、练习页、笔记与五步法抽屉的布局、配色和交互，先在 Figma 里出了稿：
+[LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY)。
+画板有 `Practice / Light` 与 `Practice / Dark`、`Home / Light` 与 `Home / Dark`、
+`Notes / Light` 和 `Five steps / Light`。这份稿是比例与层级的参照，不是取值的来源：稿里写死了十六进制色值和
+Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以会跟着主题走。
+
 ## 发版
 
 改动落在 `development`。往 `main` 开 PR 就是一次发版，版本号的抬高跟着 PR 一起走：

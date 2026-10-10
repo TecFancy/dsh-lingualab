@@ -83,6 +83,16 @@ plugin, and in exchange this plugin needs a launcher to be reachable. In a profi
 
 It is developed on `development` and released by pulling into `main`; nothing here is
 published to npm.
+
+## Design
+
+The layout, colours and interaction of the home, the practice view and the notes and steps
+drawers are drafted in Figma: [LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY).
+The frames are `Practice / Light` and `Practice / Dark`, `Home / Light` and `Home / Dark`,
+`Notes / Light` and `Five steps / Light`. The file is the reference for proportions and hierarchy,
+not for values: it hardcodes hex colours and the Inter font, while the page itself reads the host's
+`--dsw-alias-*` tokens and font so it follows the theme.
+
 ## Releasing
 
 Work lands on `development`. A pull request into `main` is a release, and the

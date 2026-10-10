@@ -13,6 +13,9 @@
    它不含需要构建的产物检查。
 3. **不许抢宿主的键盘**：快捷键挂在面板容器上，不挂 `window`。
 
+设计稿在 Figma：<https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY>（比例与层级的参照，
+色值与字体以宿主令牌为准）。
+
 ## 目录
 
 ```text
