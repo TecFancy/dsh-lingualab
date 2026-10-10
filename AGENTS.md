@@ -13,17 +13,20 @@
    它不含需要构建的产物检查。
 3. **不许抢宿主的键盘**：快捷键挂在面板容器上，不挂 `window`。
 
+设计稿在 Figma：<https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY>（比例与层级的参照，
+色值与字体以宿主令牌为准）。
+
 ## 目录
 
 ```text
 src/index.ts            host 半边：路由与配置
-src/host/               库扫描、导入（唯一写素材目录的地方，不覆盖）、媒体伺服（带 Range）、笔记读写
+src/host/               库扫描、导入（不覆盖）、媒体伺服（带 Range）、笔记读写、进度文件（写素材目录只有导入、notes.md 与它）
 src/shared/             跨半边契约与笔记格式，只有这一份
 src/client/             客户端半边，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
   entities/cue/         字幕解析与双语分行
   features/             library（读一集）、media-player（播放与循环）、notes（收藏，无 7 条上限）、
-                        import-media（拖入分组与上传）、resume（听到哪里的书签）
+                        import-media（拖入分组与上传）、resume（听到哪里与五步勾选：浏览器缓存加 host 同步）
   widgets/              library-home（首页与拖放区）、control-bar、subtitle-panel、notes-panel（抽屉）、
                         episode-picker（只剩浏览）、media-folder、step-tracker
   pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature

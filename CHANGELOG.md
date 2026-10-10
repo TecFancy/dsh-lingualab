@@ -19,6 +19,85 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-10
+
+### Added
+
+- The practice page is redesigned, drafted in Figma. The left side is a stage: the current sentence in large bold
+  type, centred, the previous and next sentences faded above and below, the Chinese under the English. Under it is a
+  rounded player card with the scrubber on top, speed, loop and shadow on the left, previous, play and next in the
+  middle, and the Chinese display, the star and More on the right. The right side is the subtitle column, with the
+  current sentence tinted in the brand colour and marked by a bar on its left edge, and an auto-follow switch in
+  its header.
+- The progress bar now spans the episode. Every sentence start is a hairline on it, hovering shows the time and
+  the English of the sentence under the pointer, and a click or drag lands on the sentence that contains the
+  point. A drag seeks once, on release, so the audio does not stutter through every sentence the pointer crossed.
+- A sentence change has a motion: the new sentence fades in and lifts slightly, and the subtitle column scrolls
+  smoothly to the current sentence and keeps it in a middle band rather than at the edge. All of it is off under
+  the system's reduced-motion setting.
+- Clicking an English word opens a small popover to copy it or add it to that sentence's note (written as
+  `[word]`, and the sentence is kept if it was not). Playback is not interrupted.
+- Shadowing mode (the Shadow button): each sentence stops after it plays and its English is blurred, so you say it
+  first and then press `R` (or click Reveal) to read it. The next sentence, or pressing play again, covers it
+  again.
+- Finishing an episode shows a summary card: sentences heard, sentences kept, how many are still being practised,
+  with Next episode, Listen again and All episodes. `Esc` or Not now dismisses it and stays put.
+- The key hints are key caps, and the cap for a key the page just handled lights up. `R` reveals the English
+  while shadowing.
+- On the home page, Pick up where you left off is a large brand-tinted card, the episodes are a three-column card
+  grid (subtitle badge and progress bar), and a dashed drop strip sits at the bottom. Notes and the five steps are
+  drawers that slide in from the right: note cards carry the tick, the note and the tags, the five steps have an
+  overall progress bar, the next step is highlighted, and ticking one has a small animation.
+
+- Listening positions and the five-step ticks follow you to another device. They used to live only in one
+  browser's `localStorage`, so a second device, a private window or a cleared cache started from nothing, while the
+  notes (which are files in the library) already did not. The host now keeps them in a hidden
+  `.lingualab-progress.json` at the library root, next to the `notes.md` files, through the new
+  `GET`/`POST /lingualab/progress` route; each browser keeps a cache of it and syncs on opening, a few seconds after
+  a change, when the tab comes back and when it is hidden. A `POST` merges rather than replaces, and the newest stop
+  per episode wins, so an older device cannot overwrite a newer one. The file is written through a temporary file
+  and a rename, a corrupt one reads as empty, and the library scan ignores it. Bookmarks and ticks already in a
+  browser are kept and uploaded on the first sync.
+
+### Changed
+
+- Floating panels (the drawers, the finish card, the popovers) no longer use the theme's `bg-overlay`. That token
+  is the host's scrim colour, a light gray in dark mode, and a panel painted with it looked washed out. They use
+  `bg-layer-1` now.
+- The kept-sentences drawer is redesigned to match the design file: pill tabs, a card per sentence with a replay
+  chip, edit and delete icons, words picked from the stage shown as chips in a memo box, and an empty state with
+  an icon. The five-steps drawer shares its header.
+- Loading states are skeletons now, not a line of text. The home page shows placeholders shaped like the resume card
+  and the episode grid, the practice page shows placeholders for the sentence and for the transcript column, and
+  the start button shows a spinner while an episode opens. The placeholders fade in after a short delay, so a fast
+  load never flashes one. The transcript column no longer claims "no subtitles" while they are still loading.
+
+### Fixed
+
+- Deleting a kept sentence did nothing. The two-click confirmation was cancelled by the page taking focus back on
+  every mouse-down, so the second click never found the armed button. Delete now removes the row at once and a
+  toast offers an undo for six seconds.
+- The page container no longer draws an inset ring when it has focus. After clicking the page's blank space or
+  pressing a shortcut, that ring looked like a black border.
+- A tick left focus on its checkbox, which switched off `Esc` and the other shortcuts; a checkbox no longer counts
+  as typing.
+- The total length was cleared to 00:00 when the subtitles finished loading after the audio's metadata, which
+  left the progress bar unusable; it is kept now.
+
+## [0.3.1] - 2026-10-10
+
+### Changed
+
+- 「Browse existing files」 is redesigned. The card is larger and floats over a blurred mask. The
+  path is a row of clickable segments with an up button, and the workspace picker is styled like
+  the other controls. The list is grouped into folders, audio and other files, each with a count.
+  The footer carries the one big action, 「Use as media folder」, and says which folder it applies to.
+- The filter box takes focus when the layer opens and after every folder change. Arrow keys move
+  a highlight, Enter opens it, Backspace on an empty filter goes up one level, Esc closes.
+- Subtitle badges carry a tone: green for both tracks, amber for none, neutral for one track. The
+  size of each audio file is shown next to its subtitle files. Non-audio files are dimmed.
+- An empty folder or a filter with no match now says so and what to do next.
+
 ## [0.3.0] - 2026-10-10
 
 ### Added

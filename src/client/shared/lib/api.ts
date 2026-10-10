@@ -15,6 +15,7 @@ import {
   NOTES_PATH,
   OPEN_PATH,
   PLACES_PATH,
+  PROGRESS_PATH,
   type BrowsePayload,
   type ImportPayload,
   type LibraryConfigPayload,
@@ -23,6 +24,8 @@ import {
   type NotesPayload,
   type OpenPayload,
   type PlacesPayload,
+  type ProgressPayload,
+  type ProgressTable,
 } from '../protocol.ts'
 
 /** One empty payload per failure shape, so callers never see `undefined`. */
@@ -228,6 +231,28 @@ export async function saveNotes(episode: string, phrases: readonly NotePhrase[])
     return (await response.json()) as NotesPayload
   } catch (error) {
     return { ok: false, episode, reason: String(error), phrases: [] }
+  }
+}
+
+/**
+ * Send this browser's progress to the host and take the merged table back.
+ *
+ * `null` means the host did not answer (down, signed out, no library), which the caller
+ * treats as "keep working from the cache". `keepalive` lets the request outlive a closing
+ * tab, at the price of a 64 KB body limit the caller checks first.
+ */
+export async function syncProgress(table: ProgressTable, keepalive = false): Promise<ProgressPayload | null> {
+  try {
+    const response = await fetch(PROGRESS_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(table),
+      keepalive,
+    })
+    const payload = (await response.json()) as ProgressPayload
+    return typeof payload.ok === 'boolean' ? payload : null
+  } catch {
+    return null
   }
 }
 

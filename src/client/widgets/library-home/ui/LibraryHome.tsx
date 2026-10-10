@@ -20,7 +20,8 @@
 import { fractionOf, type Progress } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
-import { AudioIcon, ChevronIcon, FolderIcon, PlayIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
+import { AudioIcon, FolderIcon, PlayIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
+import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { EpisodeEntry, LibraryPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
@@ -70,6 +71,14 @@ function subtitleWord(t: Translate, entry: EpisodeEntry): string {
   return t('subtitleBadgeNone')
 }
 
+/** The badge tone for an episode: a full pair is good news, a bare file a warning, the rest neutral. */
+function subtitleTone(entry: EpisodeEntry): 'ok' | 'warn' | 'plain' {
+  if (entry.audio === null) return 'plain'
+  if (entry.subtitleEn !== null && entry.subtitleZh !== null) return 'ok'
+  if (entry.subtitleEn === null && entry.subtitleZh === null) return 'warn'
+  return 'plain'
+}
+
 /** The home page of the panel. */
 export function LibraryHome({
   t,
@@ -108,9 +117,7 @@ export function LibraryHome({
 
             {openError !== null ? <div className="dsh-lingualab-error">{openError}</div> : null}
 
-            {loading && playable.length === 0 ? (
-              <div className="dsh-lingualab-empty">{t('stageLoading')}…</div>
-            ) : null}
+            {loading && playable.length === 0 ? <HomeSkeleton label={t('libraryLoading')} /> : null}
 
             {empty ? (
               <div className="dsh-lingualab-welcome">
@@ -147,7 +154,7 @@ export function LibraryHome({
                     {t('browseExisting')}
                   </button>
                 </div>
-                <div className="dsh-lingualab-episodes">
+                <div className="dsh-lingualab-episodes is-grid">
                   {rest.map((entry) => (
                     <EpisodeRow
                       key={entry.id}
@@ -173,7 +180,18 @@ export function LibraryHome({
               </div>
             ) : null}
 
-            <FolderLine t={t} library={library} onChange={onFolder} />
+            {!empty && !loading ? (
+              <div className="dsh-lingualab-dropstrip">
+                <UploadIcon size={18} />
+                <span>{t('dropStrip')}</span>
+                <span className="dsh-lingualab-spacer" />
+                <FilePicker onFiles={onFiles} disabled={importer.busy}>
+                  {t('chooseFiles')}
+                </FilePicker>
+              </div>
+            ) : null}
+
+            {loading && playable.length === 0 ? null : <FolderLine t={t} library={library} onChange={onFolder} />}
           </div>
       </DropZone>
     </div>
@@ -221,14 +239,15 @@ function ResumeCard({
           onClick={() => onOpen(entry.id)}
           disabled={opening}
         >
-          <PlayIcon size={16} /> {progress === null ? t('startPractice') : t('resumePractice')}
+          {opening ? <span className="dsh-lingualab-spinner" aria-hidden /> : <PlayIcon size={16} />}{' '}
+          {progress === null ? t('startPractice') : t('resumePractice')}
         </button>
       </div>
     </section>
   )
 }
 
-/** One row of the episode list. */
+/** One card of the episode grid. */
 function EpisodeRow({
   t,
   entry,
@@ -244,26 +263,25 @@ function EpisodeRow({
 }) {
   const fraction = fractionOf(progress)
   return (
-    <button type="button" className="dsh-lingualab-episode-row" onClick={() => onOpen(entry.id)} disabled={disabled}>
-      {entry.kind === 'folder' ? <FolderIcon /> : <AudioIcon />}
-      <span className="dsh-lingualab-pick-main">
-        <span className="dsh-lingualab-pick-name">{entry.title}</span>
-        <span className="dsh-lingualab-pick-sub">
-          {subtitleWord(t, entry)}
-          {entry.audioBytes === null ? '' : ` · ${formatBytes(entry.audioBytes)}`}
-          {entry.notes.count > 0 ? ` · ${t('notesKept')} ${String(entry.notes.count)}` : ''}
-        </span>
+    <button type="button" className="dsh-lingualab-episode-card" onClick={() => onOpen(entry.id)} disabled={disabled}>
+      <span className="dsh-lingualab-episode-head">
+        <span className="dsh-lingualab-episode-icon">{entry.kind === 'folder' ? <FolderIcon /> : <AudioIcon />}</span>
+        <span className={`dsh-lingualab-badge is-${subtitleTone(entry)}`}>{subtitleWord(t, entry)}</span>
       </span>
-      {fraction > 0 ? (
-        <span className="dsh-lingualab-bar is-small" aria-hidden>
-          <span className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
-        </span>
-      ) : null}
-      <ChevronIcon />
+      <span className="dsh-lingualab-episode-title" title={entry.title}>
+        {entry.title}
+      </span>
+      <span className="dsh-lingualab-pick-sub">
+        {formatBytes(entry.audioBytes)}
+        {entry.notes.count > 0 ? ` · ${t('notesKept')} ${String(entry.notes.count)}` : ''}
+        {progress !== null ? ` · ${t('stoppedAt', { time: formatClock(progress.at) })}` : ''}
+      </span>
+      <span className="dsh-lingualab-bar" aria-hidden>
+        <span className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
+      </span>
     </button>
   )
 }
-
 /** The progress and result of a drop, shown where the reader is already looking. */
 function ImportReport({
   t,

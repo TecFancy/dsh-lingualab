@@ -168,10 +168,78 @@ export function EditIcon(props: IconProps) {
   )
 }
 
+export function MicIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={6} y={2.2} width={4} height={7} rx={2} />
+      <path d="M3.8 7.8a4.2 4.2 0 0 0 8.4 0M8 12v2" />
+    </Svg>
+  )
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x={5.2} y={5.2} width={7.6} height={7.6} rx={1.4} />
+      <path d="M10.8 5.2V4a1.2 1.2 0 0 0-1.2-1.2H4A1.2 1.2 0 0 0 2.8 4v5.6A1.2 1.2 0 0 0 4 10.8h1.2" />
+    </Svg>
+  )
+}
+
+export function EyeIcon({ off = false, ...props }: IconProps & { readonly off?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path d="M1.8 8S4 3.8 8 3.8 14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8Z" />
+      <circle cx={8} cy={8} r={1.8} />
+      {off ? <path d="M3 13 13 3" /> : null}
+    </Svg>
+  )
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.4 8.4 6.6 11.4 12.6 4.8" />
+    </Svg>
+  )
+}
+
+export function UpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 13V3.5M4 7l4-3.5L12 7" />
+    </Svg>
+  )
+}
+
 export function BackIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M10 3.5 5.5 8 10 12.5" />
+    </Svg>
+  )
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.8 4.4h10.4M6.2 4.4V3a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1v1.4M4 4.4l.6 8a1.2 1.2 0 0 0 1.2 1.1h4.4a1.2 1.2 0 0 0 1.2-1.1l.6-8M6.8 7v4M9.2 7v4" />
+    </Svg>
+  )
+}
+
+export function UndoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.8 5v3.4h3.4M2.8 8.4A5.2 5.2 0 1 0 4.6 4.5L2.8 6" />
+    </Svg>
+  )
+}
+
+export function BookIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 12.6A1.6 1.6 0 0 1 4.6 11H13V2.6H4.6A1.6 1.6 0 0 0 3 4.2ZM3 12.6v.8h10" />
     </Svg>
   )
 }

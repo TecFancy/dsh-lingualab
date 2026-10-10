@@ -44,6 +44,8 @@ export interface NotesState {
   readonly has: (sentence: { readonly at: number; readonly text: string }) => boolean
   readonly update: (index: number, patch: Partial<NotePhrase>) => void
   readonly remove: (index: number) => void
+  /** Put a removed phrase back where it was, for the undo after a delete. */
+  readonly restore: (phrase: NotePhrase, index: number) => void
 }
 
 /** Phrases plus the episode they belong to. */
@@ -184,6 +186,17 @@ export function useNotes(episodeId: string | null): NotesState {
     [mutate],
   )
 
+  const restore = useCallback(
+    (phrase: NotePhrase, index: number) => {
+      mutate((current) => {
+        if (current.some((item) => sameKeptSentence(item, phrase))) return current
+        const at = Math.min(Math.max(index, 0), current.length)
+        return [...current.slice(0, at), phrase, ...current.slice(at)]
+      })
+    },
+    [mutate],
+  )
+
   return {
     phrases: visible,
     status,
@@ -194,6 +207,7 @@ export function useNotes(episodeId: string | null): NotesState {
     has,
     update,
     remove,
+    restore,
   }
 }
 

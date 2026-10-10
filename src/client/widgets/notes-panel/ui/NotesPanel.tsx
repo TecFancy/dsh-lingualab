@@ -9,37 +9,72 @@
  * was trying to achieve by force: a short working set. A filter does the same thing
  * without asking for a decision in the middle of a sentence.
  */
-import { useState } from 'react'
-import type { NotesState } from '../../../features/notes/index.ts'
+import { useEffect, useRef, useState } from 'react'
+import { splitNote, type NotesState } from '../../../features/notes/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
-import { CloseIcon, EditIcon } from '../../../shared/ui/icons.tsx'
+import { BookIcon, CheckIcon, CloseIcon, EditIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
+import type { NotePhrase } from '../../../shared/protocol.ts'
 
 /** Tags the study method uses; a phrase may carry both. */
 const TAGS: readonly string[] = ['review', 'hard']
 
+/** How long the undo stays on screen. */
+const UNDO_MS = 6000
+
 type View = 'active' | 'done' | 'all'
+
+/** A phrase that was just deleted, kept long enough to put it back. */
+interface Removed {
+  readonly phrase: NotePhrase
+  readonly index: number
+}
 
 export interface NotesPanelProps {
   readonly t: Translate
   readonly notes: NotesState
+  /** The episode's title, shown under the drawer's heading. */
+  readonly episodeTitle: string
   /** Closes the drawer; the page returns focus to its container. */
   readonly onClose: () => void
 }
 
 /** The right-hand notes drawer. */
-export function NotesPanel({ t, notes, onClose }: NotesPanelProps) {
+export function NotesPanel({ t, notes, episodeTitle, onClose }: NotesPanelProps) {
   const [view, setView] = useState<View>('active')
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
-  const [confirming, setConfirming] = useState<number | null>(null)
+  const [removed, setRemoved] = useState<Removed | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const store = useMediaPlayer.getState
+
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current)
+    },
+    [],
+  )
 
   /** Replaying a phrase is one gesture: seek there and loop that sentence. */
   const replay = (at: number): void => {
     store().seek(at)
     store().setLoopMode('sentence')
+  }
+
+  const remove = (phrase: NotePhrase, index: number): void => {
+    notes.remove(index)
+    setEditing(null)
+    setRemoved({ phrase, index })
+    if (timer.current !== null) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setRemoved(null), UNDO_MS)
+  }
+
+  const undo = (): void => {
+    if (removed === null) return
+    notes.restore(removed.phrase, removed.index)
+    setRemoved(null)
+    if (timer.current !== null) clearTimeout(timer.current)
   }
 
   const activeCount = notes.phrases.filter((phrase) => !phrase.done).length
@@ -49,11 +84,21 @@ export function NotesPanel({ t, notes, onClose }: NotesPanelProps) {
     .map((phrase, index) => ({ phrase, index }))
     .filter(({ phrase }) => (view === 'all' ? true : view === 'done' ? phrase.done : !phrase.done))
 
+  /** Words are kept in the note as [word]; editing the text must not lose them. */
+  const commit = (index: number, words: readonly string[]): void => {
+    const note = [draft.trim(), ...words.map((word) => `[${word}]`)].filter((part) => part.length > 0).join(' ')
+    notes.update(index, { note })
+    setEditing(null)
+  }
+
   return (
     <aside className="dsh-lingualab-notes">
       <div className="dsh-lingualab-notes-head">
-        <span>
-          {t('notes')} <span className="dsh-lingualab-counter">{notes.phrases.length}</span>
+        <span className="dsh-lingualab-drawer-titles">
+          <span className="dsh-lingualab-drawer-title">{t('notes')}</span>
+          <span className="dsh-lingualab-drawer-sub">
+            {t('notesSubtitle', { episode: episodeTitle, count: notes.phrases.length })}
+          </span>
         </span>
         <span className="dsh-lingualab-spacer" />
         <button type="button" className="dsh-lingualab-icon-btn" onClick={onClose} title={t('close')}>
@@ -81,25 +126,68 @@ export function NotesPanel({ t, notes, onClose }: NotesPanelProps) {
       </div>
 
       <div className="dsh-lingualab-notes-body">
-        {notes.phrases.length === 0 ? <div className="dsh-lingualab-empty">{t('notesEmpty')}</div> : null}
+        {notes.phrases.length === 0 ? (
+          <div className="dsh-lingualab-empty is-center">
+            <StarIcon size={22} />
+            <span>{t('notesEmpty')}</span>
+          </div>
+        ) : null}
         {notes.phrases.length > 0 && rows.length === 0 ? (
-          <div className="dsh-lingualab-empty">{view === 'active' ? t('notesAllDone') : t('notesNoneHere')}</div>
+          <div className="dsh-lingualab-empty is-center">
+            <CheckIcon size={22} />
+            <span>{view === 'active' ? t('notesAllDone') : t('notesNoneHere')}</span>
+          </div>
         ) : null}
 
-        {rows.map(({ phrase, index }) => (
-          <div className={`dsh-lingualab-note${phrase.done ? ' is-done' : ''}`} key={`${phrase.at}-${index}`}>
-            <input
-              type="checkbox"
-              checked={phrase.done}
-              onChange={(event) => notes.update(index, { done: event.target.checked })}
-              title={phrase.done ? t('stepUndone') : t('notesMarkDone')}
-            />
-            <div className="dsh-lingualab-note-main">
-              <button type="button" className="dsh-lingualab-note-at" onClick={() => replay(phrase.at)}>
-                {formatClock(phrase.at)}
-              </button>{' '}
-              <span className="dsh-lingualab-note-text">{phrase.text}</span>
+        {rows.map(({ phrase, index }) => {
+          const { words, text } = splitNote(phrase.note)
+          return (
+            <div className={`dsh-lingualab-note${phrase.done ? ' is-done' : ''}`} key={`${phrase.at}-${index}`}>
+              <div className="dsh-lingualab-note-top">
+                <label className="dsh-lingualab-note-check" title={phrase.done ? t('stepUndone') : t('notesMarkDone')}>
+                  <input
+                    type="checkbox"
+                    className="dsh-lingualab-visually-hidden"
+                    checked={phrase.done}
+                    onChange={(event) => notes.update(index, { done: event.target.checked })}
+                  />
+                  <span className={`dsh-lingualab-box${phrase.done ? ' is-on' : ''}`}>
+                    {phrase.done ? <CheckIcon size={13} /> : null}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="dsh-lingualab-note-at"
+                  onClick={() => replay(phrase.at)}
+                  title={t('notesReplay')}
+                >
+                  <PlayIcon size={10} /> {formatClock(phrase.at)}
+                </button>
+                <span className="dsh-lingualab-spacer" />
+                <button
+                  type="button"
+                  className="dsh-lingualab-icon-btn is-small"
+                  title={t('notesEdit')}
+                  onClick={() => {
+                    setEditing(index)
+                    setDraft(text)
+                  }}
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  type="button"
+                  className="dsh-lingualab-icon-btn is-small is-danger"
+                  title={t('notesDelete')}
+                  onClick={() => remove(phrase, index)}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+
+              <div className="dsh-lingualab-note-text">{phrase.text}</div>
               {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
+
               {editing === index ? (
                 <input
                   className="dsh-lingualab-input"
@@ -107,22 +195,29 @@ export function NotesPanel({ t, notes, onClose }: NotesPanelProps) {
                   autoFocus
                   placeholder={t('notesEditorPlaceholder')}
                   onChange={(event) => setDraft(event.target.value)}
-                  onBlur={() => {
-                    notes.update(index, { note: draft.trim() })
-                    setEditing(null)
-                  }}
+                  onBlur={() => commit(index, words)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      notes.update(index, { note: draft.trim() })
-                      setEditing(null)
-                    }
+                    if (event.key === 'Enter') commit(index, words)
                     if (event.key === 'Escape') setEditing(null)
                     event.stopPropagation()
                   }}
                 />
-              ) : phrase.note.length > 0 ? (
-                <div className="dsh-lingualab-note-note">{phrase.note}</div>
+              ) : words.length > 0 || text.length > 0 ? (
+                <div className="dsh-lingualab-memo">
+                  {words.length > 0 ? (
+                    <div className="dsh-lingualab-memo-words">
+                      <BookIcon size={13} />
+                      {words.map((word) => (
+                        <span className="dsh-lingualab-word-chip" key={word}>
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
+                </div>
               ) : null}
+
               <div className="dsh-lingualab-chips">
                 {TAGS.map((tag) => (
                   <button
@@ -142,40 +237,21 @@ export function NotesPanel({ t, notes, onClose }: NotesPanelProps) {
                 ))}
               </div>
             </div>
-            <div className="dsh-lingualab-row-actions" style={{ opacity: 1, visibility: 'visible' }}>
-              <button
-                type="button"
-                className="dsh-lingualab-icon-btn"
-                title={t('notesEdit')}
-                onClick={() => {
-                  setEditing(index)
-                  setDraft(phrase.note)
-                }}
-              >
-                <EditIcon />
-              </button>
-              <button
-                type="button"
-                className="dsh-lingualab-icon-btn"
-                title={t('notesDelete')}
-                onClick={() => {
-                  if (confirming === index) {
-                    notes.remove(index)
-                    setConfirming(null)
-                    return
-                  }
-                  setConfirming(index)
-                }}
-                onBlur={() => setConfirming(null)}
-              >
-                {confirming === index ? t('notesDeleteConfirm') : <CloseIcon size={14} />}
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      <div className="dsh-lingualab-hint" style={{ padding: '6px 12px 10px' }}>
+      {removed !== null ? (
+        <div className="dsh-lingualab-toast" role="status">
+          <TrashIcon size={15} />
+          <span>{t('notesDeleted', { time: formatClock(removed.phrase.at) })}</span>
+          <button type="button" className="dsh-lingualab-toast-undo" onClick={undo}>
+            <UndoIcon size={14} /> {t('notesUndo')}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="dsh-lingualab-drawer-foot">
         {notes.status === 'saving' ? t('saving') : null}
         {notes.status === 'saved' ? t('saved') : null}
         {notes.status === 'error' ? <span className="dsh-lingualab-error">{t('saveFailed')}</span> : null}

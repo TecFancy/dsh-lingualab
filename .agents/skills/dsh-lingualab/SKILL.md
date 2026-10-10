@@ -47,7 +47,10 @@ node scripts/verify.mjs --list   # 看检查表
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
-4. **写素材目录只有两处，都很窄**：一是文件夹剧集里的 `notes.md`；二是 `src/host/import.ts`，
+4. **写素材目录只有三处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
+   `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；POST 按「每集取最新
+   `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
+   不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
    收用户拖进来的音频与字幕。库扫描、浏览、打开仍然全部只读。导入的底线不许松：**不覆盖已有文件**
    （名字在就报 `exists`，放到位用 `link`，不支持硬链接的卷退回 `COPYFILE_EXCL`，**不用 `rename`**，它在
    所有平台上都会替换目标）、只收扫描读的扩展名、名字在 host 清洗、媒体目录不能是系统文件夹
@@ -92,10 +95,20 @@ node scripts/verify.mjs --list   # 看检查表
 - **只有真在浏览器里打开面板才能发现的 bug**：空列表返回新的 `[]` 会让页面的 reset 副作用每次渲染
   都跑一遍，React 报 #185。typecheck、ESLint、单测全绿也拦不住，所以改完客户端一定要在隔离实例里
   打开看一眼 console。
-- **页面有两个视图**：首页（接着上次、剧集行、拖放区）与练习。练习视图的四条横带是有意的：顶栏 48、
-  舞台（当前句 + 运输条）、字幕列表（唯一滚动区）、底栏。改布局时不要把整页变成滚动容器：舞台必须
-  钉住，否则「听这一句」又要跟着列表滚走。运输条只放每分钟都用的六个控件，低频的收进「更多」。
-- **样式只读宿主声明过的 token**：`bg-base`、`bg-layer-1/2`、`bg-overlay`、`border-l1/l2`、
+- **页面有两个视图**：首页（接着上次大卡片、剧集卡片网格、虚线拖放区）与练习。练习视图是顶栏 48，
+  下面左右分栏：左边是舞台（当前句、前后句、播放卡片、按键标签），右边是字幕栏（唯一滚动区，
+  宽度 `clamp(300px,34%,440px)`）。改布局时不要把整页变成滚动容器：舞台必须钉住，否则「听这一句」
+  又要跟着列表滚走。播放卡片只放每分钟都用的控件，低频的收进「更多」。设计稿在 Figma，链接在 README
+  与 AGENTS.md，稿里是写死的色值和 Inter，落地只用宿主 token。
+- **练习页的几个行为各有出处，别拆**：进度条（`Scrubber`）拖动期间只在松手时 seek 一次；
+  跟读模式（store 的 `pauseAfterSentence` 与 `revealed`）在 `onTime` 里判断，只对刚播完的那一句生效，
+  有循环时让循环管结尾；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），不新增笔记字段；
+  听完小结靠 store 的 `finishCount`，卡片按次数关闭，不按剧集。`reset` **不能**清掉 `duration`，字幕
+  通常晚于音频元数据读完，清掉进度条就废了。
+- **浮起来的面板用 `--ll-surface`（即 `bg-layer-1`），不用 `bg-overlay`**：后者是宿主的遮罩色，
+  深色下是偏亮的灰（实测 `#61666b`），抽屉、卡片涂上它会发白。验深色一定要真截图，别凭 token 名猜。
+- **复选框不算「正在输入」**：`isTypingTarget` 把 `input` 一律当输入框，打勾后焦点留在复选框上，
+  `Esc` 和快捷键全部失效。现在只有文本类输入才拦。- **样式只读宿主声明过的 token**：`bg-base`、`bg-layer-1/2`、`bg-overlay`、`border-l1/l2`、
   `brand-primary`、`label-primary/secondary` 和四个 state。用 `cordis_inspect_query` 的 `Theme.listTokens`
   核对。`label-tertiary`、`bg-layer-3`、`bg-mask-1`、`interactive-bg-hover` 不存在，会静默落到只对
   一种主题调好的回退值；需要这些深浅时用 `color-mix`（见 `styles.ts` 顶部的 `--ll-*`）。

@@ -59,6 +59,10 @@
       {
         "kind": "prefix",
         "path": "/lingualab/file-media"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/progress"
       }
     ]
   }

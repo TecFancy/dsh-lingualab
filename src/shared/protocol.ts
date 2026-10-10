@@ -69,6 +69,16 @@ export const FILE_MEDIA_PATH = '/lingualab/file-media'
 export const IMPORT_PATH = '/lingualab/import'
 
 /**
+ * Listening positions and step ticks, kept on the host so they follow the reader to another
+ * browser or device. `GET` reads the host's copy; `POST` merges the browser's entries into it
+ * (the newest `updatedAt` wins per episode) and answers with the merged result.
+ */
+export const PROGRESS_PATH = '/lingualab/progress'
+
+/** The hidden file at the library root that holds the progress, next to the episodes' `notes.md`. */
+export const PROGRESS_FILE = '.lingualab-progress.json'
+
+/**
  * The most one imported file may weigh. The page checks it before sending so a refusal
  * arrives as a sentence; the host checks it again because the page is only a client.
  */
@@ -224,6 +234,40 @@ export interface LibraryConfigWriteRequest {
 export interface NotesWriteRequest {
   readonly episode: string
   readonly phrases: readonly NotePhrase[]
+}
+
+/** Where the reader stopped in one episode. */
+export interface ProgressEntry {
+  /** Seconds into the episode where listening stopped. */
+  readonly at: number
+  /** The episode's length when it was last known. */
+  readonly duration: number
+  /** Milliseconds since the epoch; the newest entry wins when two devices disagree. */
+  readonly updatedAt: number
+}
+
+/** One of the five steps, as stored. */
+export interface StepRecord {
+  readonly done: boolean
+  readonly seconds: number
+}
+
+/** One episode's step ticks, stamped as a whole so the newest device wins as a unit. */
+export interface EpisodeSteps {
+  readonly updatedAt: number
+  readonly records: Readonly<Record<string, StepRecord>>
+}
+
+/** Everything the reader has done that is not a note: positions and step ticks, by episode id. */
+export interface ProgressTable {
+  readonly progress: Readonly<Record<string, ProgressEntry>>
+  readonly steps: Readonly<Record<string, EpisodeSteps>>
+}
+
+/** `GET` and `POST /lingualab/progress`. */
+export interface ProgressPayload extends ProgressTable {
+  readonly ok: boolean
+  readonly reason: string | null
 }
 
 /** One root the picker may browse. Workspaces come from the host; `lib` is the library. */

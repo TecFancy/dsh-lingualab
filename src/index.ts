@@ -40,6 +40,7 @@ import { readJsonBody, sendJson, serveFile, serveMedia } from './host/media.ts'
 import { readNotes, writeNotes } from './host/notes.ts'
 import { openEpisode, resolveFileMedia } from './host/open.ts'
 import { findPlace, listPlaces, placesPayload, resolveInPlace } from './host/places.ts'
+import { readProgressFile, writeProgressFile, type ProgressRead } from './host/progress.ts'
 import { parseState, serializeState, type OpenState } from './host/state.ts'
 import {
   BROWSE_PATH,
@@ -52,10 +53,12 @@ import {
   NOTES_PATH,
   OPEN_PATH,
   PLACES_PATH,
+  PROGRESS_PATH,
   type LibraryConfigWriteRequest,
   type NotesWriteRequest,
   type OpenPayload,
   type OpenRequest,
+  type ProgressPayload,
 } from './shared/protocol.ts'
 
 /** Stable plugin name (the composition row id is `lingualab`). */
@@ -508,6 +511,38 @@ function notesRoute(
   }
 }
 
+/**
+ * `GET` and `POST /lingualab/progress` — positions and step ticks, shared across devices.
+ *
+ * A `POST` merges rather than replaces: the body is whatever this browser has, the newest
+ * entry per episode wins, and the answer is the merged table, so one round trip is both
+ * "upload mine" and "download everyone's".
+ */
+function progressRoute(ctx: HostContext, configured: () => string): WebRoute {
+  const answer = (read: ProgressRead): ProgressPayload => ({ ok: read.ok, reason: read.reason, ...read.table })
+  return {
+    kind: 'exact',
+    path: PROGRESS_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['GET', 'POST'])) return
+      const root = resolveRoot(ctx, configured()).root
+      if ((req.method ?? 'GET') === 'GET') {
+        sendJson(res, 200, answer(readProgressFile(root)))
+        return
+      }
+      let body: unknown
+      try {
+        // Roomier than the notes limit: a full table is a few hundred small entries.
+        body = await readJsonBody(req, 512 * 1024)
+      } catch (error) {
+        sendJson(res, 400, { ok: false, reason: `请求体读不了：${String(error)}`, progress: {}, steps: {} })
+        return
+      }
+      sendJson(res, 200, answer(writeProgressFile(root, body)))
+    },
+  }
+}
+
 /** Mount every route. The config is read per request, so edits need no reload. */
 export function apply(ctx: HostContext, config: Config): void {
   // Through the box: a volatile field holds the value, and the settings service can
@@ -565,6 +600,7 @@ export function apply(ctx: HostContext, config: Config): void {
     mediaRoute(ctx, configured),
     fileMediaRoute(readState),
     notesRoute(ctx, configured, readState, writeState),
+    progressRoute(ctx, configured),
   ].map((route) => guarded(ctx, route))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)
