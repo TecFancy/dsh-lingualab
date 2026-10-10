@@ -77,6 +77,7 @@ the plugin that was installed and used, not an artifact on a registry.
 ### Fixed
 
 - A bilingual subtitle paired with a separate English one showed each sentence in three lines, with the English twice. Only the Chinese lines of the second track are folded in now.
+- The speed button stopped working once it reached 2x. It now wraps back to 0.5x; the [ and ] keys still stop at the ends.
 - Chinese "always" and "dimmed" looked identical. Always now shows the Chinese at the English size and colour, dimmed keeps it small and faint.
 - A kept sentence stopped matching after a reload on folder episodes. `notes.md` stores whole
   seconds, so one kept at 12.48 s read back as 12; the star showed empty, the wrong row showed a

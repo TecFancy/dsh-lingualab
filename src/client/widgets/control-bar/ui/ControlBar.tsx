@@ -139,7 +139,7 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
       <button
         type="button"
         className="dsh-lingualab-bar-btn"
-        onClick={() => store().cycleSpeed(1)}
+        onClick={() => store().nextSpeedWrapping()}
         disabled={disabled}
         title={t('speed')}
       >
