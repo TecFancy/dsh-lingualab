@@ -45,6 +45,7 @@ const STEPS = [
   { name: 'docs:check', cmd: ['npm', 'run', '--silent', 'docs:check'], fast: true, about: 'docs 不出现孤儿文档' },
   { name: 'links:check', cmd: ['npm', 'run', '--silent', 'links:check'], fast: true, about: '全仓 markdown 相对链接有效' },
   { name: 'bilingual:check', cmd: ['npm', 'run', '--silent', 'bilingual:check'], fast: true, about: '中英对照的结构与哈希一致' },
+  { name: 'bilingual:test', cmd: ['node', 'scripts/check-bilingual.mjs', '--self-test'], fast: true, about: '中英对照检查自己还拦得住（含 Windows 路径）' },
   { name: 'zh:prose', cmd: ['npm', 'run', '--silent', 'zh:prose'], fast: true, about: '中文标点、空格与术语' },
   { name: 'skills:check', cmd: ['npm', 'run', '--silent', 'skills:check'], fast: true, about: '.claude/skills 镜像没漂移' },
   { name: 'changelog:check', cmd: ['npm', 'run', '--silent', 'changelog:check'], fast: true, about: 'CHANGELOG 与 package.json 版本一致' },
