@@ -39,7 +39,7 @@ scripts/                检查脚本，入口是 verify.mjs
 ## 检查表
 
 `node scripts/verify.mjs --list` 打出全部。轻档含 typecheck、ESLint、Steiger 的 FSD 规则、单测、
-notes 树与链接、docs、全仓链接、中英配对与它的自测、中文语体、技能镜像；全档再加两个产物能否解析、包名与
+notes 树与链接（各带自测）、docs、全仓链接、中英配对与它的自测、中文语体、技能镜像；全档再加两个产物能否解析、包名与
 Loader 行与路由是否一致、`lib/` 是否与新构建逐字节相同。
 
 ## 写东西的规矩
