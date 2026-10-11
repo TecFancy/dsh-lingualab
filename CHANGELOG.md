@@ -45,6 +45,11 @@ the plugin that was installed and used, not an artifact on a registry.
 
 - A kept sentence with tags but no note was written as `| 中文 | #review`, which read back with the tag as its note and
   no tag. The empty note field is now kept in front of the tags.
+- Enter on the finish card's focused button now presses it. The page's own Enter, which plays the selected sentence,
+  took the key first, so the next episode or segment the card focused could not be reached from the keyboard.
+- Replaying a kept sentence loops that sentence again. The note keeps whole seconds, so a sentence starting at
+  135.08 s was sought to 135, a gap before it, and the sentence before was the one that looped. The replay now finds
+  the cue by its second and its English, as the star does.
 - Continuing an episode that was already open from the home no longer shows the first sentence. The audio resumed at
   the saved position, but the subtitles were parsed again and handed to the page as a new list, which reset the
   player to the start: the sentence count, the scrubber and the next arrow key all ignored where the audio was. An

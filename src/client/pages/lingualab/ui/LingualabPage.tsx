@@ -25,7 +25,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
@@ -75,6 +75,19 @@ const BOOKMARK_MS = 5000
 
 /** How long a key cap stays lit after the page handles its key. */
 const FLASH_MS = 260
+
+/**
+ * Where a kept sentence starts in the cue list on screen.
+ *
+ * `notes.md` holds whole seconds, so a sentence that starts at 135.08 s reads back as 135,
+ * which can sit in the gap before it: seeking there made the previous sentence the active
+ * one, and that was the sentence the replay looped. The cue with the same second and the
+ * same English is the one that was kept, by the rule the star already uses.
+ */
+function keptCueStart(cues: readonly Cue[], at: number, text: string): number {
+  const key = keptSentenceKey({ at, text })
+  return cues.find((cue) => keptSentenceKey({ at: cue.start, text: splitCue(cue).english }) === key)?.start ?? at
+}
 
 /** Whether a keystroke belongs to a field the reader is typing in. */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -133,6 +146,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const resumeAt = useRef<number | null>(null)
   /** Whether to loop the sentence at `resumeAt` once it has been seeked to: a replayed note, not a resume. */
   const resumeLoop = useRef(false)
+  /** The English of the replayed note, so the seek lands on its cue rather than on its whole second. */
+  const resumeText = useRef<string | null>(null)
 
   // Apply the bookmark. This has to come after the reset effect above and after the audio
   // element knows its length: the reset zeroes the position, and a seek issued before the
@@ -150,10 +165,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     if (target === null || audio === null || !cuesReady) return
     const apply = (): void => {
       if (resumeAt.current === null) return
-      const at = resumeAt.current
+      const text = resumeText.current
+      const at = text === null ? resumeAt.current : keptCueStart(cues, resumeAt.current, text)
       const loop = resumeLoop.current
       resumeAt.current = null
       resumeLoop.current = false
+      resumeText.current = null
       // A bookmark past the end (the file was replaced by a shorter one, or the segment was
       // listened to the end) starts over.
       if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
@@ -398,7 +415,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    * second to seek to and asks for the sentence to be looped, and the drawer it came from stays open.
    */
   const openSegment = useCallback(
-    (id: string, to?: { readonly at: number; readonly loop: boolean }): void => {
+    (id: string, to?: { readonly at: number; readonly loop: boolean; readonly text?: string }): void => {
       if (episode === null || id === segmentId) return
       void (async () => {
         bookmark()
@@ -407,6 +424,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         const positions = readAllProgress()
         resumeAt.current = to?.at ?? segmentProgress(positions, episode.id, id, ids)?.at ?? null
         resumeLoop.current = to?.loop === true
+        resumeText.current = to?.text ?? null
         setSelection(null)
         if (to === undefined) setLayer('none')
         setProgress(positions)
@@ -424,13 +442,13 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const replayPhrase = useCallback(
     (phrase: NotePhrase): void => {
       if (phrase.segment !== undefined && phrase.segment !== segmentId && findSegment(segments, phrase.segment) !== null) {
-        openSegment(phrase.segment, { at: phrase.at, loop: true })
+        openSegment(phrase.segment, { at: phrase.at, loop: true, text: phrase.text })
         return
       }
-      useMediaPlayer.getState().seek(phrase.at)
+      useMediaPlayer.getState().seek(keptCueStart(cues, phrase.at, phrase.text))
       useMediaPlayer.getState().setLoopMode('sentence')
     },
-    [segmentId, segments, openSegment],
+    [cues, segmentId, segments, openSegment],
   )
 
   /**
@@ -500,6 +518,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
       if (layer !== 'none' && layer !== 'notes') return
+      // So does the finish card: it is a dialog over the stage with its next action focused,
+      // and Enter there means that button, not "play the selected sentence" behind it.
+      if (finishOpen) return
 
       const current = selection ?? store().activeIndex
       switch (event.key) {
