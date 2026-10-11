@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-11
+
 ### Added
 
 - A lead-in in the 「More」 menu (off, 0.1, 0.2, 0.3 or 0.5 s): every jump to a sentence (stepping, looping it,
