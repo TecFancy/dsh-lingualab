@@ -48,8 +48,8 @@ node scripts/verify.mjs --list   # 看检查表
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
 4. **写素材目录只有三处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
-   `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；POST 按「每集取最新
-   `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
+   `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
+   `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
    不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
    收用户拖进来的音频与字幕。库扫描、浏览、打开仍然全部只读。导入的底线不许松：**不覆盖已有文件**
    （名字在就报 `exists`，放到位用 `link`，不支持硬链接的卷退回 `COPYFILE_EXCL`，**不用 `rename`**，它在
@@ -61,14 +61,17 @@ node scripts/verify.mjs --list   # 看检查表
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
    「短的工作集」靠笔记抽屉的「还在练 / 已记住」视图，不靠上限。**不要**再加回弹层询问用户
    替换哪一条。旧的取舍记在 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`，
-   那是当时的决定，不要改它。**收藏的句子按「整秒 + 文本」匹配**（`keptSentenceKey`），因为 `notes.md`
-   只存整秒；别改回比较原始浮点时间。
+   那是当时的决定，不要改它。**收藏的句子按「段 + 整秒 + 文本」匹配**（`keptSentenceKey`），因为 `notes.md`
+   只存整秒；别改回比较原始浮点时间。重播收藏也走这把钥匙找回原句（页面的 `keptCueStart`），
+   直接 seek 到整秒会落进前一句后面的空隙。段写在 `notes.md` 的 `## <段 id>` 标题里，不进收藏行。
 6. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
    跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
    `npm run lint:fsd` 会拦。
 7. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
-   浮层打开时，除笔记抽屉外，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；带 Ctrl/Cmd/Alt 的组合键\n   一律不处理，那是浏览器和宿主的。
-8. **跨半边契约走三座桥**：`src/client/shared/protocol.ts`、`notes-format.ts` 与 `stem.ts`（文件名配对只有这一份规则）。
+   浮层打开时，除笔记抽屉外，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；带 Ctrl/Cmd/Alt 的组合键
+   一律不处理，那是浏览器和宿主的。
+8. **跨半边契约走三座桥**：`src/client/shared/protocol.ts`、`notes-format.ts` 与 `stem.ts`（文件名配对只有这一份规则：
+   字幕归 `owningStem` 给出的最长词干，`双语` / `bilingual` 是「一个文件两种语言」的标记）。
 9. **每篇 note 是三件套**：`.md`、`.zh.md`、`.i18n.yaml`。中文那份是真翻译，不是英文副本。
    改了一侧就跑 `npm run bilingual:check -- --write` 重记哈希。
 
@@ -105,6 +108,9 @@ node scripts/verify.mjs --list   # 看检查表
   有循环时让循环管结尾；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），不新增笔记字段；
   听完小结靠 store 的 `finishCount`，卡片按次数关闭，不按剧集。`reset` **不能**清掉 `duration`，字幕
   通常晚于音频元数据读完，清掉进度条就废了。
+- **进度合并没有删除记号**：两边都是「每个键取最新」的并集，所以从 `.lingualab-progress.json` 删掉一条，
+  任何见过它的浏览器缓存（`dsh-lingualab:progress` / `dsh-lingualab:steps`）下次同步都会把它写回来。
+  清测试数据要连同测试用的浏览器缓存一起清。
 - **浮起来的面板用 `--ll-surface`（即 `bg-layer-1`），不用 `bg-overlay`**：后者是宿主的遮罩色，
   深色下是偏亮的灰（实测 `#61666b`），抽屉、卡片涂上它会发白。验深色一定要真截图，别凭 token 名猜。
 - **复选框不算「正在输入」**：`isTypingTarget` 把 `input` 一律当输入框，打勾后焦点留在复选框上，
