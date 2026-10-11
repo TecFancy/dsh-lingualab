@@ -26,7 +26,7 @@
  */
 import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { bodyHash, currentHashes, fences, readRecord, sections } from './lib/pairing.mjs'
@@ -41,6 +41,12 @@ const flagValue = (name) => {
 }
 const root = resolve(flagValue('--root') ?? DEFAULT_ROOT)
 const write = argv.includes('--write')
+
+/**
+ * A path relative to the root, always with `/`. The record header is committed, so a
+ * Windows separator would turn every `--write` there into a diff on every record.
+ */
+const repoPath = (file) => relative(root, file).split(sep).join('/')
 
 /* ── self-test: fixtures in a temp tree, then this same script against it ────── */
 
@@ -88,6 +94,14 @@ function selfTest() {
     if (!ok) failed += 1
     console.log(`  ${ok ? '✅' : '❌'} self-test: ${label} → exit ${code}, expected ${expected}`)
   }
+
+  // A rewrite names a nested pair with `/`, whatever the platform's separator is.
+  const nested = fixture(join('write', 'docs'), cleanEn, cleanZh, '')
+  execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--root', join(dir, 'write'), '--write'], { stdio: 'pipe' })
+  const header = readFileSync(join(nested, 'X.i18n.yaml'), 'utf8').split('\n')[0]
+  const posix = header.includes('docs/X.md ↔ docs/X.zh.md')
+  if (!posix) failed += 1
+  console.log(`  ${posix ? '✅' : '❌'} self-test: --write records a nested pair with / → ${header}`)
   console.log(failed === 0 ? '  ✅ check-bilingual self-test' : `  ❌ check-bilingual self-test: ${failed} case(s) wrong`)
   process.exit(failed === 0 ? 0 : 1)
 }
@@ -106,7 +120,7 @@ function linkLocaleProblems(zhFile, zhText) {
     const absolute = resolve(root, dir, target)
     const counterpart = absolute.replace(/\.md$/, '.zh.md')
     if (existsSync(counterpart)) {
-      problems.push(`${relative(root, zhFile)}: links ${target}, but the pair lives at ${relative(root, counterpart)}`)
+      problems.push(`${repoPath(zhFile)}: links ${target}, but the pair lives at ${repoPath(counterpart)}`)
     }
   }
   return problems
@@ -138,8 +152,8 @@ function main() {
   let pairCount = 0
 
   for (const pair of pairs()) {
-    const enRel = relative(root, pair.en)
-    const zhRel = relative(root, pair.zh)
+    const enRel = repoPath(pair.en)
+    const zhRel = repoPath(pair.zh)
     const recordFile = pair.en.replace(/\.md$/, '.i18n.yaml')
     const enText = readFileSync(pair.en, 'utf8')
     const zhText = readFileSync(pair.zh, 'utf8')
@@ -184,7 +198,7 @@ function main() {
     }
 
     const record = readRecord(recordFile)
-    const recordRel = relative(root, recordFile)
+    const recordRel = repoPath(recordFile)
     if (record.size === 0) {
       problems.push(`${recordRel}: missing or empty; run npm run bilingual:check -- --write`)
       continue

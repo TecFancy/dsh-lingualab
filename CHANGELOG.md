@@ -57,6 +57,8 @@ the plugin that was installed and used, not an artifact on a registry.
 - Escape now closes the More menu in the practice view, ahead of every other Escape action and without also
   clearing the A-B marks, and focus goes back to the More button. The menu's key list also lists R, which uncovers
   the English while shadowing.
+- `npm run bilingual:check -- --write` on Windows no longer rewrites every record. The record header named the pair
+  with `` separators there, so each run turned all twelve records into a diff; the paths are written with `/` now.
 
 ## [0.4.0] - 2026-10-10
 
