@@ -81,7 +81,7 @@ node scripts/verify.mjs --list   # 看检查表
 - **装依赖要指 registry 与缓存目录**：本机默认 registry 慢，用
   `--registry=https://registry.npmmirror.com --cache <可写目录>`。
 - **素材不进 git**：剧集音频放在工作区的 `notes/learning/english/media/`，那个目录自带
-  `.gitignore`。别把音频提交进任何仓库。
+  `.gitignore`。别把音频提交进任何仓库。视频转音频、字幕配对见技能 `lingualab-media-prep`。
 - **可选服务一律用 `ctx.get(name)` 读**：当成上下文属性读（`ctx.workspaceRegistry`）在服务缺席时会抛错，
   而路由里抛错会被 web 服务兜成一个**空的 400**，页面上看起来就是「什么都没有」。这个坑吃过一次，
   四条路由全中。
