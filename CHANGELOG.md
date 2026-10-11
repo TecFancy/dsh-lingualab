@@ -60,6 +60,10 @@ the plugin that was installed and used, not an artifact on a registry.
 - Escape now closes the More menu in the practice view, ahead of every other Escape action and without also
   clearing the A-B marks, and focus goes back to the More button. The menu's key list also lists R, which uncovers
   the English while shadowing.
+- A kept sentence playing from the notes drawer can be paused there. The drawer's scrim covers the transport, and its
+  time chip only replayed, so a looping sentence stopped only once the drawer was closed. The chip of the sentence on
+  stage now reads as a pause button while the audio plays, and replaying a sentence starts the audio when it was
+  paused, in the same segment or another.
 - `npm run bilingual:check -- --write` on Windows no longer rewrites every record. The record header named the pair
   with `` separators there, so each run turned all twelve records into a diff; the paths are written with `/` now.
 

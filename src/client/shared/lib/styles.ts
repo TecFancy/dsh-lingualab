@@ -417,6 +417,7 @@ export const STYLES = `
   color:var(--dsw-alias-brand-primary,#4d6bfe);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 12%,transparent)}
 .dsh-lingualab-note-at:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 22%,transparent)}
+.dsh-lingualab-note-at.is-playing,.dsh-lingualab-note-at.is-playing:hover{color:#fff;background:var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-note .dsh-lingualab-icon-btn.is-small{color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-icon-btn.is-danger:hover{color:var(--dsw-alias-state-error-primary,#d92d20);
   background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#d92d20) 12%,transparent)}

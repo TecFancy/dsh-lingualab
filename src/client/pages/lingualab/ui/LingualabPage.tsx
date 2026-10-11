@@ -123,6 +123,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const controlBar = useRef<ControlBarHandle>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const isPlaying = useMediaPlayer((state) => state.isPlaying)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
   const revealed = useMediaPlayer((state) => state.revealed)
   const finished = useMediaPlayer((state) => state.finished)
@@ -175,7 +176,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // listened to the end) starts over.
       if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
       useMediaPlayer.getState().seek(at)
-      if (loop) useMediaPlayer.getState().setLoopMode('sentence')
+      // A loop is only asked for by replaying a kept sentence, which plays it, as in the same segment.
+      if (loop) {
+        useMediaPlayer.getState().setLoopMode('sentence')
+        useMediaPlayer.getState().setPlaying(true)
+      }
     }
     if (audio.readyState >= 1) {
       apply()
@@ -447,6 +452,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       }
       useMediaPlayer.getState().seek(keptCueStart(cues, phrase.at, phrase.text))
       useMediaPlayer.getState().setLoopMode('sentence')
+      // A seek alone leaves paused audio paused, and the card's play icon then did nothing.
+      useMediaPlayer.getState().setPlaying(true)
     },
     [cues, segmentId, segments, openSegment],
   )
@@ -846,6 +853,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               episodeTitle={episode?.title ?? ''}
               segments={segments}
               onReplay={replayPhrase}
+              playingIndex={isPlaying && stagePhrase !== null ? stagePhrase.index : null}
+              onPause={() => useMediaPlayer.getState().setPlaying(false)}
               onClose={() => setLayer('none')}
             />
           ) : null}

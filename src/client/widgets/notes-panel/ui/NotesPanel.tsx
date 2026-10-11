@@ -3,7 +3,7 @@
  *
  * Keeping a sentence is one tap on the star, so this panel is where the thinking
  * happens afterwards, not where it is blocked. Each row can be replayed (one click
- * seeks there and loops it), given a note of your own, tagged with the method's two
+ * seeks there, plays and loops it, and a second click pauses it), given a note of your own, tagged with the method's two
  * words, and ticked off once it sticks. Ticked phrases drop out of the default
  * 「还在练」 view rather than being deleted, which is what the old seven-phrase ceiling
  * was trying to achieve by force: a short working set. A filter does the same thing
@@ -18,7 +18,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { findSegment, segmentLabel } from '../../../features/library/index.ts'
 import { groupBySegment, splitNote, type NotesState } from '../../../features/notes/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
-import { BookIcon, CheckIcon, CloseIcon, EditIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
+import { BookIcon, CheckIcon, CloseIcon, EditIcon, PauseIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 import type { EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
 
@@ -45,6 +45,14 @@ export interface NotesPanelProps {
   readonly segments: readonly EpisodeSegment[]
   /** Replay one phrase: seek to it and loop that sentence, opening its segment first when needed. */
   readonly onReplay: (phrase: NotePhrase) => void
+  /**
+   * The stored index of the phrase that is on stage while the audio plays, or null. Its time
+   * chip becomes a pause button: the drawer covers the transport, so without it the only way
+   * to stop a looping sentence was to close the drawer.
+   */
+  readonly playingIndex: number | null
+  /** Pause the audio. */
+  readonly onPause: () => void
   /** Closes the drawer; the page returns focus to its container. */
   readonly onClose: () => void
 }
@@ -56,7 +64,7 @@ function segmentName(segments: readonly EpisodeSegment[], id: string): string {
 }
 
 /** The right-hand notes drawer. */
-export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, onClose }: NotesPanelProps) {
+export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playingIndex, onPause, onClose }: NotesPanelProps) {
   const [view, setView] = useState<View>('active')
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
@@ -176,11 +184,12 @@ export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, onClose
                     </label>
                     <button
                       type="button"
-                      className="dsh-lingualab-note-at"
-                      onClick={() => onReplay(phrase)}
-                      title={t('notesReplay')}
+                      className={`dsh-lingualab-note-at${playingIndex === index ? ' is-playing' : ''}`}
+                      onClick={() => (playingIndex === index ? onPause() : onReplay(phrase))}
+                      title={playingIndex === index ? t('notesPause') : t('notesReplay')}
+                      aria-pressed={playingIndex === index}
                     >
-                      <PlayIcon size={10} /> {formatClock(phrase.at)}
+                      {playingIndex === index ? <PauseIcon size={10} /> : <PlayIcon size={10} />} {formatClock(phrase.at)}
                     </button>
                     <span className="dsh-lingualab-spacer" />
                     <button
