@@ -11,13 +11,16 @@
 "/changelog/unreleased":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
-"/changelog/unreleased/added":
+"/changelog/0-7-0-2026-10-11":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-7-0-2026-10-11/added":
   en: 6e22c920983a2664
   zh: 969f7d5469ddb45e
-"/changelog/unreleased/changed":
+"/changelog/0-7-0-2026-10-11/changed":
   en: b6f23ad5e101369f
   zh: d0ad29cc14a7e7d0
-"/changelog/unreleased/fixed":
+"/changelog/0-7-0-2026-10-11/fixed":
   en: a225a32c93308014
   zh: 3267ae1e0d914d67
 "/changelog/0-6-0-2026-10-11":

@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-11
+
 ### Added
 
 - The time chip on the open kept-sentence card plays and pauses the sentence on stage: it shows a pause icon and fills
