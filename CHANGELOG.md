@@ -25,6 +25,9 @@ the plugin that was installed and used, not an artifact on a registry.
   the saved position, but the subtitles were parsed again and handed to the page as a new list, which reset the
   player to the start: the sentence count, the scrubber and the next arrow key all ignored where the audio was. An
   episode that is opened again with the same subtitles keeps the list it has, and a reload still reads them again.
+- Escape now closes the More menu in the practice view, ahead of every other Escape action and without also
+  clearing the A-B marks, and focus goes back to the More button. The menu's key list also lists R, which uncovers
+  the English while shadowing.
 
 ## [0.4.0] - 2026-10-10
 

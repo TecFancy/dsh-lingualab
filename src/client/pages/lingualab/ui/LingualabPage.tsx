@@ -36,7 +36,7 @@ import {
 import { keptSentenceKey, sameKeptSentence } from '../../../shared/notes-format.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
-import { ControlBar, nextZhMode } from '../../../widgets/control-bar/index.ts'
+import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
@@ -93,6 +93,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
+  const controlBar = useRef<ControlBarHandle>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
@@ -328,7 +329,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // Escape closes a layer in either view; everything else is practice-only, since
       // the home has no transport for a shortcut to act on.
       if (event.key === 'Escape') {
-        if (finishOpen) {
+        // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it
+        // must not also clear the A-B marks its own buttons set.
+        if (controlBar.current?.closeMenu() === true) {
+          handled()
+        } else if (finishOpen) {
           handled()
           setDismissedFinish(finishCount)
         } else if (layer !== 'none') {
@@ -558,6 +563,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               />
               <div className="dsh-lingualab-deck">
                 <ControlBar
+                  ref={controlBar}
                   t={t}
                   zhMode={zhMode}
                   onZhMode={setZhMode}
