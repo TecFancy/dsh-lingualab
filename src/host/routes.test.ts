@@ -8,7 +8,6 @@
  * handler that writes.
  */
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -17,6 +16,7 @@ import { apply, type Config } from '../index.ts'
 import { IMPORT_HEADER, IMPORT_PATH } from '../shared/protocol.ts'
 import { writeScenes } from './test-scenes.ts'
 import { makeTempDir } from './test-dir.ts'
+import { listenForFetch } from './test-listen.ts'
 
 /** What the fake connection service answers for the next request. */
 type Verdict = 'allow' | 401 | 403
@@ -69,8 +69,7 @@ async function start(withConnection = true): Promise<Harness> {
     }
     void Promise.resolve(route.handler(req, res))
   })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const port = (server.address() as AddressInfo).port
+  const port = await listenForFetch(server)
 
   return {
     base: `http://127.0.0.1:${String(port)}`,

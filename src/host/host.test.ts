@@ -1,5 +1,4 @@
 import { createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -17,6 +16,7 @@ import {
   type OpenState,
 } from './state.ts'
 import { makeTempDir } from './test-dir.ts'
+import { listenForFetch } from './test-listen.ts'
 
 let root = ''
 
@@ -287,8 +287,7 @@ describe('serveMedia', () => {
   it('answers a range request with the requested slice', async () => {
     episode('S01E01', { audio: 'audio.mp3' })
     const server = createServer((req, res) => serveMedia(req, res, root, (req.url ?? '').split('?')[0] ?? ''))
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    const port = (server.address() as AddressInfo).port
+    const port = await listenForFetch(server)
     try {
       const partial = await fetch(`http://127.0.0.1:${port}/S01E01/audio.mp3`, {
         headers: { range: 'bytes=0-4' },
