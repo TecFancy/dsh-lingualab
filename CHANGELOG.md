@@ -37,6 +37,10 @@ the plugin that was installed and used, not an artifact on a registry.
   accepts several cues of one file in one request.
 - A phrase picked on the stage is tinted as one band, rounded at its two ends only, instead of a row of rounded
   words with square gaps between them.
+- Hover, press, focus and on/off states across the page now fade quickly instead of snapping, the way a word on the
+  stage already did. Buttons, sentence rows, cards, menus, tabs, grade buttons, word chips and the phrase band share one
+  timing (`--ll-fast`, 0.12 s) and ease, and each element fades exactly the properties that change. A row's action
+  icons now fade out as well as in, and `prefers-reduced-motion` still turns every fade off.
 
 ## [0.5.0] - 2026-10-11
 
