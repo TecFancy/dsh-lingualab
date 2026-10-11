@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { HostContext, WebRoute } from '../host-context.ts'
 import { apply, type Config } from '../index.ts'
 import { IMPORT_HEADER, IMPORT_PATH } from '../shared/protocol.ts'
+import { writeScenes } from './test-scenes.ts'
 import { makeTempDir } from './test-dir.ts'
 
 /** What the fake connection service answers for the next request. */
@@ -297,3 +298,44 @@ describe('POST /lingualab/import', () => {
     const after = await post(importUrl('AFTER', 'a.mp3'), 'x')
     expect(after.status).toBe(200)
   })})
+
+describe('opening a segment of a folder episode', () => {
+  const open = async (body: object): Promise<{ status: number; payload: { ok: boolean; reason: string | null; segment: string | null; media: { audioUrl: string } | null } }> => {
+    const response = await fetch(`${harness.base}/lingualab/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return { status: response.status, payload: (await response.json()) as never }
+  }
+
+  it('opens the segment named in the request and echoes it', async () => {
+    writeScenes(join(harness.root, 'S01E01'), ['01_a', '02_b'])
+    const answer = await open({ episodeId: 'S01E01', segment: '02_b' })
+    expect(answer.status).toBe(200)
+    expect(answer.payload.segment).toBe('02_b')
+    expect(answer.payload.media?.audioUrl).toBe('/lingualab/media/S01E01/02_b.mp3')
+  })
+
+  it('opens the first segment when none is named', async () => {
+    writeScenes(join(harness.root, 'S01E01'), ['01_a', '02_b'])
+    expect((await open({ episodeId: 'S01E01' })).payload.segment).toBe('01_a')
+  })
+
+  it('answers 400 with the reason for a segment that is not there, or not a string', async () => {
+    writeScenes(join(harness.root, 'S01E01'), ['01_a', '02_b'])
+    const missing = await open({ episodeId: 'S01E01', segment: '03_c' })
+    expect(missing.status).toBe(400)
+    expect(missing.payload.reason).toContain('03_c')
+    const wrongType = await open({ episodeId: 'S01E01', segment: 2 })
+    expect(wrongType.status).toBe(400)
+  })
+
+  it('lists the segments in the library payload', async () => {
+    writeScenes(join(harness.root, 'S01E01'), ['01_a', '02_b'])
+    const library = (await (await fetch(`${harness.base}/lingualab/library`)).json()) as {
+      episodes: { segments: { id: string }[] }[]
+    }
+    expect(library.episodes[0]?.segments.map((segment) => segment.id)).toEqual(['01_a', '02_b'])
+  })
+})

@@ -43,6 +43,26 @@ export const STYLES = `
 .dsh-lingualab-chip:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-chip.is-on{border-color:var(--dsw-alias-brand-primary,#4d6bfe);color:var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-chip:disabled{opacity:0.45;cursor:default}
+/* The segment button and its list: a popover under the top bar, a listbox the keyboard walks. */
+.dsh-lingualab-seg-holder{position:relative;display:inline-flex}
+.dsh-lingualab-chevron{display:inline-flex;transform:rotate(90deg);transition:transform .12s ease}
+.dsh-lingualab-chevron.is-open{transform:rotate(-90deg)}
+.dsh-lingualab-seglist{position:absolute;left:0;top:calc(100% + 6px);z-index:25;display:flex;flex-direction:column;gap:2px;
+  box-sizing:border-box;width:min(320px,80vw);max-height:min(380px,60vh);overflow:auto;padding:6px;outline:none;
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.35));border-radius:12px;
+  background:var(--ll-surface);box-shadow:0 18px 48px rgba(0,0,0,0.3)}
+.dsh-lingualab-seglist:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#4d6bfe);outline-offset:1px}
+.dsh-lingualab-segopt{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;
+  font-size:13px;line-height:1.4}
+.dsh-lingualab-segopt.is-active{background:var(--ll-hover)}
+.dsh-lingualab-segopt.is-current{color:var(--dsw-alias-brand-primary,#4d6bfe);font-weight:600}
+.dsh-lingualab-segopt-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-lingualab-segopt-now{flex:none;font-size:11px;font-weight:500;opacity:.85}
+.dsh-lingualab-segopt-done{flex:none;display:inline-flex;color:var(--dsw-alias-state-success-primary,#2f855a)}
+/* A section heading inside the notes drawer: the segment the cards under it are from. */
+.dsh-lingualab-notes-group{flex:none;margin:6px 0 -4px;font-size:12px;font-weight:600;letter-spacing:.02em;
+  color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-notes-group:first-child{margin-top:0}
 .dsh-lingualab-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
   padding:0;border:0;border-radius:8px;background:none;color:var(--dsw-alias-label-secondary,#8a8f98);cursor:pointer}
 .dsh-lingualab-icon-btn:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}

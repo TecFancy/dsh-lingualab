@@ -13,7 +13,12 @@
  *
  * A bilingual subtitle is one file with two languages in it, and the study method
  * produces them (a `.srt` with the English line above the Chinese one). Such a file
- * is offered as *both* tracks, and the panel splits it line by line.
+ * is offered as *both* tracks, and the panel splits it line by line. When its name says
+ * so (`_双语`, `.bilingual`) that is decided by name, like `en` and `zh`.
+ *
+ * A subtitle belongs to the audio stem that owns it, and the longest stem wins (see
+ * {@link owningStem}): in a folder of scenes, `04_Dunphy家-Luke射击.srt` is not offered
+ * to a sibling named `04_Dunphy家`.
  */
 import { readFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
@@ -23,7 +28,7 @@ import {
   type SubtitleHint,
 } from '../shared/protocol.ts'
 import { compareIds } from './library.ts'
-import { sameStem, stemOf } from '../shared/stem.ts'
+import { owningStem, sameStem, stemOf } from '../shared/stem.ts'
 
 /**
  * Language marks this module recognises, and only these.
@@ -35,6 +40,8 @@ import { sameStem, stemOf } from '../shared/stem.ts'
  */
 const ENGLISH_MARKS = new Set(['en', 'en-us', 'en-gb'])
 const CHINESE_MARKS = new Set(['zh', 'zh-cn', 'zh-hans', 'zh-hant', 'cn'])
+/** Marks that say one file holds both languages. Compared after lower-casing, so `Bilingual` counts. */
+const BILINGUAL_MARKS = new Set(['双语', 'bilingual'])
 
 /** Extensions this module accepts as subtitles. */
 const SUBTITLE_SET = new Set<string>(SUBTITLE_EXTENSIONS)
@@ -54,8 +61,8 @@ export function fileHasCjk(path: string): boolean {
   }
 }
 
-/** Which of the three kinds a subtitle file's name puts it in. */
-type Mark = 'en' | 'zh' | 'none'
+/** Which of the four kinds a subtitle file's name puts it in. */
+type Mark = 'en' | 'zh' | 'both' | 'none'
 
 /**
  * Read the language mark out of one file name.
@@ -77,6 +84,7 @@ function markOf(fileName: string, stem: string | undefined): Mark {
     const mark = token.toLowerCase()
     if (ENGLISH_MARKS.has(mark)) return 'en'
     if (CHINESE_MARKS.has(mark)) return 'zh'
+    if (BILINGUAL_MARKS.has(mark)) return 'both'
   }
   return 'none'
 }
@@ -87,42 +95,63 @@ export interface Classification {
   readonly files: readonly string[]
   readonly en: readonly string[]
   readonly zh: readonly string[]
+  /** Files whose names say they hold both languages in one. */
+  readonly both: readonly string[]
   readonly unmarked: readonly string[]
   /** True when the names alone cannot pick one file per language. */
   readonly ambiguous: boolean
 }
 
+/** The stems of the audio files among some names; one per distinct stem, in the order seen. */
+export function audioStemsOf(names: readonly string[]): string[] {
+  const stems = new Set<string>()
+  for (const name of names) {
+    if ((AUDIO_EXTENSIONS as readonly string[]).includes(extname(name).slice(1).toLowerCase())) stems.add(stemOf(name))
+  }
+  return [...stems]
+}
+
 /**
- * Split a directory's names into the three groups, in natural order.
+ * Split a directory's names into the four groups, in natural order.
  *
  * A stem narrows the set as well as the reading: subtitles belong to one audio
  * file by name, and `other.en.srt` sitting in the same directory is not this
  * episode's English track. Without a stem — a folder episode — every subtitle in
  * the folder is a candidate, because there the folder is the episode.
+ *
+ * With a stem, ownership is by the longest stem: when the directory also holds a
+ * longer audio stem that accepts the same name, the subtitle is that file's and not
+ * this one's. This is the one place the rule is applied, so the scan, the picker and
+ * opening an episode cannot disagree about whose a subtitle is.
  * @param names - the file names of one directory.
  * @param stem - the audio stem, when the caller has one.
  * @returns the classification.
  */
 export function classifySubtitles(names: readonly string[], stem?: string): Classification {
+  // The candidates for ownership: this stem and every audio stem beside it.
+  const rivals = stem === undefined ? [] : [stem, ...audioStemsOf(names)]
   const files = names
     .filter((name) => SUBTITLE_SET.has(extname(name).slice(1).toLowerCase()))
-    .filter((name) => stem === undefined || sameStem(name, stem))
+    .filter((name) => stem === undefined || owningStem(name, rivals) === stem)
     .sort(compareIds)
   const en: string[] = []
   const zh: string[] = []
+  const both: string[] = []
   const unmarked: string[] = []
   for (const file of files) {
     const mark = markOf(file, stem)
     if (mark === 'en') en.push(file)
     else if (mark === 'zh') zh.push(file)
+    else if (mark === 'both') both.push(file)
     else unmarked.push(file)
   }
   return {
     files,
     en,
     zh,
+    both,
     unmarked,
-    ambiguous: en.length > 1 || zh.length > 1 || unmarked.length > 1,
+    ambiguous: en.length > 1 || zh.length > 1 || both.length > 1 || unmarked.length > 1,
   }
 }
 
@@ -161,7 +190,10 @@ function splitByContent(directory: string, files: readonly string[]): { en: stri
  * The decision mirrors the scan's original rules, with the mark list above in place
  * of the old name heuristic: names decide first; a single file that carries CJK is
  * offered as both tracks; and when nothing is marked, the content of at most a few
- * files decides which is which. `ambiguous` reports that this was a best effort —
+ * files decides which is which. A file whose name marks it bilingual is the Chinese
+ * source (the page keeps only its Chinese lines), and the English track is an
+ * English-marked file if there is one, else the single unmarked file, else that
+ * bilingual file again. `ambiguous` reports that this was a best effort:
  * the picker shows that state, while the page opens what it is given.
  * @param names - file names of one directory.
  * @param options - the audio stem, and the directory when content may be read.
@@ -172,8 +204,14 @@ export function pairSubtitles(
   options: { readonly stem?: string; readonly directory?: string } = {},
 ): SubtitlePair {
   const { stem, directory } = options
-  const { files, en, zh, unmarked, ambiguous } = classifySubtitles(names, stem)
+  const { files, en, zh, both, unmarked, ambiguous } = classifySubtitles(names, stem)
   if (files.length === 0) return { en: null, zh: null, ambiguous: false }
+
+  const bilingualFile = both[0]
+  if (bilingualFile !== undefined) {
+    const lone = unmarked.length === 1 ? unmarked[0] : undefined
+    return { en: en[0] ?? lone ?? bilingualFile, zh: bilingualFile, ambiguous }
+  }
 
   const only = unmarked[0]
   if (en.length === 0 && zh.length === 0 && unmarked.length === 1 && only !== undefined) {
@@ -213,10 +251,17 @@ export function pairSubtitles(
  * @returns the hint, with at most four file names.
  */
 export function subtitleHint(names: readonly string[], stem?: string): SubtitleHint {
-  const { files, en, zh, unmarked, ambiguous } = classifySubtitles(names, stem)
+  const { files, en, zh, both, unmarked, ambiguous } = classifySubtitles(names, stem)
   const shown = files.slice(0, 4)
   if (files.length === 0) return { state: 'none', files: [] }
   if (ambiguous) return { state: 'unknown', files: shown }
+  // A file that says it holds both languages settles the row without reading it. The files
+  // are listed the way the pair is chosen: the English track first, then the bilingual one.
+  const bilingual = both[0]
+  if (bilingual !== undefined && both.length === 1) {
+    const english = en[0] ?? (unmarked.length === 1 ? unmarked[0] : undefined)
+    return { state: 'both', files: english === undefined ? [bilingual] : [english, bilingual] }
+  }
   if (en.length === 1 && zh.length === 1) return { state: 'both', files: [en[0] ?? '', zh[0] ?? ''] }
   if (en.length === 1 && unmarked.length === 1) return { state: 'both', files: [en[0] ?? '', unmarked[0] ?? ''] }
   if (zh.length === 1 && unmarked.length === 1) return { state: 'both', files: [unmarked[0] ?? '', zh[0] ?? ''] }

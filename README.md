@@ -39,6 +39,15 @@ tracks, because a bilingual subtitle is one file with two languages in it. A fol
 audio is listed but not playable, and an optional `manifest.json` at the root may set the
 play order, rename episodes and name the episode to open first.
 
+A folder with **two or more audio files** is still one episode, made of segments: one scene per audio
+file, in natural order (`02` before `10`). Each segment pairs its own subtitles by name, and the
+longest audio name wins (`04_Dunphy家-Luke射击.srt` does not belong to a sibling named `04_Dunphy家`).
+A subtitle whose name carries `双语` or `bilingual` (`01_Dunphy家的早晨_双语.srt`) is one file with
+both languages: its Chinese lines are the Chinese track, and the English track is the English-marked
+file, else the single unmarked one, else the same file. The page plays one segment at a time, lists
+them under a button in the top bar, offers the next one when a segment ends, and keeps one `notes.md`
+per episode with a `## <segment>` heading per segment.
+
 Where the files live is one quiet line at the bottom of the home, with 「Change」. The folder is
 set without typing a path: the layer's primary way in is 「Browse existing files」 — walk to the
 folder, click 「Use as media folder」, and the host resolves the path itself. A typed absolute path
@@ -146,7 +155,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET`, `POST /lingualab/config` | exact | Where the library is, and how to change it — by path, or by place and relative folder |
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
-| `POST /lingualab/open` | exact | Make one episode current: a scanned folder, or a single audio file with the subtitles beside it |
+| `POST /lingualab/open` | exact | Make one episode current: a scanned folder (with an optional `segment` to open one of its segments, the first when omitted), or a single audio file with the subtitles beside it |
 | `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
 | `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 

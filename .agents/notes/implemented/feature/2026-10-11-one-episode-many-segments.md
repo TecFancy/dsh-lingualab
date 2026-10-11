@@ -1,6 +1,6 @@
 # Agent Note: one episode, many segments
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -39,7 +39,9 @@ episode, has no segments and behaves exactly as today.
 **Each segment pairs its own subtitles by stem, and the longest stem wins.** A subtitle
 belongs to the segment whose stem is the longest one that `sameStem` accepts for it, so
 `04_Dunphy家-Luke射击.srt` cannot be claimed by a sibling named `04_Dunphy家`. The import
-already uses this rule for a drop; the scan and the picker now use it inside a folder.
+already used this rule for a drop. It now lives in one function, `owningStem`, which the import
+grouping, the scan, the picker and the open all call, so they cannot disagree about whose a
+subtitle is.
 
 **`双语` and `bilingual` are a third kind of mark: both languages in one file.** With such a
 file present, it is the Chinese source (the page already keeps only its CJK lines), the
@@ -67,7 +69,7 @@ export interface EpisodeSegment {
 // The entry's own audio and subtitle fields mirror the first segment.
 readonly segments: readonly EpisodeSegment[]
 
-// OpenRequest: with episodeId, which segment to open. Omitted means the one to continue.
+// OpenRequest: with episodeId, which segment to open. Omitted means the first one.
 readonly segment?: string
 
 // OpenPayload: the segment that was opened, null for an episode without segments.
@@ -77,12 +79,20 @@ readonly segment: string | null
 Media URLs do not change: `/lingualab/media/<episode>/<file>` already serves any file in the
 folder.
 
+Which segment to continue is not the host's call. The host knows no more than the progress
+file, and the page already holds the reader's positions, so the page resolves 「继续」 (the
+newest segment, below) and names the segment explicitly; the host treats an omitted one as the
+first. A segment id the episode does not have is refused with a reason and never replaced by the
+first one, because the position and the notes would then land on the wrong audio.
+
 **Practice shows the episode and the segment, and moves through segments.** The top bar reads
-the episode title with `01 · Dunphy家的早晨` under it, and a segment button opens a list of all
+the episode title with `01 · Dunphy家的早晨` under it (the number is the one written in the
+file name, else the position), and a segment button opens a list of all
 segments with a mark on the finished ones. At the end of a segment that is not the last, the
 finish card says the segment is done and its first action, focused, is 「下一段：足球场」. Only
 the last segment says 「这一集听完了」. The home card reads 「S01E01 · 3 / 10 段」, and
-「继续练习」 opens the segment listened to most recently.
+「继续练习」 opens the segment listened to most recently, or, once that one was heard to the end,
+the next segment not yet finished (the card then names it as 「下一段」 instead of a stopping time).
 
 **Notes stay in one `notes.md` per episode, grouped under a heading per segment.** The phrase
 line keeps its format; a `## <segment id>` heading above a run of lines says which segment they
@@ -101,7 +111,10 @@ belong to:
 ```
 
 The preamble ends at the first segment heading or the first phrase line, whichever comes
-first. `NotePhrase` gains an optional `segment`, and two kept sentences are the same only when
+first. A heading counts only when a phrase line follows it directly, so an `## 备注` written
+into the preamble as commentary stays there. The host gives the writer the folder's segment
+order, so the file reads in play order whatever order the phrases arrive in, and the limit of
+500 phrases still counts the whole file. `NotePhrase` gains an optional `segment`, and two kept sentences are the same only when
 their segments match too. The drawer groups cards by segment, and replaying a card from another
 segment opens that segment first, then seeks.
 
@@ -110,7 +123,8 @@ stored under the key `<episode id>::<segment id>`. The newest of an episode's se
 is where 「继续」 goes, and a segment counts as finished when its stored position is within one
 second of its duration. The steps describe watching a whole episode (22 minutes is an episode,
 not a scene), so they keep the episode id as their key. `MAX_PROGRESS_ENTRIES` rises from 100
-to 1000, since one episode can now hold ten entries.
+to 1000, since one episode can now hold ten entries, and the longest key accepted rises from 300
+to 520 characters, since a segment key holds two file names.
 
 **Out of scope:** playing segments back to back as one track, per-segment steps, renaming or
 reordering segments in the page, and any change to import or to file episodes.

@@ -1,6 +1,6 @@
 # Agent Note: 一集多段
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -32,7 +32,7 @@ Status: proposed
 
 **每段按 stem 配自己的字幕，取最长的 stem。** 一个字幕属于 `sameStem` 接受它的那些 stem 中最长的那一段，所以
 `04_Dunphy家-Luke射击.srt` 不会被一个叫 `04_Dunphy家` 的兄弟段认领。导入在处理一次拖入时已经用这条规则，
-现在扫描和选择器在文件夹内部也用它。
+现在它收进了一个函数 `owningStem`，导入分组、扫描、选择器和打开都调用它，所以它们不会在一个字幕归谁这件事上各说各话。
 
 **`双语` 和 `bilingual` 是第三种标记：一个文件里两种语言都有。** 有这样一个文件时，它是中文的来源（页面本来就只取它的中文行），
 英文轨取带英文标记的文件，没有就取唯一一个没有标记的文件，再没有就取这个双语文件本身。这一步只看名字，
@@ -58,7 +58,7 @@ export interface EpisodeSegment {
 // The entry's own audio and subtitle fields mirror the first segment.
 readonly segments: readonly EpisodeSegment[]
 
-// OpenRequest: with episodeId, which segment to open. Omitted means the one to continue.
+// OpenRequest: with episodeId, which segment to open. Omitted means the first one.
 readonly segment?: string
 
 // OpenPayload: the segment that was opened, null for an episode without segments.
@@ -67,9 +67,14 @@ readonly segment: string | null
 
 媒体地址不变：`/lingualab/media/<episode>/<file>` 本来就能提供文件夹里的任何文件。
 
-**练习页同时显示集和段，并能在段之间移动。** 顶栏是剧集标题，下面一行是 `01 · Dunphy家的早晨`，一个分段按钮打开全部段的列表，
+继续听哪一段不由 host 决定。host 知道的不比进度文件多，而页面本来就握着读者的位置，所以由页面来定「继续」
+（下面说的最新一段），并明确写出段的 id；host 把没给的当作第一段。episode 里没有的段 id 会被拒绝并附上原因，
+绝不悄悄换成第一段，否则位置和笔记就会落到错的音频上。
+
+**练习页同时显示集和段，并能在段之间移动。** 顶栏是剧集标题，下面一行是 `01 · Dunphy家的早晨`（数字取文件名里写的那个，没有就取位置），一个分段按钮打开全部段的列表，
 听完的段带一个标记。一段听完而它不是最后一段时，结束卡片说这一段听完了，第一个动作是「下一段：足球场」，并且获得焦点。
-只有最后一段才说「这一集听完了」。首页卡片写「S01E01 · 3 / 10 段」，「继续练习」打开最近听过的那一段。
+只有最后一段才说「这一集听完了」。首页卡片写「S01E01 · 3 / 10 段」，「继续练习」打开最近听过的那一段；
+那一段已经听到结尾时，打开下一个还没听完的段（卡片上写「下一段」，而不是停在哪个时间）。
 
 **笔记仍然是每集一份 `notes.md`，按段分组，每段一个标题。** 收藏行的格式不变；一组行上方的 `## <segment id>` 标题说明它们属于哪一段：
 
@@ -85,12 +90,15 @@ readonly segment: string | null
 - [ ] 00:09 | He tripped him, Jay. | 他绊倒他了 杰 | |
 ```
 
-前言在第一个段标题或第一条收藏行处结束，取先出现的那个。`NotePhrase` 多一个可选的 `segment`，两条收藏只有段也相同才算同一句。
+前言在第一个段标题或第一条收藏行处结束，取先出现的那个。标题下面紧跟收藏行才算数，所以有人写在前言里当评注的
+`## 备注` 仍然留在前言里。host 把文件夹里各段的顺序交给写入方，所以不管收藏以什么顺序到达，文件都按播放顺序排；
+500 条的上限仍然按整个文件算。`NotePhrase` 多一个可选的 `segment`，两条收藏只有段也相同才算同一句。
 抽屉按段给卡片分组，从另一段的卡片重播时先打开那一段，再跳到那个时间。
 
 **听到的位置按段记，五步仍然按集记。** 一段的位置存在 `<episode id>::<segment id>` 这个键下。一集各段记录中最新的那条，
 就是「继续」要去的地方；一段存下的位置离它的时长不到一秒，就算听完。五步描述的是看完整的一集（22 分钟是一集的长度，不是一个场景），
-所以它们仍用剧集 id 作键。`MAX_PROGRESS_ENTRIES` 从 100 提到 1000，因为一集现在可能占十条。
+所以它们仍用剧集 id 作键。`MAX_PROGRESS_ENTRIES` 从 100 提到 1000，因为一集现在可能占十条；接受的最长键从 300 个字符提到 520 个，
+因为段的键里有两个文件名。
 
 **不在这次范围内：** 把各段连起来当一条音轨播放、按段的五步、在页面里给段改名或排序，以及对导入和文件剧集的任何改动。
 

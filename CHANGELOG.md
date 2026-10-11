@@ -19,8 +19,32 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- An episode folder with two or more audio files is now one episode made of segments, one scene per audio file in
+  natural order, instead of an episode that only ever opened its first file. Each segment pairs its own subtitles by
+  name, the longest audio name winning, and the page plays one segment at a time: the top bar shows `01 · Title`
+  with a button that lists every segment and marks the finished ones, the finish card offers the next segment (only
+  the last one says the episode is done), and the home card reads `S01E01 · 3 / 10 parts` with Continue opening the
+  segment listened to most recently, or the next unfinished one once that was heard to the end. Kept sentences stay in one `notes.md` under a `## <segment>` heading each, the
+  drawer groups them by segment, and replaying one from another segment opens that segment first.
+- A subtitle named with `双语` or `bilingual` (`01_Scene_双语.srt`) is read as one file with both languages, decided
+  by name. Its Chinese lines are the Chinese track, and the picker says "both tracks" for such a folder instead of
+  "subtitles unchecked".
+
+### Changed
+
+- Listening positions are kept per segment for an episode that has them, and up to 1000 are remembered (it was 100).
+  A position stored before the episode had segments is read as the first segment's, and so are the notes written
+  before it, until the next save files them under its heading. The five steps stay per episode.
+- A kept sentence is the same one only when its segment matches too, so two scenes that both open on the same line
+  at 00:02 no longer share a star. `POST /lingualab/open` takes an optional `segment` and answers with the one it
+  opened, and an unknown segment is refused with a reason.
+
 ### Fixed
 
+- A kept sentence with tags but no note was written as `| 中文 | #review`, which read back with the tag as its note and
+  no tag. The empty note field is now kept in front of the tags.
 - Continuing an episode that was already open from the home no longer shows the first sentence. The audio resumed at
   the saved position, but the subtitles were parsed again and handed to the page as a new list, which reset the
   player to the start: the sentence count, the scrubber and the next arrow key all ignored where the audio was. An

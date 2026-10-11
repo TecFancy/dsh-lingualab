@@ -14,12 +14,19 @@
  * until they match. Without that, switching episodes would hand the player the
  * previous episode's cue list while the new subtitles were still in flight — and a
  * loop wrapping on a stale sentence is a wrong seek, not a cosmetic delay.
+ *
+ * An episode cut into segments plays one segment at a time, and a segment is an audio
+ * file with its own subtitles. So "what is open" is an episode and a segment, the cues
+ * belong to that pair, and switching segment parses again where opening the segment
+ * that is already on screen parses nothing. Which segment to open is the caller's
+ * decision (the page knows the reader's position); with none named the host opens the first.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchLibrary, openEpisodeById, openEpisodeFile } from '../../../shared/lib/api.ts'
-import { mediaOf } from '../../../shared/lib/media.ts'
+import { mediaOf, mediaOfSegment } from '../../../shared/lib/media.ts'
 import { fetchCues, mergeBilingual, type Cue } from '../../../entities/cue/index.ts'
-import type { EpisodeEntry, EpisodeMedia, LibraryPayload } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, EpisodeMedia, EpisodeSegment, LibraryPayload } from '../../../shared/protocol.ts'
+import { findSegment } from '../lib/segments.ts'
 import { subtitleKey } from '../lib/subtitleKey.ts'
 
 /** What the page needs to render, and the actions that change it. */
@@ -30,25 +37,44 @@ export interface LibraryState {
   /** The episode on screen, or `null` when nothing is open. */
   readonly episode: EpisodeEntry | null
   readonly media: EpisodeMedia | null
+  /** The episode's segments in order; empty for an episode without any. */
+  readonly segments: readonly EpisodeSegment[]
+  /** The segment on screen, or `null` when the episode has none. */
+  readonly segment: EpisodeSegment | null
   readonly cues: readonly Cue[]
   readonly cuesLoading: boolean
   /** True while the host is resolving a pick; the picker shows it as a wait. */
   readonly opening: boolean
   /** Why the last pick failed; the picker renders it instead of closing. */
   readonly openError: string | null
-  readonly openEpisode: (episodeId: string) => Promise<boolean>
+  /** Open an episode, and one of its segments when it has any; none named opens the first. */
+  readonly openEpisode: (episodeId: string, segment?: string) => Promise<boolean>
   readonly openFile: (place: string, rel: string) => Promise<boolean>
   /** Re-read the library listing; used after the folder setting changes. */
   readonly reload: () => void
 }
 
-/** Cues plus the episode they were parsed from. */
+/** Cues plus the episode and segment they were parsed from. */
 interface LoadedCues {
-  readonly id: string | null
+  /** `cuesOwner` of what the cues were parsed from. */
+  readonly owner: string | null
   readonly cues: readonly Cue[]
 }
 
-const NOTHING_LOADED: LoadedCues = { id: null, cues: [] }
+const NOTHING_LOADED: LoadedCues = { owner: null, cues: [] }
+
+/** What an episode without segments hands out for its segment list: one list, not a new one per render. */
+const NO_SEGMENTS: readonly EpisodeSegment[] = []
+
+/** Who a list of cues belongs to: the episode, and the segment when it has them. */
+function cuesOwner(episode: EpisodeEntry, segment: EpisodeSegment | null): string {
+  return JSON.stringify([episode.id, segment === null ? null : segment.id])
+}
+
+/** The media of what is open: the segment's files when there is a segment, the episode's otherwise. */
+function mediaFor(episode: EpisodeEntry, segment: EpisodeSegment | null): EpisodeMedia | null {
+  return segment === null ? mediaOf(episode) : mediaOfSegment(episode, segment)
+}
 
 /**
  * The list handed out while the episode's subtitles are still in flight.
@@ -79,13 +105,24 @@ export function useLibrary(): LibraryState {
   const [error, setError] = useState<string | null>(null)
   const [episode, setEpisode] = useState<EpisodeEntry | null>(null)
   const [media, setMedia] = useState<EpisodeMedia | null>(null)
+  /** The segment the host opened, `null` for an episode without segments. */
+  const [segmentId, setSegmentId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<LoadedCues>(NOTHING_LOADED)
   const [cuesLoading, setCuesLoading] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const segments = episode?.segments ?? NO_SEGMENTS
+  // An episode with segments always has one on screen: the one named, else the first.
+  const segment = findSegment(segments, segmentId) ?? segments[0] ?? null
+  const owner = episode === null ? null : cuesOwner(episode, segment)
   /** What the cues in `loaded` were parsed from, so opening the same episode again parses nothing. */
   const parsedKey = useRef<string | null>(null)
+  /** The segment id as the reload below needs it: read inside a state updater, so not state itself. */
+  const segmentRef = useRef<string | null>(null)
+  useEffect(() => {
+    segmentRef.current = segmentId
+  }, [segmentId])
 
   useEffect(() => {
     let cancelled = false
@@ -96,12 +133,18 @@ export function useLibrary(): LibraryState {
       setPayload(next)
       setError(next.ok ? null : next.reason)
       // A reload may point at a different folder, so the remembered episode is only
-      // kept when the new listing still has it.
+      // kept when the new listing still has it, and then as the listing now describes it:
+      // files added since (a new scene, a translation) show up without opening it again.
       setEpisode((current) => {
-        const stillThere =
-          current !== null && [...next.episodes, ...next.files].some((entry) => entry.id === current.id)
-        const chosen = stillThere ? current : pickInitial(next)
-        setMedia(chosen === null ? null : mediaOf(chosen))
+        const listed =
+          current === null ? null : ([...next.episodes, ...next.files].find((entry) => entry.id === current.id) ?? null)
+        const chosen = listed ?? pickInitial(next)
+        // The segment on screen stays when the new entry still has it; otherwise the first.
+        const segments = chosen?.segments ?? NO_SEGMENTS
+        const kept = listed === null ? null : findSegment(segments, segmentRef.current)
+        const opened = kept ?? segments[0] ?? null
+        setSegmentId(opened === null ? null : opened.id)
+        setMedia(chosen === null ? null : mediaFor(chosen, opened))
         return chosen
       })
       setLoading(false)
@@ -122,24 +165,26 @@ export function useLibrary(): LibraryState {
     // The same subtitles again (the open episode opened a second time): keep the list that
     // is already handed out. A new array of equal sentences would reset the player, and a
     // position the reader resumed to would be put back on the first sentence.
-    const key = subtitleKey(episode, media)
+    const key = subtitleKey(episode, media, segment)
     if (parsedKey.current === key) return
+    // The files of a segment are its own; the entry's fields only mirror the first one.
+    const track = segment ?? episode
     let cancelled = false
     void (async () => {
       setCuesLoading(true)
       try {
-        const english = enUrl === null ? [] : await fetchCues(enUrl, episode.subtitleEn ?? '')
+        const english = enUrl === null ? [] : await fetchCues(enUrl, track.subtitleEn ?? '')
         const chinese =
-          zhUrl === null || zhUrl === enUrl ? [] : await fetchCues(zhUrl, episode.subtitleZh ?? '')
+          zhUrl === null || zhUrl === enUrl ? [] : await fetchCues(zhUrl, track.subtitleZh ?? '')
         if (cancelled) return
         parsedKey.current = key
-        setLoaded({ id: episode.id, cues: mergeBilingual(english, chinese) })
+        setLoaded({ owner, cues: mergeBilingual(english, chinese) })
         setError(null)
       } catch (cause) {
         if (cancelled) return
         // `loaded` no longer holds what the key names, so the next open must parse again.
         parsedKey.current = null
-        setLoaded({ id: episode.id, cues: [] })
+        setLoaded({ owner, cues: [] })
         setError(String(cause))
       } finally {
         if (!cancelled) setCuesLoading(false)
@@ -148,7 +193,7 @@ export function useLibrary(): LibraryState {
     return () => {
       cancelled = true
     }
-  }, [episode, media])
+  }, [episode, media, segment, owner])
 
   /** One place both picks end: the host answers with the entry and its URLs. */
   const applyOpen = useCallback((result: Awaited<ReturnType<typeof openEpisodeById>>): boolean => {
@@ -158,14 +203,15 @@ export function useLibrary(): LibraryState {
     }
     setOpenError(null)
     setEpisode(result.episode)
-    setMedia(result.media ?? mediaOf(result.episode))
+    setSegmentId(result.segment)
+    setMedia(result.media ?? mediaFor(result.episode, findSegment(result.episode.segments, result.segment)))
     return true
   }, [])
 
   const openEpisode = useCallback(
-    async (episodeId: string): Promise<boolean> => {
+    async (episodeId: string, segment?: string): Promise<boolean> => {
       setOpening(true)
-      const result = await openEpisodeById(episodeId)
+      const result = await openEpisodeById(episodeId, segment)
       setOpening(false)
       return applyOpen(result)
     },
@@ -188,8 +234,8 @@ export function useLibrary(): LibraryState {
     setReloadToken((token) => token + 1)
   }, [])
 
-  // Only the cues that belong to the episode on screen are ever handed out.
-  const cues = episode !== null && loaded.id === episode.id ? loaded.cues : NO_CUES
+  // Only the cues that belong to the episode and segment on screen are ever handed out.
+  const cues = episode !== null && loaded.owner === owner ? loaded.cues : NO_CUES
 
   return {
     payload,
@@ -197,6 +243,8 @@ export function useLibrary(): LibraryState {
     error,
     episode,
     media,
+    segments,
+    segment,
     cues,
     cuesLoading,
     opening,

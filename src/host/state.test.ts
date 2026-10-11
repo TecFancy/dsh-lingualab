@@ -178,4 +178,15 @@ describe('notes held in the state', () => {
       { at: 2, text: 'ok', zh: '', note: '', tags: [], done: false },
     ])
   })
+
+  it('keeps the segment of a phrase on one line, and drops one that is not text or is absurdly long', () => {
+    const kept = sanitizePhrases([{ at: 1, text: 'a', segment: '  02_足球场 ' }, { at: 2, text: 'b', segment: 'x\n## y' }])
+    expect(kept.map((phrase) => phrase.segment)).toEqual(['02_足球场', 'x ## y'])
+    const dropped = sanitizePhrases([
+      { at: 1, text: 'a', segment: 5 },
+      { at: 2, text: 'b', segment: '' },
+      { at: 3, text: 'c', segment: 's'.repeat(400) },
+    ])
+    expect(dropped.every((phrase) => !('segment' in phrase))).toBe(true)
+  })
 })

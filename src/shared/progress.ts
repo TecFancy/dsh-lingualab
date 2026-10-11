@@ -15,20 +15,71 @@
  */
 import type { EpisodeSteps, ProgressEntry, ProgressTable, StepRecord } from './protocol.ts'
 
-/** The most episodes whose position is remembered; the oldest bookmarks fall off first. */
-export const MAX_PROGRESS_ENTRIES = 100
+/**
+ * The most positions remembered; the oldest bookmarks fall off first.
+ *
+ * One bookmark is kept per episode, and per segment for an episode that has them, so one
+ * TV episode cut into ten scenes takes ten entries where it used to take one.
+ */
+export const MAX_PROGRESS_ENTRIES = 1000
 
 /** The most episodes whose step ticks are remembered. */
 export const MAX_STEP_EPISODES = 200
 
-/** The longest episode id kept as a key; a longer one is not an id this plugin made. */
-const MAX_ID_LENGTH = 300
+/**
+ * The longest key kept; a longer one is not a key this plugin made.
+ *
+ * A segment key is an episode folder name, `::`, and a segment stem, and each of the two
+ * can be a whole file name (255 characters on the filesystems this runs on).
+ */
+const MAX_ID_LENGTH = 520
 
 /** The most steps one episode may carry; the method has five. */
 const MAX_STEPS_PER_EPISODE = 12
 
 /** A clock a day ahead is a wrong clock; its entries are clamped so they cannot outrank every real one. */
 const FUTURE_SLACK_MS = 24 * 60 * 60 * 1000
+
+/** What joins an episode id and a segment id in a position key. */
+const SEGMENT_KEY_SEPARATOR = '::'
+
+/**
+ * The key a segment's position is stored under: `<episode id>::<segment id>`.
+ *
+ * One function so the page that writes a position and the page that reads it back cannot
+ * spell it two ways. The step ticks do not use it: they describe watching a whole episode,
+ * so they keep the episode id as their key.
+ * @param episode - the folder episode's id.
+ * @param segment - the segment's id (its audio stem).
+ * @returns the key.
+ */
+export function segmentKey(episode: string, segment: string): string {
+  return `${episode}${SEGMENT_KEY_SEPARATOR}${segment}`
+}
+
+/**
+ * One segment's stored position, with the legacy fallback.
+ *
+ * Before an episode had segments its single position sat under the bare episode id, and that
+ * position was recorded against the first audio file, which is now the first segment. So the
+ * first segment reads the bare entry until it has written one of its own; every other segment
+ * reads only its own key.
+ * @param progress - the table of positions.
+ * @param episode - the folder episode's id.
+ * @param segment - the segment's id.
+ * @param segments - every segment id of the episode, in order.
+ * @returns the entry, or `undefined` when there is none.
+ */
+export function segmentProgress(
+  progress: Readonly<Record<string, ProgressEntry>>,
+  episode: string,
+  segment: string,
+  segments: readonly string[],
+): ProgressEntry | undefined {
+  const own = progress[segmentKey(episode, segment)]
+  if (own !== undefined) return own
+  return segments[0] === segment ? progress[episode] : undefined
+}
 
 /** The empty table, for a library nobody has listened to yet. */
 export const EMPTY_PROGRESS: ProgressTable = { progress: {}, steps: {} }

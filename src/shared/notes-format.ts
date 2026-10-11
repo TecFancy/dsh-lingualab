@@ -19,6 +19,25 @@
  * the panel. Everything else that is not a phrase line is dropped on save; the
  * file this module writes is canonical.
  *
+ * An episode cut into segments (one scene per audio file) keeps one `notes.md` and groups
+ * its phrases under a `## <segment id>` heading each:
+ *
+ * ```markdown
+ * # S01E01 笔记
+ *
+ * ## 01_Dunphy家的早晨
+ *
+ * - [ ] 00:01 | Kids, breakfast! | 孩子们 吃早饭了 | | #review
+ *
+ * ## 02_足球场
+ *
+ * - [ ] 00:09 | He tripped him, Jay. | 他绊倒他了 杰 | |
+ * ```
+ *
+ * The phrase line itself is unchanged, and a file without headings still reads: its phrases
+ * have no segment. The preamble then ends at the first segment heading or the first phrase
+ * line, whichever comes first.
+ *
  * A subtitle line may itself contain a `|`, so the separator is escaped on the way
  * out and unescaped on the way in. Splitting on a bare `|` would silently shift
  * every field of that one line — the English text would become the Chinese gloss,
@@ -111,38 +130,124 @@ function parsePhraseLine(line: string): NotePhrase | null {
   }
 }
 
-/** Split a notes file into its preserved preamble and its phrases. */
+/** A segment heading: exactly two hashes, then the segment id. `###` and deeper are not ours. */
+const SEGMENT_HEADING = /^##(?!#)\s+(.+?)\s*$/
+
+/** One thing a notes line turned out to be, with its place in the file. */
+type Token =
+  | { readonly kind: 'phrase'; readonly line: number; readonly phrase: NotePhrase }
+  | { readonly kind: 'heading'; readonly line: number; readonly id: string }
+
+/**
+ * Split a notes file into its preserved preamble and its phrases.
+ *
+ * A `## <id>` heading names the segment of the phrase lines under it, until the next heading.
+ * Only a heading with a phrase line directly under it counts: an `## 备注` that someone wrote
+ * into the preamble as commentary, with prose below it, stays in the preamble instead of
+ * turning into a segment.
+ */
 export function parseNotes(markdown: string): { preamble: string; phrases: NotePhrase[] } {
   const lines = markdown.split(/\r?\n/)
-  const phrases: NotePhrase[] = []
-  let firstPhraseAt = -1
-
+  const tokens: Token[] = []
   for (let index = 0; index < lines.length; index += 1) {
-    const phrase = parsePhraseLine(lines[index] ?? '')
-    if (phrase === null) continue
-    if (firstPhraseAt === -1) firstPhraseAt = index
-    phrases.push(phrase)
+    const line = lines[index] ?? ''
+    const phrase = parsePhraseLine(line)
+    if (phrase !== null) {
+      tokens.push({ kind: 'phrase', line: index, phrase })
+      continue
+    }
+    const heading = SEGMENT_HEADING.exec(line)
+    if (heading?.[1] !== undefined) tokens.push({ kind: 'heading', line: index, id: heading[1] })
   }
 
-  const preamble = firstPhraseAt === -1 ? markdown : lines.slice(0, firstPhraseAt).join('\n')
+  const phrases: NotePhrase[] = []
+  let segment: string | undefined
+  let boundary = -1
+  for (let at = 0; at < tokens.length; at += 1) {
+    const token = tokens[at]
+    if (token === undefined) continue
+    if (token.kind === 'heading') {
+      if (tokens[at + 1]?.kind !== 'phrase') continue
+      segment = token.id
+      if (boundary === -1) boundary = token.line
+      continue
+    }
+    if (boundary === -1) boundary = token.line
+    phrases.push(segment === undefined ? token.phrase : { ...token.phrase, segment })
+  }
+
+  const preamble = boundary === -1 ? markdown : lines.slice(0, boundary).join('\n')
   return { preamble: preamble.replace(/\s+$/, ''), phrases }
 }
 
-/** The canonical file body. `preamble` is kept as-is, then one line per phrase. */
-export function serializeNotes(preamble: string, phrases: readonly NotePhrase[]): string {
+/**
+ * Give the phrases that carry no segment one, leaving the others alone.
+ *
+ * A notes file written before the episode had segments has no headings, and what it holds
+ * was recorded against the first audio file, which is the first segment. Reading and writing
+ * both apply this, so those phrases move under the first heading on the next save instead of
+ * being left outside every group.
+ * @param phrases - the phrases as parsed or as received.
+ * @param segment - the segment to give them, or `undefined` for an episode without segments.
+ * @returns the same array when nothing changes, so a caller's identity checks still hold.
+ */
+export function withSegmentDefault(
+  phrases: readonly NotePhrase[],
+  segment: string | undefined,
+): readonly NotePhrase[] {
+  if (segment === undefined || phrases.every((phrase) => phrase.segment !== undefined)) return phrases
+  return phrases.map((phrase) => (phrase.segment === undefined ? { ...phrase, segment } : phrase))
+}
+
+/** One phrase line, as it is written. */
+function phraseLine(phrase: NotePhrase): string {
+  const tags = phrase.tags.map((tag) => `#${tag.replace(/^#+/, '')}`).join(' ')
+  const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, phrase.note].map(joinField)
+  // The note field is trimmed of trailing pipes: an empty trailing field
+  // would make the line end in `|` and read like a truncated table row. Not when tags
+  // follow it: the tags are read by position, so an empty note must stay as an empty field
+  // or `| 中文 | #review` reads back with the tag as the note.
+  while (tags.length === 0 && fields.length > 3 && (fields[fields.length - 1] ?? '').trim().length === 0) fields.pop()
+  const tail = tags.length > 0 ? ` | ${tags}` : ''
+  return `- [${phrase.done ? 'x' : ' '}] ${fields.join(' | ').trimEnd()}${tail}`
+}
+
+/**
+ * The canonical file body. `preamble` is kept as-is, then the phrase lines.
+ *
+ * Phrases with no segment are written flat, as they always were. When the episode has
+ * segments, `segmentOrder` lists their ids in play order: those phrases go under the first
+ * one, and every group is written under its `## <id>` heading in that order. A segment the
+ * list does not know (an audio file that was renamed since) still keeps its heading, after
+ * the known ones, in the order its phrases first appear. Within a group the phrases keep the
+ * order they were given in.
+ * @param preamble - the text above the first phrase, kept verbatim.
+ * @param phrases - every phrase of the episode.
+ * @param segmentOrder - the episode's segment ids in order, or none when it has no segments.
+ */
+export function serializeNotes(
+  preamble: string,
+  phrases: readonly NotePhrase[],
+  segmentOrder: readonly string[] = [],
+): string {
   const head = preamble.trim().length > 0 ? `${preamble.replace(/\s+$/, '')}\n\n` : ''
-  const body = phrases
-    .map((phrase) => {
-      const tags = phrase.tags.map((tag) => `#${tag.replace(/^#+/, '')}`).join(' ')
-      const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, phrase.note].map(joinField)
-      // The note field is trimmed of trailing pipes: an empty trailing field
-      // would make the line end in `|` and read like a truncated table row.
-      while (fields.length > 3 && (fields[fields.length - 1] ?? '').trim().length === 0) fields.pop()
-      const tail = tags.length > 0 ? ` | ${tags}` : ''
-      return `- [${phrase.done ? 'x' : ' '}] ${fields.join(' | ')}${tail}`
+  const groups = new Map<string | undefined, NotePhrase[]>()
+  for (const phrase of withSegmentDefault(phrases, segmentOrder[0])) {
+    const group = groups.get(phrase.segment)
+    if (group === undefined) groups.set(phrase.segment, [phrase])
+    else group.push(phrase)
+  }
+  // Flat phrases first, then the known segments in play order, then any stranger.
+  const known = segmentOrder.filter((id, at) => groups.has(id) && segmentOrder.indexOf(id) === at)
+  const strangers = [...groups.keys()].filter((id): id is string => id !== undefined && !known.includes(id))
+  const sequence: Array<string | undefined> = [...(groups.has(undefined) ? [undefined] : []), ...known, ...strangers]
+  const body = sequence
+    .map((id) => {
+      const lines = (groups.get(id) ?? []).map(phraseLine).join('\n')
+      return id === undefined ? `${lines}\n` : `## ${id.replace(/[\r\n]+/g, ' ').trim()}\n\n${lines}\n`
     })
     .join('\n')
-  return `${head}${body}${body.length > 0 ? '\n' : ''}`
+  return `${head}${body}`
 }
 
 /** Counts the library listing shows without shipping the whole file. */
@@ -166,6 +271,14 @@ export function phraseCapacity(phrases: readonly NotePhrase[]): {
   return { full: remaining === 0, remaining }
 }
 
+/** What identifies a kept sentence: where it is, what it says and, in a segmented episode, which scene it is in. */
+export interface KeptSentence {
+  readonly at: number
+  readonly text: string
+  /** The segment id; two sentences in different segments are never the same one. */
+  readonly segment?: string | undefined
+}
+
 /**
  * Whether two phrases are the same kept sentence.
  *
@@ -174,15 +287,13 @@ export function phraseCapacity(phrases: readonly NotePhrase[]): {
  * the star showed empty, the wrong row showed a filled one, and pressing it again added a
  * second copy that nothing could remove. The comparison is on the whole second the file
  * can actually hold, and on the text as well, because two short sentences can start in
- * the same second and must not be mistaken for each other.
- * @param left - one phrase, or a timestamp and the sentence's text.
+ * the same second and must not be mistaken for each other. The segment counts too: two
+ * scenes can both open on 「Kids?」 at 00:02, and the star on one must not light the other.
+ * @param left - one phrase, or a timestamp, the sentence's text and its segment.
  * @param right - the other.
  * @returns true when they name the same sentence.
  */
-export function sameKeptSentence(
-  left: { readonly at: number; readonly text: string },
-  right: { readonly at: number; readonly text: string },
-): boolean {
+export function sameKeptSentence(left: KeptSentence, right: KeptSentence): boolean {
   return keptSentenceKey(left) === keptSentenceKey(right)
 }
 
@@ -192,11 +303,11 @@ export function sameKeptSentence(
  * Exposed so a list of hundreds of cues can be checked against hundreds of phrases with a
  * set lookup instead of a nested loop, and so the loop and sameKeptSentence cannot
  * disagree: one is defined by the other.
- * @param sentence - a phrase, or a cue's start and its English text.
+ * @param sentence - a phrase, or a cue's start, its English text and the segment it is in.
  * @returns the key.
  */
-export function keptSentenceKey(sentence: { readonly at: number; readonly text: string }): string {
-  return `${String(Math.floor(sentence.at))}\u0000${sentence.text.trim()}`
+export function keptSentenceKey(sentence: KeptSentence): string {
+  return `${sentence.segment ?? ''}\u0000${String(Math.floor(sentence.at))}\u0000${sentence.text.trim()}`
 }
 
 /**

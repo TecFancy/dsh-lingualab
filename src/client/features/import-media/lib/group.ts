@@ -19,7 +19,7 @@
  */
 
 import { AUDIO_EXTENSIONS, SUBTITLE_EXTENSIONS } from '../../../shared/protocol.ts'
-import { sameStem, stemOf } from '../../../shared/stem.ts'
+import { owningStem, stemOf } from '../../../shared/stem.ts'
 
 export { stemOf }
 
@@ -61,18 +61,13 @@ export function planDrop<T>(files: readonly T[], nameOf: (file: T) => string): D
 
   const owned = new Map<T, T[]>(audio.map((file) => [file, []]))
   const unmatched: T[] = []
+  const stems = audio.map((file) => stemOf(nameOf(file)))
 
   for (const subtitle of subtitles) {
     const name = nameOf(subtitle)
-    let best: T | null = null
-    let bestLength = -1
-    for (const candidate of audio) {
-      const stem = stemOf(nameOf(candidate))
-      if (sameStem(name, stem) && stem.length > bestLength) {
-        best = candidate
-        bestLength = stem.length
-      }
-    }
+    // The longest stem that accepts the name owns it: the shared rule, not a copy of it.
+    const owner = owningStem(name, stems)
+    let best: T | null = owner === null ? null : (audio[stems.indexOf(owner)] ?? null)
     // One audio file and one stray subtitle are a pair whatever they are called.
     if (best === null && audio.length === 1) best = audio[0] ?? null
     if (best === null) unmatched.push(subtitle)

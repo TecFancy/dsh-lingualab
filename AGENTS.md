@@ -20,15 +20,16 @@
 
 ```text
 src/index.ts            host 半边：路由与配置
-src/host/               库扫描、导入（不覆盖）、媒体伺服（带 Range）、笔记读写、进度文件（写素材目录只有导入、notes.md 与它）
-src/shared/             跨半边契约与笔记格式，只有这一份
+src/host/               库扫描（一个文件夹有两个及以上音频就是一集多段）、导入（不覆盖）、媒体伺服（带 Range）、
+                        笔记读写、进度文件（写素材目录只有导入、notes.md 与它）
+src/shared/             跨半边契约、笔记格式与文件名配对（最长词干归属），只有这一份
 src/client/             客户端半边，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
   entities/cue/         字幕解析与双语分行
-  features/             library（读一集）、media-player（播放与循环）、notes（收藏，无 7 条上限）、
-                        import-media（拖入分组与上传）、resume（听到哪里与五步勾选：浏览器缓存加 host 同步）
+  features/             library（读一集或其中一段）、media-player（播放与循环）、notes（收藏，无 7 条上限，按段分组）、
+                        import-media（拖入分组与上传）、resume（听到哪里按集或按段存，五步勾选按集：浏览器缓存加 host 同步）
   widgets/              library-home（首页与拖放区）、control-bar、subtitle-panel、notes-panel（抽屉）、
-                        episode-picker（只剩浏览）、media-folder、step-tracker
+                        episode-picker（只剩浏览）、media-folder、step-tracker、segment-picker（分段按钮与列表）
   pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像

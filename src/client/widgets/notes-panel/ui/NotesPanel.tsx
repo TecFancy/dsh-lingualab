@@ -8,14 +8,19 @@
  * 「还在练」 view rather than being deleted, which is what the old seven-phrase ceiling
  * was trying to achieve by force: a short working set. A filter does the same thing
  * without asking for a decision in the middle of a sentence.
+ *
+ * An episode cut into segments keeps all its kept sentences in one list, and the drawer groups
+ * the cards under a heading per segment, in the order the episode plays. Replaying a card
+ * from another segment is the page's to do (it has to open that segment first, then seek),
+ * so the card only says which phrase to replay.
  */
-import { useEffect, useRef, useState } from 'react'
-import { splitNote, type NotesState } from '../../../features/notes/index.ts'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { findSegment, segmentLabel } from '../../../features/library/index.ts'
+import { groupBySegment, splitNote, type NotesState } from '../../../features/notes/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { BookIcon, CheckIcon, CloseIcon, EditIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
-import type { NotePhrase } from '../../../shared/protocol.ts'
+import type { EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
 
 /** Tags the study method uses; a phrase may carry both. */
 const TAGS: readonly string[] = ['review', 'hard']
@@ -36,18 +41,27 @@ export interface NotesPanelProps {
   readonly notes: NotesState
   /** The episode's title, shown under the drawer's heading. */
   readonly episodeTitle: string
+  /** The episode's segments in order; empty for an episode without any. */
+  readonly segments: readonly EpisodeSegment[]
+  /** Replay one phrase: seek to it and loop that sentence, opening its segment first when needed. */
+  readonly onReplay: (phrase: NotePhrase) => void
   /** Closes the drawer; the page returns focus to its container. */
   readonly onClose: () => void
 }
 
+/** A group's heading: the segment's number and title, or the bare id for a segment that is gone. */
+function segmentName(segments: readonly EpisodeSegment[], id: string): string {
+  const segment = findSegment(segments, id)
+  return segment === null ? id : segmentLabel(segment)
+}
+
 /** The right-hand notes drawer. */
-export function NotesPanel({ t, notes, episodeTitle, onClose }: NotesPanelProps) {
+export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, onClose }: NotesPanelProps) {
   const [view, setView] = useState<View>('active')
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [removed, setRemoved] = useState<Removed | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const store = useMediaPlayer.getState
 
   useEffect(
     () => () => {
@@ -55,12 +69,6 @@ export function NotesPanel({ t, notes, episodeTitle, onClose }: NotesPanelProps)
     },
     [],
   )
-
-  /** Replaying a phrase is one gesture: seek there and loop that sentence. */
-  const replay = (at: number): void => {
-    store().seek(at)
-    store().setLoopMode('sentence')
-  }
 
   const remove = (phrase: NotePhrase, index: number): void => {
     notes.remove(index)
@@ -83,6 +91,10 @@ export function NotesPanel({ t, notes, episodeTitle, onClose }: NotesPanelProps)
   const rows = notes.phrases
     .map((phrase, index) => ({ phrase, index }))
     .filter(({ phrase }) => (view === 'all' ? true : view === 'done' ? phrase.done : !phrase.done))
+  const groups = groupBySegment(
+    rows,
+    segments.map((segment) => segment.id),
+  )
 
   /** Words are kept in the note as [word]; editing the text must not lose them. */
   const commit = (index: number, words: readonly string[]): void => {
@@ -139,106 +151,115 @@ export function NotesPanel({ t, notes, episodeTitle, onClose }: NotesPanelProps)
           </div>
         ) : null}
 
-        {rows.map(({ phrase, index }) => {
-          const { words, text } = splitNote(phrase.note)
-          return (
-            <div className={`dsh-lingualab-note${phrase.done ? ' is-done' : ''}`} key={`${phrase.at}-${index}`}>
-              <div className="dsh-lingualab-note-top">
-                <label className="dsh-lingualab-note-check" title={phrase.done ? t('stepUndone') : t('notesMarkDone')}>
-                  <input
-                    type="checkbox"
-                    className="dsh-lingualab-visually-hidden"
-                    checked={phrase.done}
-                    onChange={(event) => notes.update(index, { done: event.target.checked })}
-                  />
-                  <span className={`dsh-lingualab-box${phrase.done ? ' is-on' : ''}`}>
-                    {phrase.done ? <CheckIcon size={13} /> : null}
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  className="dsh-lingualab-note-at"
-                  onClick={() => replay(phrase.at)}
-                  title={t('notesReplay')}
-                >
-                  <PlayIcon size={10} /> {formatClock(phrase.at)}
-                </button>
-                <span className="dsh-lingualab-spacer" />
-                <button
-                  type="button"
-                  className="dsh-lingualab-icon-btn is-small"
-                  title={t('notesEdit')}
-                  onClick={() => {
-                    setEditing(index)
-                    setDraft(text)
-                  }}
-                >
-                  <EditIcon />
-                </button>
-                <button
-                  type="button"
-                  className="dsh-lingualab-icon-btn is-small is-danger"
-                  title={t('notesDelete')}
-                  onClick={() => remove(phrase, index)}
-                >
-                  <TrashIcon />
-                </button>
+        {groups.map((group) => (
+          <Fragment key={group.segment ?? ''}>
+            {group.segment === undefined ? null : (
+              <div className="dsh-lingualab-notes-group">
+                {segmentName(segments, group.segment)}
               </div>
+            )}
+            {group.rows.map(({ phrase, index }) => {
+              const { words, text } = splitNote(phrase.note)
+              return (
+                <div className={`dsh-lingualab-note${phrase.done ? ' is-done' : ''}`} key={`${phrase.segment ?? ''}-${phrase.at}-${index}`}>
+                  <div className="dsh-lingualab-note-top">
+                    <label className="dsh-lingualab-note-check" title={phrase.done ? t('stepUndone') : t('notesMarkDone')}>
+                      <input
+                        type="checkbox"
+                        className="dsh-lingualab-visually-hidden"
+                        checked={phrase.done}
+                        onChange={(event) => notes.update(index, { done: event.target.checked })}
+                      />
+                      <span className={`dsh-lingualab-box${phrase.done ? ' is-on' : ''}`}>
+                        {phrase.done ? <CheckIcon size={13} /> : null}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="dsh-lingualab-note-at"
+                      onClick={() => onReplay(phrase)}
+                      title={t('notesReplay')}
+                    >
+                      <PlayIcon size={10} /> {formatClock(phrase.at)}
+                    </button>
+                    <span className="dsh-lingualab-spacer" />
+                    <button
+                      type="button"
+                      className="dsh-lingualab-icon-btn is-small"
+                      title={t('notesEdit')}
+                      onClick={() => {
+                        setEditing(index)
+                        setDraft(text)
+                      }}
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className="dsh-lingualab-icon-btn is-small is-danger"
+                      title={t('notesDelete')}
+                      onClick={() => remove(phrase, index)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
 
-              <div className="dsh-lingualab-note-text">{phrase.text}</div>
-              {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
+                  <div className="dsh-lingualab-note-text">{phrase.text}</div>
+                  {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
 
-              {editing === index ? (
-                <input
-                  className="dsh-lingualab-input"
-                  value={draft}
-                  autoFocus
-                  placeholder={t('notesEditorPlaceholder')}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onBlur={() => commit(index, words)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commit(index, words)
-                    if (event.key === 'Escape') setEditing(null)
-                    event.stopPropagation()
-                  }}
-                />
-              ) : words.length > 0 || text.length > 0 ? (
-                <div className="dsh-lingualab-memo">
-                  {words.length > 0 ? (
-                    <div className="dsh-lingualab-memo-words">
-                      <BookIcon size={13} />
-                      {words.map((word) => (
-                        <span className="dsh-lingualab-word-chip" key={word}>
-                          {word}
-                        </span>
-                      ))}
+                  {editing === index ? (
+                    <input
+                      className="dsh-lingualab-input"
+                      value={draft}
+                      autoFocus
+                      placeholder={t('notesEditorPlaceholder')}
+                      onChange={(event) => setDraft(event.target.value)}
+                      onBlur={() => commit(index, words)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') commit(index, words)
+                        if (event.key === 'Escape') setEditing(null)
+                        event.stopPropagation()
+                      }}
+                    />
+                  ) : words.length > 0 || text.length > 0 ? (
+                    <div className="dsh-lingualab-memo">
+                      {words.length > 0 ? (
+                        <div className="dsh-lingualab-memo-words">
+                          <BookIcon size={13} />
+                          {words.map((word) => (
+                            <span className="dsh-lingualab-word-chip" key={word}>
+                              {word}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
                     </div>
                   ) : null}
-                  {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
-                </div>
-              ) : null}
 
-              <div className="dsh-lingualab-chips">
-                {TAGS.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={`dsh-lingualab-tag${phrase.tags.includes(tag) ? ' is-on' : ''}`}
-                    onClick={() =>
-                      notes.update(index, {
-                        tags: phrase.tags.includes(tag)
-                          ? phrase.tags.filter((item) => item !== tag)
-                          : [...phrase.tags, tag],
-                      })
-                    }
-                  >
-                    #{tag === 'review' ? t('review') : t('hard')}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })}
+                  <div className="dsh-lingualab-chips">
+                    {TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`dsh-lingualab-tag${phrase.tags.includes(tag) ? ' is-on' : ''}`}
+                        onClick={() =>
+                          notes.update(index, {
+                            tags: phrase.tags.includes(tag)
+                              ? phrase.tags.filter((item) => item !== tag)
+                              : [...phrase.tags, tag],
+                          })
+                        }
+                      >
+                        #{tag === 'review' ? t('review') : t('hard')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </Fragment>
+        ))}
       </div>
 
       {removed !== null ? (
