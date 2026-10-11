@@ -121,7 +121,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // element knows its length: the reset zeroes the position, and a seek issued before the
   // new source has loaded is discarded by the audio binding on purpose, so that a request
   // from the previous episode cannot move the next one. Every open hands back a fresh media,
-  // so opening an episode that is already loaded re-runs this too.
+  // so opening an episode that is already loaded re-runs this too. In that case the library
+  // keeps the cue list it has (it does not parse the same subtitles again), so the reset
+  // above does not fire afterwards and zero the position this seek has just set.
   const media = library.media
   const subtitled = media !== null && (media.subtitleEnUrl !== null || media.subtitleZhUrl !== null)
   const cuesReady = cues.length > 0 || (media !== null && !subtitled)

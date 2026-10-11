@@ -15,11 +15,12 @@
  * previous episode's cue list while the new subtitles were still in flight — and a
  * loop wrapping on a stale sentence is a wrong seek, not a cosmetic delay.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchLibrary, openEpisodeById, openEpisodeFile } from '../../../shared/lib/api.ts'
 import { mediaOf } from '../../../shared/lib/media.ts'
 import { fetchCues, mergeBilingual, type Cue } from '../../../entities/cue/index.ts'
 import type { EpisodeEntry, EpisodeMedia, LibraryPayload } from '../../../shared/protocol.ts'
+import { subtitleKey } from '../lib/subtitleKey.ts'
 
 /** What the page needs to render, and the actions that change it. */
 export interface LibraryState {
@@ -83,6 +84,8 @@ export function useLibrary(): LibraryState {
   const [loaded, setLoaded] = useState<LoadedCues>(NOTHING_LOADED)
   const [cuesLoading, setCuesLoading] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  /** What the cues in `loaded` were parsed from, so opening the same episode again parses nothing. */
+  const parsedKey = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -116,6 +119,11 @@ export function useLibrary(): LibraryState {
     const enUrl = media.subtitleEnUrl
     const zhUrl = media.subtitleZhUrl
     if (enUrl === null && zhUrl === null) return
+    // The same subtitles again (the open episode opened a second time): keep the list that
+    // is already handed out. A new array of equal sentences would reset the player, and a
+    // position the reader resumed to would be put back on the first sentence.
+    const key = subtitleKey(episode, media)
+    if (parsedKey.current === key) return
     let cancelled = false
     void (async () => {
       setCuesLoading(true)
@@ -124,10 +132,13 @@ export function useLibrary(): LibraryState {
         const chinese =
           zhUrl === null || zhUrl === enUrl ? [] : await fetchCues(zhUrl, episode.subtitleZh ?? '')
         if (cancelled) return
+        parsedKey.current = key
         setLoaded({ id: episode.id, cues: mergeBilingual(english, chinese) })
         setError(null)
       } catch (cause) {
         if (cancelled) return
+        // `loaded` no longer holds what the key names, so the next open must parse again.
+        parsedKey.current = null
         setLoaded({ id: episode.id, cues: [] })
         setError(String(cause))
       } finally {
@@ -171,7 +182,11 @@ export function useLibrary(): LibraryState {
     [applyOpen],
   )
 
-  const reload = useCallback(() => setReloadToken((token) => token + 1), [])
+  const reload = useCallback(() => {
+    // A reload asks for the files to be read again, even when their names have not changed.
+    parsedKey.current = null
+    setReloadToken((token) => token + 1)
+  }, [])
 
   // Only the cues that belong to the episode on screen are ever handed out.
   const cues = episode !== null && loaded.id === episode.id ? loaded.cues : NO_CUES

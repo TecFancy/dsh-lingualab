@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- Continuing an episode that was already open from the home no longer shows the first sentence. The audio resumed at
+  the saved position, but the subtitles were parsed again and handed to the page as a new list, which reset the
+  player to the start: the sentence count, the scrubber and the next arrow key all ignored where the audio was. An
+  episode that is opened again with the same subtitles keeps the list it has, and a reload still reads them again.
+
 ## [0.4.0] - 2026-10-10
 
 ### Added
