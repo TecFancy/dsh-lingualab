@@ -10,7 +10,8 @@
 import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { classifySubtitles, pairSubtitles, pickAudioFile, sameStem, stemOf, subtitleHint } from './pairing.ts'
+import { audioStemsOf, classifySubtitles, pairSubtitles, pickAudioFile, sameStem, stemOf, subtitleHint } from './pairing.ts'
+import { SCENE_STEMS, sceneNames, writeScenes } from './test-scenes.ts'
 import { makeTempDir } from './test-dir.ts'
 
 let root = ''
@@ -177,5 +178,102 @@ describe('pickAudioFile', () => {
     expect(pickAudioFile(['a.wav', 'a.mp3'])).toBe('a.mp3')
     expect(pickAudioFile(['a.flac', 'a.ogg'])).toBe('a.ogg')
     expect(pickAudioFile(['notes.md'])).toBeNull()
+  })
+})
+
+describe('the bilingual mark', () => {
+  it('reads 双语 and bilingual, in any case, as a third kind', () => {
+    const classified = classifySubtitles(['a.srt', 'a_双语.srt', 'a.Bilingual.srt', 'a.BILINGUAL.vtt'])
+    expect([...classified.both].sort()).toEqual(['a.BILINGUAL.vtt', 'a.Bilingual.srt', 'a_双语.srt'])
+    expect(classified.unmarked).toEqual(['a.srt'])
+  })
+
+  it('needs a token of its own, not just the letters somewhere in a word', () => {
+    expect(classifySubtitles(['a.nonbilingual.srt', 'a_双语版.srt']).both).toEqual([])
+  })
+
+  it('makes the bilingual file the Chinese source and the lone unmarked file the English one', () => {
+    expect(pairSubtitles(['s.mp3', 's.srt', 's_双语.srt'], { stem: 's' })).toEqual({
+      en: 's.srt',
+      zh: 's_双语.srt',
+      ambiguous: false,
+    })
+  })
+
+  it('prefers an English-marked file over the unmarked one for the English track', () => {
+    expect(pairSubtitles(['s.en.srt', 's.srt', 's_双语.srt'], { stem: 's' })).toEqual({
+      en: 's.en.srt',
+      zh: 's_双语.srt',
+      ambiguous: false,
+    })
+  })
+
+  it('uses the bilingual file for both tracks when it is the only subtitle', () => {
+    expect(pairSubtitles(['s.mp3', 's.bilingual.srt'], { stem: 's' })).toEqual({
+      en: 's.bilingual.srt',
+      zh: 's.bilingual.srt',
+      ambiguous: false,
+    })
+  })
+
+  it('does not read any file to decide, so a hint can say 中英字幕 for a name alone', () => {
+    expect(subtitleHint(['s.mp3', 's.srt', 's_双语.srt'], 's')).toEqual({ state: 'both', files: ['s.srt', 's_双语.srt'] })
+    expect(subtitleHint(['s_双语.srt'], 's')).toEqual({ state: 'both', files: ['s_双语.srt'] })
+  })
+
+  it('reports two bilingual files as ambiguous, which is a thing the names cannot settle', () => {
+    expect(subtitleHint(['s.双语.srt', 's.bilingual.srt'], 's').state).toBe('unknown')
+    expect(classifySubtitles(['s.双语.srt', 's.bilingual.srt'], 's').ambiguous).toBe(true)
+  })
+
+  it('still lets the old layouts decide as before', () => {
+    expect(subtitleHint(['a.en.srt', 'a.zh.srt'])).toEqual({ state: 'both', files: ['a.en.srt', 'a.zh.srt'] })
+    expect(subtitleHint(['a.srt'])).toEqual({ state: 'unknown', files: ['a.srt'] })
+  })
+})
+
+describe('the longest stem owns a subtitle', () => {
+  it('lists the audio stems of a directory once each', () => {
+    expect(audioStemsOf(['a.mp3', 'a.wav', 'b.flac', 'a.srt', 'notes.md'])).toEqual(['a', 'b'])
+  })
+
+  it('keeps 04_Dunphy家-Luke射击.srt away from a sibling named 04_Dunphy家', () => {
+    const names = [
+      '04_Dunphy家.mp3',
+      '04_Dunphy家.srt',
+      '04_Dunphy家-Luke射击.mp3',
+      '04_Dunphy家-Luke射击.srt',
+      '04_Dunphy家-Luke射击_双语.srt',
+    ]
+    expect(classifySubtitles(names, '04_Dunphy家').files).toEqual(['04_Dunphy家.srt'])
+    expect([...classifySubtitles(names, '04_Dunphy家-Luke射击').files].sort()).toEqual([
+      '04_Dunphy家-Luke射击.srt',
+      '04_Dunphy家-Luke射击_双语.srt',
+    ])
+    expect(subtitleHint(names, '04_Dunphy家')).toEqual({ state: 'unknown', files: ['04_Dunphy家.srt'] })
+    expect(subtitleHint(names, '04_Dunphy家-Luke射击').state).toBe('both')
+  })
+
+  it('does not change what a lone audio file owns', () => {
+    const names = ['lesson.mp3', 'lesson.en.srt', 'lesson_zh.srt', 'lesson2.srt']
+    expect([...classifySubtitles(names, 'lesson').files].sort()).toEqual(['lesson.en.srt', 'lesson_zh.srt'])
+  })
+
+  it('pairs every scene of the S01E01 shape by its own files, bilingual and all', () => {
+    const names = sceneNames()
+    for (const stem of SCENE_STEMS) {
+      expect(pairSubtitles(names, { stem }), stem).toEqual({
+        en: `${stem}.srt`,
+        zh: `${stem}_双语.srt`,
+        ambiguous: false,
+      })
+      expect(subtitleHint(names, stem), stem).toEqual({ state: 'both', files: [`${stem}.srt`, `${stem}_双语.srt`] })
+    }
+  })
+
+  it('reads the same answer from a real directory, where the files could be sniffed but need not be', () => {
+    writeScenes(root)
+    const names = sceneNames()
+    expect(pairSubtitles(names, { stem: '04_Dunphy家-Luke射击', directory: root }).zh).toBe('04_Dunphy家-Luke射击_双语.srt')
   })
 })

@@ -58,6 +58,7 @@ const EMPTY_OPEN = (reason: string): OpenPayload => ({
   reason,
   episode: null,
   media: null,
+  segment: null,
   warnings: [],
 })
 
@@ -148,9 +149,9 @@ export async function fetchBrowse(place: string, rel: string, query = ''): Promi
   }
 }
 
-/** Open a folder episode the library scan already knows. */
-export async function openEpisodeById(episodeId: string): Promise<OpenPayload> {
-  return await postOpen({ episodeId })
+/** Open a folder episode the library scan already knows, and one of its segments when it has any. */
+export async function openEpisodeById(episodeId: string, segment?: string): Promise<OpenPayload> {
+  return await postOpen(segment === undefined ? { episodeId } : { episodeId, segment })
 }
 
 /** Open one audio file, with the subtitles beside it. */

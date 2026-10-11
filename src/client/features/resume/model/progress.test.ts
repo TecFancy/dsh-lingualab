@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { segmentKey } from '../../../shared/progress.ts'
 import { clearProgress, fractionOf, readAllProgress, readProgress, writeProgress } from './progress.ts'
 import { readSteps, writeSteps } from './steps.ts'
 import { readTable, resetMigrationForTests } from './store.ts'
@@ -66,12 +67,20 @@ describe('progress', () => {
     expect(readProgress('E2')?.at).toBe(20)
   })
 
-  it('keeps only the newest hundred episodes', () => {
-    for (let index = 0; index < 120; index += 1) writeProgress(`E${String(index)}`, 10, 100, index + 1)
+  it('keeps only the newest thousand positions', () => {
+    for (let index = 0; index < 1020; index += 1) writeProgress(`E${String(index)}`, 10, 100, index + 1)
     const all = readAllProgress()
-    expect(Object.keys(all)).toHaveLength(100)
+    expect(Object.keys(all)).toHaveLength(1000)
     expect(all.E0).toBeUndefined()
-    expect(all.E119).toBeDefined()
+    expect(all.E1019).toBeDefined()
+  })
+
+  it('keeps a position per segment under its own key, apart from the episode id', () => {
+    writeProgress(segmentKey('S01E01', '01_a'), 30, 60, 1)
+    writeProgress(segmentKey('S01E01', '02_b'), 45, 60, 2)
+    expect(readProgress(segmentKey('S01E01', '01_a'))?.at).toBe(30)
+    expect(readProgress(segmentKey('S01E01', '02_b'))?.at).toBe(45)
+    expect(readProgress('S01E01')).toBeNull()
   })
 
   it('survives storage that refuses writes', () => {

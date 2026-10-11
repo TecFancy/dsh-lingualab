@@ -356,6 +356,10 @@ function openRoute(
         sendJson(res, 400, emptyOpen('episodeId 与 place/rel 只能给一个'))
         return
       }
+      if (request.segment !== undefined && typeof request.segment !== 'string') {
+        sendJson(res, 400, emptyOpen('segment 必须是字符串'))
+        return
+      }
 
       const root = resolveRoot(ctx, configured()).root
       const state = readState()
@@ -419,7 +423,7 @@ function importRoute(ctx: HostContext, configured: () => string): WebRoute {
 
 /** A refusal with no episode attached, for the request-level mistakes. */
 function emptyOpen(reason: string): OpenPayload {
-  return { ok: false, reason, episode: null, media: null, warnings: [] }
+  return { ok: false, reason, episode: null, media: null, segment: null, warnings: [] }
 }
 
 /** `GET /lingualab/library` — describe every episode folder under the root. */
@@ -532,7 +536,8 @@ function progressRoute(ctx: HostContext, configured: () => string): WebRoute {
       }
       let body: unknown
       try {
-        // Roomier than the notes limit: a full table is a few hundred small entries.
+        // Roomier than the notes limit: a full table is up to a thousand small entries (one
+        // per episode or per segment), a couple of hundred kilobytes at the most.
         body = await readJsonBody(req, 512 * 1024)
       } catch (error) {
         sendJson(res, 400, { ok: false, reason: `请求体读不了：${String(error)}`, progress: {}, steps: {} })

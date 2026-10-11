@@ -97,6 +97,27 @@ export const SUBTITLE_EXTENSIONS = ['srt', 'vtt', 'lrc'] as const
 export const NOTES_FILE = 'notes.md'
 
 /**
+ * One scene of a folder episode: a single audio file and the subtitles that belong to it.
+ *
+ * Study material often arrives as one folder per TV episode, cut into scenes that each
+ * have their own audio and their own subtitle clock. A folder holding two or more audio
+ * stems is therefore one episode made of segments, listed in natural order so `02` comes
+ * before `10`. A folder with one audio file has no segments and behaves as it always did.
+ */
+export interface EpisodeSegment {
+  /** The audio stem, unique within the episode: `01_Dunphy家的早晨`. */
+  readonly id: string
+  /** 1-based position in natural order. */
+  readonly index: number
+  /** Display title: the stem without a leading number and separator, `Dunphy家的早晨`. */
+  readonly title: string
+  readonly audio: string
+  readonly audioBytes: number | null
+  readonly subtitleEn: string | null
+  readonly subtitleZh: string | null
+}
+
+/**
  * One episode the panel can open.
  *
  * Two kinds share the shape, because the page treats them the same way once they are
@@ -119,6 +140,13 @@ export interface EpisodeEntry {
   readonly subtitleEn: string | null
   /** Chinese subtitle file name, if one was found. */
   readonly subtitleZh: string | null
+  /**
+   * The segments in order; empty unless the folder holds two or more audio files.
+   *
+   * When there are some, the entry's own `audio` and subtitle fields mirror the first one,
+   * so a reader that knows nothing about segments still sees an episode it can play.
+   */
+  readonly segments: readonly EpisodeSegment[]
   /** Notes summary, without shipping the file body on every library load. */
   readonly notes: NotesSummary
   /** `folder` for a scanned folder, `file` for one audio file. */
@@ -179,6 +207,14 @@ export interface NotePhrase {
   readonly text: string
   /** Chinese gloss, possibly empty. */
   readonly zh: string
+  /**
+   * The segment (audio stem) the sentence is from, when the episode has segments.
+   *
+   * Seconds are only meaningful inside one segment, so two scenes that both have a sentence
+   * at 00:02 are told apart by this. In `notes.md` it is the `## <segment id>` heading the
+   * phrase line sits under; a phrase with none belongs to an episode without segments.
+   */
+  readonly segment?: string
   /** Free-form note: who said it, in what scene. */
   readonly note: string
   /** Tags such as `review` or `hard`, without the leading `#`. */
@@ -236,11 +272,11 @@ export interface NotesWriteRequest {
   readonly phrases: readonly NotePhrase[]
 }
 
-/** Where the reader stopped in one episode. */
+/** Where the reader stopped in one episode, or in one segment of it (see `segmentKey`). */
 export interface ProgressEntry {
-  /** Seconds into the episode where listening stopped. */
+  /** Seconds into the episode (or the segment) where listening stopped. */
   readonly at: number
-  /** The episode's length when it was last known. */
+  /** That audio file's length when it was last known. */
   readonly duration: number
   /** Milliseconds since the epoch; the newest entry wins when two devices disagree. */
   readonly updatedAt: number
@@ -258,7 +294,13 @@ export interface EpisodeSteps {
   readonly records: Readonly<Record<string, StepRecord>>
 }
 
-/** Everything the reader has done that is not a note: positions and step ticks, by episode id. */
+/**
+ * Everything the reader has done that is not a note: positions and step ticks.
+ *
+ * Step ticks are keyed by episode id. Positions are keyed by episode id for an episode
+ * without segments, and by `segmentKey(episode, segment)` for each segment of one that has
+ * them, because a position only means something inside one audio file.
+ */
 export interface ProgressTable {
   readonly progress: Readonly<Record<string, ProgressEntry>>
   readonly steps: Readonly<Record<string, EpisodeSteps>>
@@ -357,6 +399,13 @@ export interface OpenRequest {
   /** A place id plus a relative path to an audio file. */
   readonly place?: string
   readonly rel?: string
+  /**
+   * With `episodeId`: which segment of a folder episode to open, by its id.
+   *
+   * Omitted means the first one. The host does not decide which segment to continue, because
+   * it knows no more than the progress file; the page does, and says so explicitly.
+   */
+  readonly segment?: string
 }
 
 /** Where each track of an opened episode can be fetched. Ready to hand to the player. */
@@ -372,6 +421,8 @@ export interface OpenPayload {
   readonly reason: string | null
   readonly episode: EpisodeEntry | null
   readonly media: EpisodeMedia | null
+  /** The segment that was opened, or `null` for an episode without segments. */
+  readonly segment: string | null
   /** Things that are true but not fatal: `no-subtitle` is the only one today. */
   readonly warnings: readonly string[]
 }

@@ -14,6 +14,11 @@
  * from id to path, plus the file names as they were at open time — enough for the
  * media route to answer a range request without re-reading a directory per seek.
  *
+ * A folder episode may be made of segments (one scene per audio file). The request names
+ * the one to open, and the answer says which it opened; the host does not guess which to
+ * continue, because the reader's position is the page's knowledge, so an omitted segment
+ * is simply the first.
+ *
  * Nothing here throws at the caller. A missing file, a directory with no audio and a
  * place that no longer exists are all answers, because the picker is a browsing UI
  * and every one of those is a state the reader can browse their way out of.
@@ -26,6 +31,7 @@ import {
   MEDIA_PATH,
   type EpisodeEntry,
   type EpisodeMedia,
+  type EpisodeSegment,
   type OpenPayload,
   type OpenRef,
   type OpenRequest,
@@ -59,7 +65,7 @@ export interface OpenResult {
 
 /** One refusal: no episode, no media, and the reason to show instead. */
 function refuse(state: OpenState, reason: string): OpenResult {
-  return { payload: { ok: false, reason, episode: null, media: null, warnings: [] }, state }
+  return { payload: { ok: false, reason, episode: null, media: null, segment: null, warnings: [] }, state }
 }
 
 /** Whether a file name is audio this plugin plays. */
@@ -77,12 +83,19 @@ function fileUrl(id: string, file: string): string {
   return `${FILE_MEDIA_PATH}/${encodeURIComponent(id)}/${encodeURIComponent(file)}`
 }
 
-/** The media URLs of a folder episode, from the names the scan found. */
-function folderMedia(entry: EpisodeEntry): EpisodeMedia {
+/** The files one playable thing is made of: a whole folder episode, or one of its segments. */
+interface Track {
+  readonly audio: string | null
+  readonly subtitleEn: string | null
+  readonly subtitleZh: string | null
+}
+
+/** The media URLs of a folder episode or one of its segments, from the names the scan found. */
+function folderMedia(episode: string, track: Track): EpisodeMedia {
   return {
-    audioUrl: entry.audio === null ? '' : folderUrl(entry.id, entry.audio),
-    subtitleEnUrl: entry.subtitleEn === null ? null : folderUrl(entry.id, entry.subtitleEn),
-    subtitleZhUrl: entry.subtitleZh === null ? null : folderUrl(entry.id, entry.subtitleZh),
+    audioUrl: track.audio === null ? '' : folderUrl(episode, track.audio),
+    subtitleEnUrl: track.subtitleEn === null ? null : folderUrl(episode, track.subtitleEn),
+    subtitleZhUrl: track.subtitleZh === null ? null : folderUrl(episode, track.subtitleZh),
   }
 }
 
@@ -129,13 +142,31 @@ function describePicked(options: {
 }
 
 /** The warnings an opened episode carries: things true but not fatal. */
-function warningsOf(entry: EpisodeEntry): string[] {
-  return entry.subtitleEn === null && entry.subtitleZh === null ? ['no-subtitle'] : []
+function warningsOf(track: Track): string[] {
+  return track.subtitleEn === null && track.subtitleZh === null ? ['no-subtitle'] : []
 }
 
-/** The success payload for one episode. */
-function accept(entry: EpisodeEntry, media: EpisodeMedia, state: OpenState): OpenResult {
-  return { payload: { ok: true, reason: null, episode: entry, media, warnings: warningsOf(entry) }, state }
+/**
+ * The success payload for one episode.
+ * @param segment - the segment that was opened, when the episode has segments.
+ */
+function accept(
+  entry: EpisodeEntry,
+  media: EpisodeMedia,
+  state: OpenState,
+  segment: EpisodeSegment | null = null,
+): OpenResult {
+  return {
+    payload: {
+      ok: true,
+      reason: null,
+      episode: entry,
+      media,
+      segment: segment === null ? null : segment.id,
+      warnings: warningsOf(segment ?? entry),
+    },
+    state,
+  }
 }
 
 /**
@@ -159,15 +190,30 @@ function locateFileEpisode(
   return { path: realPathOf(loose.source), place: 'lib', rel: loose.audio ?? basename(loose.source) }
 }
 
-/** Open a folder episode the scan knows. */
-function openFolder(id: string, deps: OpenDeps): OpenResult {
+/**
+ * Open a folder episode the scan knows, and one of its segments when it has any.
+ *
+ * Naming a segment that is not there is a refusal with the reason, not a quiet fallback to
+ * the first one: the page asked for a particular scene, and playing another under its name
+ * would put the reader's position and notes against the wrong audio.
+ */
+function openFolder(id: string, segment: string | undefined, deps: OpenDeps): OpenResult {
   const listing = scanLibrary(deps.libraryRoot, deps.state)
   if (!listing.ok) return refuse(deps.state, listing.reason ?? '媒体目录读不了')
   const entry = listing.episodes.find((candidate) => candidate.id === id)
   if (entry === undefined) return refuse(deps.state, '找不到这一集')
   if (entry.audio === null) return refuse(deps.state, '这一集没有音频文件')
+
+  let chosen: EpisodeSegment | null = null
+  if (entry.segments.length > 0) {
+    chosen = segment === undefined ? (entry.segments[0] ?? null) : (entry.segments.find((item) => item.id === segment) ?? null)
+    if (chosen === null) return refuse(deps.state, `这一集没有叫「${segment ?? ''}」的一段`)
+  } else if (segment !== undefined) {
+    return refuse(deps.state, '这一集没有分段')
+  }
+
   const ref: OpenRef = { id: entry.id, title: entry.title, kind: 'folder', source: entry.source }
-  return accept(entry, folderMedia(entry), withCurrent(deps.state, ref))
+  return accept(entry, folderMedia(entry.id, chosen ?? entry), withCurrent(deps.state, ref), chosen)
 }
 
 /** Open a file episode by its id, whether or not this plugin still has a record. */
@@ -267,10 +313,14 @@ export function resolveFileMedia(state: OpenState, requestPath: string): string 
  */
 export function openEpisode(request: OpenRequest, deps: OpenDeps): OpenResult {
   const id = request.episodeId
+  const segment = typeof request.segment === 'string' && request.segment.length > 0 ? request.segment : undefined
   if (typeof id === 'string' && id.length > 0) {
-    return isFileEpisodeId(id) ? openRememberedFile(id, deps) : openFolder(id, deps)
+    if (!isFileEpisodeId(id)) return openFolder(id, segment, deps)
+    if (segment !== undefined) return refuse(deps.state, '一个音频文件没有分段')
+    return openRememberedFile(id, deps)
   }
   if (typeof request.place === 'string' && typeof request.rel === 'string') {
+    if (segment !== undefined) return refuse(deps.state, 'segment 只能和 episodeId 一起给')
     return openPicked(request, deps)
   }
   return refuse(deps.state, 'episodeId 和 place/rel 必须给一个')

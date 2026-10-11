@@ -12,6 +12,11 @@
  * episode picker became the home, keeping a sentence became a star on the transport, and
  * the notes layer became a drawer of what you kept.
  *
+ * An episode cut into segments (one scene per audio file) plays one segment at a time. The
+ * page is where the pieces meet: it knows the reader's positions (so it decides which segment
+ * 「继续」 opens), the library feature opens a segment, the notes feature keeps the sentences,
+ * and the segment list is one more layer for the Escape key to close.
+ *
  * Keyboard handling lives here rather than on `window`. The earlier standalone app bound
  * its shortcuts globally and therefore owned the space bar, the arrow keys and the
  * bracket keys wherever it was open; inside a panel that shares a page with a
@@ -20,13 +25,16 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
-import { useLibrary } from '../../../features/library/index.ts'
+import { findSegment, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, useNotes } from '../../../features/notes/index.ts'
 import {
+  continueSegment,
+  finishedSegments,
+  progressKeyOf,
   readAllProgress,
   readProgress,
   startProgressSync,
@@ -34,14 +42,17 @@ import {
   type Progress,
 } from '../../../features/resume/index.ts'
 import { keptSentenceKey, sameKeptSentence } from '../../../shared/notes-format.ts'
+import { segmentProgress } from '../../../shared/progress.ts'
+import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
-import { ControlBar, nextZhMode } from '../../../widgets/control-bar/index.ts'
+import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
 import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/index.ts'
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
+import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
@@ -50,7 +61,10 @@ import type { PanelProps, Translate } from '../../../context.ts'
 type View = 'home' | 'practice'
 
 /** Which layer is over the page. Only one at a time; the steps popover is not a layer. */
-type Layer = 'none' | 'browse' | 'notes' | 'folder'
+type Layer = 'none' | 'browse' | 'notes' | 'folder' | 'segments'
+
+/** The set of finished segments of an episode that has none. One value, so the memo below stays stable. */
+const NO_FINISHED: ReadonlySet<string> = new Set()
 
 export interface LingualabPageProps extends PanelProps {
   readonly t: Translate
@@ -61,6 +75,19 @@ const BOOKMARK_MS = 5000
 
 /** How long a key cap stays lit after the page handles its key. */
 const FLASH_MS = 260
+
+/**
+ * Where a kept sentence starts in the cue list on screen.
+ *
+ * `notes.md` holds whole seconds, so a sentence that starts at 135.08 s reads back as 135,
+ * which can sit in the gap before it: seeking there made the previous sentence the active
+ * one, and that was the sentence the replay looped. The cue with the same second and the
+ * same English is the one that was kept, by the rule the star already uses.
+ */
+function keptCueStart(cues: readonly Cue[], at: number, text: string): number {
+  const key = keptSentenceKey({ at, text })
+  return cues.find((cue) => keptSentenceKey({ at: cue.start, text: splitCue(cue).english }) === key)?.start ?? at
+}
 
 /** Whether a keystroke belongs to a field the reader is typing in. */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -93,8 +120,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
+  const controlBar = useRef<ControlBarHandle>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
+  const isPlaying = useMediaPlayer((state) => state.isPlaying)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
   const revealed = useMediaPlayer((state) => state.revealed)
   const finished = useMediaPlayer((state) => state.finished)
@@ -116,12 +145,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    * consumed once, and nothing on screen depends on it.
    */
   const resumeAt = useRef<number | null>(null)
+  /** Whether to loop the sentence at `resumeAt` once it has been seeked to: a replayed note, not a resume. */
+  const resumeLoop = useRef(false)
+  /** The English of the replayed note, so the seek lands on its cue rather than on its whole second. */
+  const resumeText = useRef<string | null>(null)
 
   // Apply the bookmark. This has to come after the reset effect above and after the audio
   // element knows its length: the reset zeroes the position, and a seek issued before the
   // new source has loaded is discarded by the audio binding on purpose, so that a request
   // from the previous episode cannot move the next one. Every open hands back a fresh media,
-  // so opening an episode that is already loaded re-runs this too.
+  // so opening an episode that is already loaded re-runs this too. In that case the library
+  // keeps the cue list it has (it does not parse the same subtitles again), so the reset
+  // above does not fire afterwards and zero the position this seek has just set.
   const media = library.media
   const subtitled = media !== null && (media.subtitleEnUrl !== null || media.subtitleZhUrl !== null)
   const cuesReady = cues.length > 0 || (media !== null && !subtitled)
@@ -131,11 +166,21 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     if (target === null || audio === null || !cuesReady) return
     const apply = (): void => {
       if (resumeAt.current === null) return
-      const at = resumeAt.current
+      const text = resumeText.current
+      const at = text === null ? resumeAt.current : keptCueStart(cues, resumeAt.current, text)
+      const loop = resumeLoop.current
       resumeAt.current = null
-      // A bookmark past the end (the file was replaced by a shorter one) starts over.
+      resumeLoop.current = false
+      resumeText.current = null
+      // A bookmark past the end (the file was replaced by a shorter one, or the segment was
+      // listened to the end) starts over.
       if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
       useMediaPlayer.getState().seek(at)
+      // A loop is only asked for by replaying a kept sentence, which plays it, as in the same segment.
+      if (loop) {
+        useMediaPlayer.getState().setLoopMode('sentence')
+        useMediaPlayer.getState().setPlaying(true)
+      }
     }
     if (audio.readyState >= 1) {
       apply()
@@ -144,6 +189,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     audio.addEventListener('loadedmetadata', apply, { once: true })
     return () => audio.removeEventListener('loadedmetadata', apply)
   }, [audioRef, cues, cuesReady, media])
+
+  // The segment list takes the keyboard when it opens. When it closes the focused list is gone, and
+  // focus that falls to the document would switch the page's shortcuts off, so it comes back here.
+  const previousLayer = useRef<Layer>('none')
+  useEffect(() => {
+    if (previousLayer.current === 'segments' && layer !== 'segments') containerRef.current?.focus({ preventScroll: true })
+    previousLayer.current = layer
+  }, [layer])
 
   // Focus the page once so the shortcuts below are live without a click, and without
   // stealing the conversation's focus afterwards.
@@ -154,6 +207,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
   const episode = library.episode
   const episodeId = episode?.id ?? null
+  const segments = library.segments
+  const segment = library.segment
+  const segmentId = segment?.id ?? null
+  /** What the position is stored under: the episode's id, or its segment's key. */
+  const positionKey = episodeId === null ? null : progressKeyOf(episodeId, segmentId)
 
   /**
    * Write the listening position down while an episode is on screen.
@@ -163,13 +221,13 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    * bookmark nobody reads until the next visit.
    */
   const bookmark = useCallback(() => {
-    if (episodeId === null) return
+    if (positionKey === null) return
     // Not while a resume is still waiting to be applied: the player sits at the start
     // until it is, and writing that would overwrite the very bookmark it is about to use.
     if (resumeAt.current !== null) return
     const state = useMediaPlayer.getState()
-    writeProgress(episodeId, state.currentTime, state.duration)
-  }, [episodeId])
+    writeProgress(positionKey, state.currentTime, state.duration)
+  }, [positionKey])
 
   useEffect(() => {
     if (view !== 'practice') return
@@ -179,6 +237,21 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       bookmark()
     }
   }, [view, bookmark])
+
+  // Audio that plays to its end is finished, and "finished" is read off the stored position
+  // being within a second of the length. The five-second interval would usually get there, but
+  // not always, so the end of the audio writes it down itself. The count is the store's, which
+  // outlives this page, so only a change after mounting counts. The segment list and the home
+  // read the table fresh when they open.
+  const seenFinishCount = useRef(finishCount)
+  useEffect(() => {
+    if (finishCount === seenFinishCount.current) return
+    seenFinishCount.current = finishCount
+    const state = useMediaPlayer.getState()
+    if (positionKey !== null && view === 'practice' && state.duration > 0) {
+      writeProgress(positionKey, state.duration, state.duration)
+    }
+  }, [finishCount, positionKey, view])
 
   // Share progress with the host for as long as the page is open: what another device left
   // arrives here, and the home picks it up the moment it does.
@@ -194,6 +267,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     setView('home')
   }, [bookmark])
 
+  /** The segments of this episode that are finished, which the segment list marks. */
+  const finishedIds = useMemo(
+    () => (episode === null || segments.length === 0 ? NO_FINISHED : finishedSegments(progress, episode)),
+    [progress, episode, segments],
+  )
+
   /**
    * Cue indexes whose sentence is kept, so the list can mark them.
    *
@@ -205,10 +284,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     const kept = new Set(notes.phrases.map((phrase) => keptSentenceKey(phrase)))
     const marked = new Set<number>()
     cues.forEach((cue, index) => {
-      if (kept.has(keptSentenceKey({ at: cue.start, text: splitCue(cue).english }))) marked.add(index)
+      if (kept.has(keptSentenceKey({ at: cue.start, text: splitCue(cue).english, segment: segmentId ?? undefined }))) {
+        marked.add(index)
+      }
     })
     return marked
-  }, [notes.phrases, cues])
+  }, [notes.phrases, cues, segmentId])
 
   /**
    * Keep or un-keep one sentence; the same star on the row and on the transport.
@@ -222,10 +303,19 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       const target = cues[index ?? activeIndex]
       if (target === undefined) return
       const { english, chinese } = splitCue(target)
-      const outcome = notes.toggle({ at: target.start, text: english, zh: chinese, note: '', tags: [], done: false })
+      // The segment is recorded with the sentence: seconds only mean something inside one.
+      const outcome = notes.toggle({
+        at: target.start,
+        text: english,
+        zh: chinese,
+        note: '',
+        tags: [],
+        done: false,
+        segment: segmentId ?? undefined,
+      })
       if (outcome === 'protected') setLayer('notes')
     },
-    [cues, activeIndex, notes],
+    [cues, activeIndex, notes, segmentId],
   )
 
   /** Light the key cap for a key the page just handled. */
@@ -246,10 +336,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const stagePhrase = useMemo(() => {
     const cue = cues[activeIndex]
     if (cue === undefined) return null
-    const key = { at: cue.start, text: splitCue(cue).english }
+    const key = { at: cue.start, text: splitCue(cue).english, segment: segmentId ?? undefined }
     const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
     return index < 0 ? null : { index, phrase: notes.phrases[index] }
-  }, [cues, activeIndex, notes.phrases])
+  }, [cues, activeIndex, notes.phrases, segmentId])
 
   /** Put a clicked word into the note of the sentence on stage, keeping the sentence if it was not. */
   const addWord = useCallback(
@@ -262,9 +352,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         return
       }
       const { english, chinese } = splitCue(cue)
-      notes.add({ at: cue.start, text: english, zh: chinese, note: addWordToNote('', word), tags: [], done: false })
+      notes.add({
+        at: cue.start,
+        text: english,
+        zh: chinese,
+        note: addWordToNote('', word),
+        tags: [],
+        done: false,
+        segment: segmentId ?? undefined,
+      })
     },
-    [cues, activeIndex, notes, stagePhrase],
+    [cues, activeIndex, notes, stagePhrase, segmentId],
   )
 
   /** The episodes that can be played, in library order; "next" is the one after the open one. */
@@ -277,19 +375,87 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     return at >= 0 ? (playable[at + 1] ?? null) : null
   }, [playable, library.episode])
 
-  /** Open an episode by id and move to the practice view when the host agrees. */
+  /** The entry for an episode id: from the listing, or the open one when it lives outside it. */
+  const entryFor = useCallback(
+    (id: string): EpisodeEntry | null =>
+      [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].find((entry) => entry.id === id) ??
+      (library.episode?.id === id ? library.episode : null),
+    [library.payload, library.episode],
+  )
+
+  /**
+   * Open an episode by id and move to the practice view when the host agrees.
+   *
+   * For an episode cut into segments this is where 「继续」 is decided, in one place: the segment
+   * listened to most recently, or the first when none has been. The host opens whichever it is
+   * told, because the host knows no more than the progress file and the page has the reader's
+   * positions to hand.
+   */
   const openEpisode = useCallback(
     (id: string): void => {
       void (async () => {
-        if (!(await library.openEpisode(id))) return
+        const entry = entryFor(id)
+        const positions = readAllProgress()
+        const chosen = entry === null || entry.segments.length === 0 ? null : continueSegment(positions, entry)
+        if (!(await library.openEpisode(id, chosen ?? undefined))) return
         // Set before the view switches, so the effect that applies it sees it.
-        resumeAt.current = readProgress(id)?.at ?? null
+        resumeAt.current =
+          chosen === null
+            ? (readProgress(id)?.at ?? null)
+            : (segmentProgress(positions, id, chosen, entry?.segments.map((item) => item.id) ?? [])?.at ?? null)
+        resumeLoop.current = false
         setSelection(null)
         setLayer('none')
         setView('practice')
       })()
     },
-    [library],
+    [library, entryFor],
+  )
+
+  /**
+   * Move to another segment of the open episode.
+   *
+   * The outgoing segment's position is saved first. The incoming one resumes where it was left
+   * unless `to` says where to go, which is what replaying a kept sentence does: it names the
+   * second to seek to and asks for the sentence to be looped, and the drawer it came from stays open.
+   */
+  const openSegment = useCallback(
+    (id: string, to?: { readonly at: number; readonly loop: boolean; readonly text?: string }): void => {
+      if (episode === null || id === segmentId) return
+      void (async () => {
+        bookmark()
+        if (!(await library.openEpisode(episode.id, id))) return
+        const ids = episode.segments.map((item) => item.id)
+        const positions = readAllProgress()
+        resumeAt.current = to?.at ?? segmentProgress(positions, episode.id, id, ids)?.at ?? null
+        resumeLoop.current = to?.loop === true
+        resumeText.current = to?.text ?? null
+        setSelection(null)
+        if (to === undefined) setLayer('none')
+        setProgress(positions)
+      })()
+    },
+    [episode, segmentId, bookmark, library],
+  )
+
+  /**
+   * Replay a kept sentence: seek to it and loop it, opening its segment first when it is in another.
+   *
+   * A segment the episode no longer has (the file was renamed) cannot be opened, so the
+   * sentence is replayed at its second in the one on screen rather than doing nothing.
+   */
+  const replayPhrase = useCallback(
+    (phrase: NotePhrase): void => {
+      if (phrase.segment !== undefined && phrase.segment !== segmentId && findSegment(segments, phrase.segment) !== null) {
+        openSegment(phrase.segment, { at: phrase.at, loop: true, text: phrase.text })
+        return
+      }
+      useMediaPlayer.getState().seek(keptCueStart(cues, phrase.at, phrase.text))
+      useMediaPlayer.getState().setLoopMode('sentence')
+      // A seek alone leaves paused audio paused, and the card's play icon then did nothing.
+      useMediaPlayer.getState().setPlaying(true)
+    },
+    [cues, segmentId, segments, openSegment],
   )
 
   /**
@@ -303,6 +469,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       void importer.start(files)
     },
     [importer],
+  )
+
+  // The end of a segment that is not the last offers the next segment; only the last segment (or
+  // an episode without segments) says the episode is done, and offers the next episode.
+  const followingSegment = nextSegment(segments, segmentId)
+  // The card's counts are the segment's own: it is the unit that was just listened to.
+  const segmentPhrases = useMemo(
+    () =>
+      segmentId === null
+        ? notes.phrases
+        : notes.phrases.filter((phrase) => (phrase.segment ?? segments[0]?.id) === segmentId),
+    [notes.phrases, segmentId, segments],
   )
 
   // The end-of-episode card: shown once per time the audio ends, until it is answered.
@@ -326,7 +504,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // Escape closes a layer in either view; everything else is practice-only, since
       // the home has no transport for a shortcut to act on.
       if (event.key === 'Escape') {
-        if (finishOpen) {
+        // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it
+        // must not also clear the A-B marks its own buttons set.
+        if (controlBar.current?.closeMenu() === true) {
+          handled()
+        } else if (finishOpen) {
           handled()
           setDismissedFinish(finishCount)
         } else if (layer !== 'none') {
@@ -343,6 +525,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
       if (layer !== 'none' && layer !== 'notes') return
+      // So does the finish card: it is a dialog over the stage with its next action focused,
+      // and Enter there means that button, not "play the selected sentence" behind it.
+      if (finishOpen) return
 
       const current = selection ?? store().activeIndex
       switch (event.key) {
@@ -441,10 +626,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const stageCue = cues[activeIndex]
   const stageLines = stageCue === undefined ? null : splitCue(stageCue)
   const keptNow =
-    stageCue !== undefined && stageLines !== null && notes.has({ at: stageCue.start, text: stageLines.english })
+    stageCue !== undefined &&
+    stageLines !== null &&
+    notes.has({ at: stageCue.start, text: stageLines.english, segment: segmentId ?? undefined })
   // Shadowing hides the English of the sentence being repeated until it has been heard.
   const masked = shadow && stageCue !== undefined && revealed !== activeIndex
-  const practising = notes.phrases.filter((phrase) => !phrase.done).length
+  const practising = segmentPhrases.filter((phrase) => !phrase.done).length
   const drawerOpen = layer === 'notes' || stepsOpen
   return (
     <div
@@ -511,10 +698,36 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
                 {episode?.title ?? t('openEpisode')}
               </span>
-              {cues.length > 0 && stageCue !== undefined ? (
-                <span className="dsh-lingualab-top-sub">{t('cueOf', { n: activeIndex + 1, total: cues.length })}</span>
+              {segment !== null || (cues.length > 0 && stageCue !== undefined) ? (
+                <span className="dsh-lingualab-top-sub">
+                  {[
+                    segment === null ? null : segmentLabel(segment),
+                    cues.length > 0 && stageCue !== undefined ? t('cueOf', { n: activeIndex + 1, total: cues.length }) : null,
+                  ]
+                    .filter((part) => part !== null)
+                    .join(' · ')}
+                </span>
               ) : null}
             </div>
+            {segments.length > 0 ? (
+              <SegmentPicker
+                t={t}
+                segments={segments}
+                currentId={segmentId}
+                finished={finishedIds}
+                open={layer === 'segments'}
+                onToggle={() => {
+                  setStepsOpen(false)
+                  if (layer !== 'segments') setProgress(readAllProgress())
+                  setLayer(layer === 'segments' ? 'none' : 'segments')
+                }}
+                onClose={() => setLayer('none')}
+                onSelect={(id) => {
+                  if (id === segmentId) setLayer('none')
+                  else openSegment(id)
+                }}
+              />
+            ) : null}
             <span className="dsh-lingualab-spacer" />
             <button
               type="button"
@@ -556,6 +769,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               />
               <div className="dsh-lingualab-deck">
                 <ControlBar
+                  ref={controlBar}
                   t={t}
                   zhMode={zhMode}
                   onZhMode={setZhMode}
@@ -576,11 +790,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               {finishOpen ? (
                 <FinishCard
                   t={t}
-                  title={episode?.title ?? ''}
+                  title={followingSegment !== null && segment !== null ? segmentLabel(segment) : (episode?.title ?? '')}
+                  scope={followingSegment === null ? 'episode' : 'segment'}
                   sentences={cues.length}
-                  kept={notes.phrases.length}
+                  kept={segmentPhrases.length}
                   practising={practising}
-                  nextTitle={nextEpisode?.title ?? null}
+                  nextTitle={followingSegment === null ? (nextEpisode?.title ?? null) : followingSegment.title}
                   onAgain={() => {
                     setDismissedFinish(finishCount)
                     useMediaPlayer.getState().seek(0)
@@ -588,7 +803,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   }}
                   onNext={() => {
                     setDismissedFinish(finishCount)
-                    if (nextEpisode !== null) openEpisode(nextEpisode.id)
+                    if (followingSegment !== null) openSegment(followingSegment.id)
+                    else if (nextEpisode !== null) openEpisode(nextEpisode.id)
                   }}
                   onHome={() => {
                     setDismissedFinish(finishCount)
@@ -630,7 +846,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               }}
             />
           ) : null}
-          {layer === 'notes' ? <NotesPanel t={t} notes={notes} episodeTitle={episode?.title ?? ''} onClose={() => setLayer('none')} /> : null}
+          {layer === 'notes' ? (
+            <NotesPanel
+              t={t}
+              notes={notes}
+              episodeTitle={episode?.title ?? ''}
+              segments={segments}
+              onReplay={replayPhrase}
+              playingIndex={isPlaying && stagePhrase !== null ? stagePhrase.index : null}
+              onPause={() => useMediaPlayer.getState().setPlaying(false)}
+              onClose={() => setLayer('none')}
+            />
+          ) : null}
         </>
       )}
       {layer === 'browse' ? (

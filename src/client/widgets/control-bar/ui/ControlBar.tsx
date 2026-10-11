@@ -12,7 +12,8 @@
  * The modes are chips, not form controls: a chip says its state by being outlined,
  * which a `<select>` cannot do.
  */
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
@@ -40,6 +41,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['L', 'keyLoop'],
   ['S', 'keyKeep'],
   ['C', 'keyChinese'],
+  ['R', 'keyReveal'],
   ['[  ]', 'keySpeed'],
   ['A  B', 'keyMarks'],
 ]
@@ -63,8 +65,21 @@ export interface ControlBarProps {
   readonly disabled?: boolean
 }
 
+/** What the page can ask of the bar from its own key handler. */
+export interface ControlBarHandle {
+  /**
+   * Close the 「更多」 menu if it is open, and put focus back on its button.
+   *
+   * @returns Whether a menu was closed, so the page knows the Escape was spent on it.
+   */
+  readonly closeMenu: () => boolean
+}
+
 /** The row under the sentence. */
-export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled = false }: ControlBarProps) {
+export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function ControlBar(
+  { t, zhMode, onZhMode, kept, onToggleKeep, disabled = false },
+  handle,
+) {
   const isPlaying = useMediaPlayer((state) => state.isPlaying)
   const speedIndex = useMediaPlayer((state) => state.speedIndex)
   const loopMode = useMediaPlayer((state) => state.loopMode)
@@ -75,7 +90,19 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
 
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
+  const moreButton = useRef<HTMLButtonElement>(null)
   const store = useMediaPlayer.getState
+
+  // Escape belongs to the menu first: the page asks here before it spends the key on
+  // anything else, so one press closes one thing. Focus goes back to the button that
+  // opened it, which is where a keyboard reader expects to be.
+  const closeMenu = (): boolean => {
+    if (!menu) return false
+    setMenu(false)
+    moreButton.current?.focus({ preventScroll: true })
+    return true
+  }
+  useImperativeHandle(handle, () => ({ closeMenu }))
 
   // A menu that stays open after you click elsewhere is a menu you have to close twice.
   useEffect(() => {
@@ -176,8 +203,19 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
             <StarIcon filled={kept} /> {kept ? t('kept') : t('keep')}
           </button>
 
-      <span className="dsh-lingualab-menu-holder" ref={holder}>
+      <span
+        className="dsh-lingualab-menu-holder"
+        ref={holder}
+        // The page's handler stops at a field (the repeat select is one), so Escape has to be
+        // heard from inside the menu as well, and only once: it is stopped here.
+        onKeyDown={(event: ReactKeyboardEvent<HTMLSpanElement>) => {
+          if (event.key !== 'Escape' || !closeMenu()) return
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+      >
         <button
+          ref={moreButton}
           type="button"
           className={`dsh-lingualab-bar-btn${menu || abOn ? ' is-on' : ''}`}
           onClick={() => setMenu(!menu)}
@@ -245,7 +283,7 @@ export function ControlBar({ t, zhMode, onZhMode, kept, onToggleKeep, disabled =
       </div>
     </div>
   )
-}
+})
 
 /** The next Chinese mode in the cycle: the chip shows one name and means "the next one". */
 export function nextZhMode(mode: SubtitleZhMode): SubtitleZhMode {

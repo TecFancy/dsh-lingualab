@@ -17,7 +17,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['lib', 'node_modules', 'coverage', '.husky']),
+  // `.claude` holds the generated skill mirror and agent worktrees, which are whole
+  // copies of this repo; the other gates skip it for the same reason.
+  globalIgnores(['lib', 'node_modules', 'coverage', '.husky', '.claude']),
 
   js.configs.recommended,
   tseslint.configs.recommended,

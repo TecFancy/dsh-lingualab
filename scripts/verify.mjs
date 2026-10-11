@@ -41,10 +41,13 @@ const STEPS = [
   { name: 'lint:fsd', cmd: ['npm', 'run', '--silent', 'lint:fsd'], fast: true, about: 'Steiger 的 FSD 分层规则' },
   { name: 'test', cmd: ['npm', 'run', '--silent', 'test'], fast: true, about: '单测' },
   { name: 'notes:check', cmd: ['npm', 'run', '--silent', 'notes:check'], fast: true, about: 'notes 树的形状与文件内格式' },
+  { name: 'notes:test', cmd: ['node', 'scripts/check-notes.mjs', '--self-test'], fast: true, about: 'notes 检查自己还拦得住' },
   { name: 'notes:links', cmd: ['npm', 'run', '--silent', 'notes:links'], fast: true, about: '笔记里的链接都落得到文件' },
+  { name: 'links:test', cmd: ['node', 'scripts/check-note-links.mjs', '--self-test'], fast: true, about: '笔记链接检查自己还拦得住' },
   { name: 'docs:check', cmd: ['npm', 'run', '--silent', 'docs:check'], fast: true, about: 'docs 不出现孤儿文档' },
   { name: 'links:check', cmd: ['npm', 'run', '--silent', 'links:check'], fast: true, about: '全仓 markdown 相对链接有效' },
   { name: 'bilingual:check', cmd: ['npm', 'run', '--silent', 'bilingual:check'], fast: true, about: '中英对照的结构与哈希一致' },
+  { name: 'bilingual:test', cmd: ['node', 'scripts/check-bilingual.mjs', '--self-test'], fast: true, about: '中英对照检查自己还拦得住（含 Windows 路径）' },
   { name: 'zh:prose', cmd: ['npm', 'run', '--silent', 'zh:prose'], fast: true, about: '中文标点、空格与术语' },
   { name: 'skills:check', cmd: ['npm', 'run', '--silent', 'skills:check'], fast: true, about: '.claude/skills 镜像没漂移' },
   { name: 'changelog:check', cmd: ['npm', 'run', '--silent', 'changelog:check'], fast: true, about: 'CHANGELOG 与 package.json 版本一致' },
@@ -74,13 +77,21 @@ for (const step of selected) {
   process.stdout.write(`▸ ${step.name} … `)
   const stepStart = Date.now()
   try {
-    execFileSync(step.cmd[0], step.cmd.slice(1), { cwd: root, stdio: 'pipe', encoding: 'utf8' })
+    // On Windows `npm` is `npm.cmd`, which only resolves through a shell; every
+    // argument here is a literal from STEPS, so nothing untrusted reaches it.
+    execFileSync(step.cmd[0], step.cmd.slice(1), {
+      cwd: root,
+      stdio: 'pipe',
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    })
     const seconds = ((Date.now() - stepStart) / 1000).toFixed(1)
     console.log(`✅ ${seconds}s`)
     passed.push(step.name)
   } catch (error) {
     console.log('❌')
-    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim()
+    // A spawn failure (ENOENT) has no stdout or stderr; its message is the only clue.
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim() || error.message
     console.error(output.split('\n').map((line) => `   ${line}`).join('\n'))
     failed.push(step.name)
     break

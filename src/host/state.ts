@@ -87,6 +87,9 @@ export function fileRef(record: FileEpisodeRecord): OpenRef {
   return { id: record.id, title: record.title, kind: 'file', source: record.path }
 }
 
+/** The longest segment id accepted on a phrase: a file name, with room to spare. */
+const MAX_SEGMENT_ID_LENGTH = 300
+
 /** Normalise one incoming phrase, dropping anything that cannot be played back. */
 export function sanitizePhrase(input: unknown): NotePhrase | null {
   if (typeof input !== 'object' || input === null) return null
@@ -101,6 +104,8 @@ export function sanitizePhrase(input: unknown): NotePhrase | null {
         .map((tag) => tag.replace(/^#+/, '').trim())
         .filter((tag) => tag.length > 0)
     : []
+  // The segment is an audio stem, which a heading in `notes.md` has to carry on one line.
+  const segment = typeof record.segment === 'string' ? record.segment.replace(/[\r\n]+/g, ' ').trim() : ''
   return {
     at,
     text,
@@ -108,6 +113,7 @@ export function sanitizePhrase(input: unknown): NotePhrase | null {
     note: typeof record.note === 'string' ? record.note.trim() : '',
     tags,
     done: record.done === true,
+    ...(segment.length > 0 && segment.length <= MAX_SEGMENT_ID_LENGTH ? { segment } : {}),
   }
 }
 

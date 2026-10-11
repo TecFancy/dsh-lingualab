@@ -22,7 +22,7 @@
  */
 import { useCallback, useRef, useState } from 'react'
 import { importMedia } from '../../../shared/lib/api.ts'
-import { sameStem } from '../../../shared/stem.ts'
+import { owningStem } from '../../../shared/stem.ts'
 import { planDrop, type DropPlan } from '../lib/group.ts'
 
 /** What happened to one file. */
@@ -70,11 +70,7 @@ const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
  * @param folders - the episode folder names the library lists.
  */
 export function folderForSubtitle(subtitle: string, folders: readonly string[]): string | null {
-  let best: string | null = null
-  for (const folder of folders) {
-    if (sameStem(subtitle, folder) && (best === null || folder.length > best.length)) best = folder
-  }
-  return best
+  return owningStem(subtitle, folders)
 }
 
 /** Import dropped or picked files into the library. */

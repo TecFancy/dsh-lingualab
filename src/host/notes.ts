@@ -16,11 +16,17 @@
  * wherever the reader keeps it — so its phrases live in the plugin state instead.
  * The ceiling and the phrase shape are the same in both, because
  * {@link sanitizePhrases} and the ceiling check are the same in both.
+ *
+ * A folder episode cut into segments keeps one notes.md, with a heading per segment. The
+ * format module owns the headings; this module only tells it the order of the segments,
+ * which is the folder's own (the scan's), so the file reads in play order however the
+ * phrases arrived. The ceiling counts the whole file, not each segment.
  */
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
-import { MAX_PHRASES, parseNotes, serializeNotes } from '../shared/notes-format.ts'
+import { MAX_PHRASES, parseNotes, serializeNotes, withSegmentDefault } from '../shared/notes-format.ts'
 import { NOTES_FILE, type NotePhrase, type NotesPayload } from '../shared/protocol.ts'
+import { scanSegments } from './library.ts'
 import {
   EMPTY_STATE,
   isFileEpisodeId,
@@ -69,6 +75,21 @@ function staysInside(root: string, target: string): boolean {
   }
 }
 
+/**
+ * The segment ids of one episode folder in play order; empty for an episode without segments.
+ *
+ * Read from the folder at the moment of the call rather than remembered, so adding a scene
+ * and saving once is enough for the file to follow.
+ */
+function segmentIdsOf(folder: string): string[] {
+  try {
+    const names = readdirSync(folder).filter((name) => !name.startsWith('.'))
+    return scanSegments(folder, names).map((segment) => segment.id)
+  } catch {
+    return []
+  }
+}
+
 /** Read the notes for one episode; a missing file is an empty list, not an error. */
 export function readNotes(root: string, episode: string, state: OpenState = EMPTY_STATE): NotesPayload {
   if (!isSafeEpisodeId(episode)) {
@@ -86,7 +107,9 @@ export function readNotes(root: string, episode: string, state: OpenState = EMPT
   }
   try {
     const { phrases } = parseNotes(readFileSync(path, 'utf8'))
-    return { ok: true, episode, reason: null, phrases }
+    // What was written before the episode had segments belongs to the first one.
+    const first = segmentIdsOf(dirname(path))[0]
+    return { ok: true, episode, reason: null, phrases: [...withSegmentDefault(phrases, first)] }
   } catch (error) {
     return { ok: false, episode, reason: `读不了笔记：${String(error)}`, phrases: [] }
   }
@@ -144,7 +167,8 @@ export function writeNotes(
     const preamble = existsSync(path)
       ? parseNotes(readFileSync(path, 'utf8')).preamble
       : defaultPreamble(episode)
-    writeFileSync(path, serializeNotes(preamble.length > 0 ? preamble : defaultPreamble(episode), phrases), 'utf8')
+    const order = segmentIdsOf(dirname(path))
+    writeFileSync(path, serializeNotes(preamble.length > 0 ? preamble : defaultPreamble(episode), phrases, order), 'utf8')
   } catch (error) {
     return { payload: { ok: false, episode, reason: `写不了笔记：${String(error)}`, phrases: [] }, state }
   }

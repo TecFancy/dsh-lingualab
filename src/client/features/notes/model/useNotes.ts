@@ -10,12 +10,16 @@
  *   · the list is tagged with the episode it belongs to, and a mutation that
  *     arrives after a switch is dropped rather than written under the new id.
  *
+ * The phrases of an episode cut into segments carry the segment they are from, and the
+ * same sentence in two segments is two phrases: matching goes through
+ * `sameKeptSentence`, which takes the segment into account.
+ *
  * There is no ceiling to ask about any more. Keeping a sentence is one gesture, and
  * the same gesture on the same sentence takes it back, so the star on a row is a
  * switch and not a button with a side effect.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MAX_PHRASES, phraseCapacity, sameKeptSentence } from '../../../shared/notes-format.ts'
+import { MAX_PHRASES, phraseCapacity, sameKeptSentence, type KeptSentence } from '../../../shared/notes-format.ts'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 import { fetchNotes, saveNotes } from '../../../shared/lib/api.ts'
 
@@ -40,8 +44,11 @@ export interface NotesState {
    * deliberate act with a confirmation, not a reflex keystroke.
    */
   readonly toggle: (phrase: NotePhrase) => 'added' | 'removed' | 'protected' | 'full'
-  /** Whether this sentence is already kept. Matches by whole second and text, as the file stores it. */
-  readonly has: (sentence: { readonly at: number; readonly text: string }) => boolean
+  /**
+   * Whether this sentence is already kept. Matches by whole second and text, as the file
+   * stores it, and by segment when the episode has them.
+   */
+  readonly has: (sentence: KeptSentence) => boolean
   readonly update: (index: number, patch: Partial<NotePhrase>) => void
   readonly remove: (index: number) => void
   /** Put a removed phrase back where it was, for the undo after a delete. */
@@ -145,8 +152,7 @@ export function useNotes(episodeId: string | null): NotesState {
   const capacity = phraseCapacity(visible)
 
   const has = useCallback(
-    (sentence: { readonly at: number; readonly text: string }): boolean =>
-      visible.some((phrase) => sameKeptSentence(phrase, sentence)),
+    (sentence: KeptSentence): boolean => visible.some((phrase) => sameKeptSentence(phrase, sentence)),
     [visible],
   )
 

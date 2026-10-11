@@ -21,30 +21,95 @@
  * Usage:
  *   node scripts/check-bilingual.mjs                    # compare against the records
  *   node scripts/check-bilingual.mjs --write            # re-record every pair
- *   node scripts/check-bilingual.mjs --root <dir>       # check another tree (used by --self-test)
+ *   node scripts/check-bilingual.mjs --root <dir>       # check a tree under the temp directory (used by --self-test)
  *   node scripts/check-bilingual.mjs --self-test        # prove this gate still bites
  */
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { bodyHash, currentHashes, fences, readRecord, sections } from './lib/pairing.mjs'
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.claude'])
 
-const argv = process.argv.slice(2)
-const flagValue = (name) => {
-  const at = argv.indexOf(name)
-  return at === -1 ? undefined : argv[at + 1]
+/**
+ * Parse the arguments. Every one is consumed and anything left over is an error, so a
+ * misspelled `--rooot <dir>` cannot be dropped and leave the run checking this checkout.
+ */
+function parseArgs(argv) {
+  const fail = (message) => {
+    console.error(`[check-bilingual] ${message}`)
+    process.exit(2)
+  }
+  const args = { selfTest: false, write: false, root: undefined }
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (arg === '--self-test') args.selfTest = true
+    else if (arg === '--write') args.write = true
+    else if (arg === '--root' || arg.startsWith('--root=')) {
+      if (args.root !== undefined) fail('--root given more than once')
+      const value = arg === '--root' ? argv[i + 1] : arg.slice('--root='.length)
+      // A transposed flag would otherwise be taken as the value.
+      if (!value || value.startsWith('--')) fail('--root needs a directory value')
+      args.root = value
+      if (arg === '--root') i += 1
+    } else fail(`unknown argument: ${arg}`)
+  }
+  return args
 }
-const root = resolve(flagValue('--root') ?? DEFAULT_ROOT)
-const write = argv.includes('--write')
+
+/**
+ * The tree to check. An override may only point inside the system temp directory: with
+ * `--write` this script rewrites every record it finds, so a root aimed at another
+ * checkout would rewrite that checkout's records, and without it a green verdict would be
+ * about a tree the caller did not mean. The guard is the one in `check-notes.mjs`, and
+ * `lib/guard-cases.mjs` holds the cases every copy answers to.
+ */
+function resolveRoot(override) {
+  if (override === undefined) return DEFAULT_ROOT
+  const fail = (message) => {
+    console.error(`[check-bilingual] ${message}`)
+    process.exit(2)
+  }
+  let tmp
+  try {
+    tmp = realpathSync(tmpdir())
+  } catch {
+    // An environment fault, not a verdict on the tree.
+    fail(`cannot resolve the temp directory: ${tmpdir()}`)
+  }
+  let real
+  try {
+    real = realpathSync(resolve(override))
+  } catch {
+    fail(`--root does not exist: ${resolve(override)}`)
+  }
+  // `relative` rather than a string prefix: it compares case-insensitively on Windows,
+  // `..` is tested with its separator so a child named `..x` is not an escape, and an
+  // absolute result is another drive.
+  const rel = relative(tmp, real)
+  if (rel !== '' && (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel))) {
+    fail(`refusing --root outside the temp directory: ${real}`)
+  }
+  console.error(`[check-bilingual] root override: ${real}`)
+  return real
+}
+
+const args = parseArgs(process.argv.slice(2))
+const root = resolveRoot(args.root)
+const write = args.write
+
+/**
+ * A path relative to the root, always with `/`. The record header is committed, so a
+ * Windows separator would turn every `--write` there into a diff on every record.
+ */
+const repoPath = (file) => relative(root, file).split(sep).join('/')
 
 /* ── self-test: fixtures in a temp tree, then this same script against it ────── */
 
-function selfTest() {
+async function selfTest() {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-pairing-'))
   const cases = []
   const fixture = (name, en, zh, rec) => {
@@ -88,6 +153,23 @@ function selfTest() {
     if (!ok) failed += 1
     console.log(`  ${ok ? '✅' : '❌'} self-test: ${label} → exit ${code}, expected ${expected}`)
   }
+
+  // A rewrite names a nested pair with `/`, whatever the platform's separator is.
+  const nested = fixture(join('write', 'docs'), cleanEn, cleanZh, '')
+  execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--root', join(dir, 'write'), '--write'], { stdio: 'pipe' })
+  const header = readFileSync(join(nested, 'X.i18n.yaml'), 'utf8').split('\n')[0]
+  const posix = header.includes('docs/X.md ↔ docs/X.zh.md')
+  if (!posix) failed += 1
+  console.log(`  ${posix ? '✅' : '❌'} self-test: --write records a nested pair with / → ${header}`)
+  const failures = []
+  const spawnRoot = (argv, env) =>
+    spawnSync(process.execPath, [fileURLToPath(import.meta.url), ...argv], { env: { ...process.env, ...env }, encoding: 'utf8' })
+  const { runGuardCases } = await import('./lib/guard-cases.mjs')
+  await runGuardCases({ spawnRoot, failures })
+  for (const failure of failures) console.log(`  ❌ self-test: ${failure}`)
+  failed += failures.length
+  if (failures.length === 0) console.log('  ✅ self-test: the shared --root guard cases')
+
   console.log(failed === 0 ? '  ✅ check-bilingual self-test' : `  ❌ check-bilingual self-test: ${failed} case(s) wrong`)
   process.exit(failed === 0 ? 0 : 1)
 }
@@ -106,7 +188,7 @@ function linkLocaleProblems(zhFile, zhText) {
     const absolute = resolve(root, dir, target)
     const counterpart = absolute.replace(/\.md$/, '.zh.md')
     if (existsSync(counterpart)) {
-      problems.push(`${relative(root, zhFile)}: links ${target}, but the pair lives at ${relative(root, counterpart)}`)
+      problems.push(`${repoPath(zhFile)}: links ${target}, but the pair lives at ${repoPath(counterpart)}`)
     }
   }
   return problems
@@ -138,8 +220,8 @@ function main() {
   let pairCount = 0
 
   for (const pair of pairs()) {
-    const enRel = relative(root, pair.en)
-    const zhRel = relative(root, pair.zh)
+    const enRel = repoPath(pair.en)
+    const zhRel = repoPath(pair.zh)
     const recordFile = pair.en.replace(/\.md$/, '.i18n.yaml')
     const enText = readFileSync(pair.en, 'utf8')
     const zhText = readFileSync(pair.zh, 'utf8')
@@ -184,7 +266,7 @@ function main() {
     }
 
     const record = readRecord(recordFile)
-    const recordRel = relative(root, recordFile)
+    const recordRel = repoPath(recordFile)
     if (record.size === 0) {
       problems.push(`${recordRel}: missing or empty; run npm run bilingual:check -- --write`)
       continue
@@ -217,5 +299,5 @@ function main() {
   console.log(`  ✅ bilingual pairs (${pairCount} pair(s), ${sectionCount} sections in step)`)
 }
 
-if (argv.includes('--self-test')) selfTest()
+if (args.selfTest) await selfTest()
 else main()

@@ -12,6 +12,8 @@ import {
   mergeProgress,
   sameProgress,
   sanitizeProgress,
+  segmentKey,
+  segmentProgress,
 } from './progress.ts'
 import type { ProgressTable } from './protocol.ts'
 
@@ -104,5 +106,44 @@ describe('sanitizeProgress', () => {
     const cleaned = sanitizeProgress(JSON.parse('{"progress":{"__proto__":{"at":1,"duration":2,"updatedAt":3}}}'), NOW)
     expect(({} as Record<string, unknown>).at).toBeUndefined()
     expect(Object.keys(cleaned.progress).length).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('segmentKey', () => {
+  it('joins the episode id and the segment id with two colons', () => {
+    expect(segmentKey('S01E01', '02_足球场')).toBe('S01E01::02_足球场')
+  })
+
+  it('survives sanitising even when both halves are whole file names', () => {
+    const episode = 'e'.repeat(255)
+    const segment = 's'.repeat(250)
+    const key = segmentKey(episode, segment)
+    const cleaned = sanitizeProgress({ progress: { [key]: { at: 5, duration: 10, updatedAt: 1 } } }, NOW)
+    expect(Object.keys(cleaned.progress)).toEqual([key])
+  })
+
+  it('keeps ten segments of one episode apart through a merge', () => {
+    const ids = Array.from({ length: 10 }, (_, index) => segmentKey('S01E01', `${String(index + 1).padStart(2, '0')}_x`))
+    const entries = Object.fromEntries(ids.map((id, index) => [id, { at: 10, duration: 60, updatedAt: index + 1 }]))
+    expect(Object.keys(mergeProgress(EMPTY_PROGRESS, table(entries)).progress)).toHaveLength(10)
+  })
+})
+
+describe('segmentProgress', () => {
+  const ids = ['01_a', '02_b']
+  const own = { at: 30, duration: 60, updatedAt: 5 }
+  const legacy = { at: 10, duration: 60, updatedAt: 1 }
+
+  it("reads a segment's own entry", () => {
+    expect(segmentProgress({ [segmentKey('E', '02_b')]: own }, 'E', '02_b', ids)).toEqual(own)
+  })
+
+  it('reads a bare episode entry as the first segment until it has its own', () => {
+    expect(segmentProgress({ E: legacy }, 'E', '01_a', ids)).toEqual(legacy)
+    expect(segmentProgress({ E: legacy, [segmentKey('E', '01_a')]: own }, 'E', '01_a', ids)).toEqual(own)
+  })
+
+  it('does not hand the bare entry to any other segment', () => {
+    expect(segmentProgress({ E: legacy }, 'E', '02_b', ids)).toBeUndefined()
   })
 })

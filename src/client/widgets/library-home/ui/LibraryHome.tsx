@@ -17,7 +17,8 @@
  * It is a setting touched twice a month, and a page that leads with it reads as a
  * settings page.
  */
-import { fractionOf, type Progress } from '../../../features/resume/index.ts'
+import { findSegment, segmentLabel } from '../../../features/library/index.ts'
+import { episodeProgress, type EpisodeProgress, type Progress } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
 import { AudioIcon, FolderIcon, PlayIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
@@ -31,7 +32,7 @@ export interface LibraryHomeProps {
   readonly library: LibraryPayload | null
   readonly loading: boolean
   readonly importer: ImportState
-  /** Bookmarks, keyed by episode id. */
+  /** Bookmarks, keyed by episode id, and by `segmentKey` for each segment of an episode that has them. */
   readonly progress: Readonly<Record<string, Progress>>
   /** The episode open now, which the "continue" card offers first. */
   readonly currentId: string | null
@@ -71,6 +72,27 @@ function subtitleWord(t: Translate, entry: EpisodeEntry): string {
   return t('subtitleBadgeNone')
 }
 
+/**
+ * What a card calls an episode: its title, and for one cut into segments how many of them
+ * are finished, `S01E01 · 3 / 10 段`.
+ */
+function cardTitle(t: Translate, entry: EpisodeEntry, summary: EpisodeProgress): string {
+  if (summary.total === 0) return entry.title
+  return t('episodeSegments', { title: entry.title, n: summary.finished, total: summary.total })
+}
+
+/** Where listening stopped, in words: the time, and the segment when the episode has them. */
+function stoppedWord(t: Translate, entry: EpisodeEntry, summary: EpisodeProgress): string | null {
+  if (summary.entry === null) return null
+  // The last segment heard was finished, so 「继续练习」 goes on to another one: name that one,
+  // since "stopped at the end of 04" would describe a place the button does not open.
+  const next = summary.next === summary.segment ? null : findSegment(entry.segments, summary.next)
+  if (next !== null) return t('upNextSegment', { segment: segmentLabel(next) })
+  const time = formatClock(summary.entry.at)
+  const segment = findSegment(entry.segments, summary.segment)
+  return segment === null ? t('stoppedAt', { time }) : t('stoppedAtSegment', { segment: segmentLabel(segment), time })
+}
+
 /** The badge tone for an episode: a full pair is good news, a bare file a warning, the rest neutral. */
 function subtitleTone(entry: EpisodeEntry): 'ok' | 'warn' | 'plain' {
   if (entry.audio === null) return 'plain'
@@ -97,12 +119,12 @@ export function LibraryHome({
 }: LibraryHomeProps) {
   const episodes = allEpisodes(library, current)
   const playable = episodes.filter((entry) => entry.audio !== null)
+  // When an episode was last listened to: its own bookmark, or its newest segment's.
+  const lastHeard = (entry: EpisodeEntry): number => episodeProgress(progress, entry).entry?.updatedAt ?? 0
   const resume =
     playable.find((entry) => entry.id === currentId) ??
     // Nothing remembered as "current" still has a most-recent bookmark worth offering.
-    [...playable].sort((a, b) => (progress[b.id]?.updatedAt ?? 0) - (progress[a.id]?.updatedAt ?? 0)).find(
-      (entry) => progress[entry.id] !== undefined,
-    ) ??
+    [...playable].sort((a, b) => lastHeard(b) - lastHeard(a)).find((entry) => lastHeard(entry) > 0) ??
     null
   const rest = playable.filter((entry) => entry.id !== resume?.id)
   const empty = !loading && playable.length === 0
@@ -139,7 +161,7 @@ export function LibraryHome({
             ) : null}
 
             {resume !== null ? (
-              <ResumeCard t={t} entry={resume} progress={progress[resume.id] ?? null} opening={opening} onOpen={onOpen} />
+              <ResumeCard t={t} entry={resume} summary={episodeProgress(progress, resume)} opening={opening} onOpen={onOpen} />
             ) : null}
 
             {rest.length > 0 ? (
@@ -160,7 +182,7 @@ export function LibraryHome({
                       key={entry.id}
                       t={t}
                       entry={entry}
-                      progress={progress[entry.id] ?? null}
+                      summary={episodeProgress(progress, entry)}
                       onOpen={onOpen}
                       disabled={opening}
                     />
@@ -198,25 +220,33 @@ export function LibraryHome({
   )
 }
 
-/** The big "continue where you stopped" card. */
+/**
+ * The big "continue where you stopped" card.
+ *
+ * For an episode cut into segments the button continues the segment listened to most
+ * recently; the page chooses it when it opens the episode, so this card only says where
+ * that is.
+ */
 function ResumeCard({
   t,
   entry,
-  progress,
+  summary,
   opening,
   onOpen,
 }: {
   readonly t: Translate
   readonly entry: EpisodeEntry
-  readonly progress: Progress | null
+  readonly summary: EpisodeProgress
   readonly opening: boolean
   readonly onOpen: (id: string) => void
 }) {
-  const fraction = fractionOf(progress)
+  const { fraction } = summary
+  const progress = summary.entry
+  const stopped = stoppedWord(t, entry, summary)
   return (
     <section className="dsh-lingualab-resume">
       <div className="dsh-lingualab-resume-label">{progress === null ? t('homeStart') : t('homeContinue')}</div>
-      <h1 className="dsh-lingualab-resume-title">{entry.title}</h1>
+      <h1 className="dsh-lingualab-resume-title">{cardTitle(t, entry, summary)}</h1>
       <div className="dsh-lingualab-resume-meta">
         <span>{subtitleWord(t, entry)}</span>
         <span>{formatBytes(entry.audioBytes)}</span>
@@ -225,7 +255,7 @@ function ResumeCard({
             {t('notesKept')} {entry.notes.count}
           </span>
         ) : null}
-        {progress !== null ? <span>{t('stoppedAt', { time: formatClock(progress.at) })}</span> : null}
+        {stopped !== null ? <span>{stopped}</span> : null}
       </div>
       {progress !== null && fraction > 0 ? (
         <div className="dsh-lingualab-bar" aria-hidden>
@@ -251,30 +281,32 @@ function ResumeCard({
 function EpisodeRow({
   t,
   entry,
-  progress,
+  summary,
   disabled,
   onOpen,
 }: {
   readonly t: Translate
   readonly entry: EpisodeEntry
-  readonly progress: Progress | null
+  readonly summary: EpisodeProgress
   readonly disabled: boolean
   readonly onOpen: (id: string) => void
 }) {
-  const fraction = fractionOf(progress)
+  const { fraction } = summary
+  const stopped = stoppedWord(t, entry, summary)
+  const title = cardTitle(t, entry, summary)
   return (
     <button type="button" className="dsh-lingualab-episode-card" onClick={() => onOpen(entry.id)} disabled={disabled}>
       <span className="dsh-lingualab-episode-head">
         <span className="dsh-lingualab-episode-icon">{entry.kind === 'folder' ? <FolderIcon /> : <AudioIcon />}</span>
         <span className={`dsh-lingualab-badge is-${subtitleTone(entry)}`}>{subtitleWord(t, entry)}</span>
       </span>
-      <span className="dsh-lingualab-episode-title" title={entry.title}>
-        {entry.title}
+      <span className="dsh-lingualab-episode-title" title={title}>
+        {title}
       </span>
       <span className="dsh-lingualab-pick-sub">
         {formatBytes(entry.audioBytes)}
         {entry.notes.count > 0 ? ` · ${t('notesKept')} ${String(entry.notes.count)}` : ''}
-        {progress !== null ? ` · ${t('stoppedAt', { time: formatClock(progress.at) })}` : ''}
+        {stopped !== null ? ` · ${stopped}` : ''}
       </span>
       <span className="dsh-lingualab-bar" aria-hidden>
         <span className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
