@@ -42,6 +42,17 @@
  * out and unescaped on the way in. Splitting on a bare `|` would silently shift
  * every field of that one line — the English text would become the Chinese gloss,
  * and the next save would write the corruption back.
+ *
+ * The note field may run over several lines in the panel, but the file holds one phrase per
+ * line, so a line break inside the note is written as `<br>` and read back as a line break
+ * (`<br/>` and `<br />` are read too, in any case, because a person or the agent editing the
+ * file by hand may write either). A raw newline in the file would end the phrase early and drop
+ * the rest of the note, and the next save would write that loss back. A carriage return is
+ * dropped. A note written before this existed has no `<br>` in it and reads as it always did.
+ *
+ * ```markdown
+ * - [ ] 00:12 | He tripped him, Jay. | 他绊倒他了 杰 | trip over 连读<br>语气：责备 | #review
+ * ```
  */
 import type { NotePhrase, NotesSummary } from './protocol.ts'
 
@@ -96,6 +107,16 @@ function joinField(field: string): string {
   return field.replace(/\|/g, '\\|')
 }
 
+/** The note as one line of the file: each line break becomes `<br>`, and a carriage return is dropped. */
+function encodeNote(note: string): string {
+  return note.replace(/\r/g, '').replace(/\n/g, '<br>')
+}
+
+/** The note as the panel holds it: `<br>`, `<br/>` and `<br />` (any case) become line breaks. */
+function decodeNote(field: string): string {
+  return field.replace(/<br ?\/?>/gi, '\n')
+}
+
 /** Split the tags field (`#review #hard`) into bare tag names. */
 function parseTags(field: string): string[] {
   return field
@@ -124,7 +145,7 @@ function parsePhraseLine(line: string): NotePhrase | null {
     at: stamp,
     text,
     zh: (fields[2] ?? '').trim(),
-    note: (fields[3] ?? '').trim(),
+    note: decodeNote(fields[3] ?? '').trim(),
     tags: parseTags(fields[4] ?? ''),
     done,
   }
@@ -202,7 +223,7 @@ export function withSegmentDefault(
 /** One phrase line, as it is written. */
 function phraseLine(phrase: NotePhrase): string {
   const tags = phrase.tags.map((tag) => `#${tag.replace(/^#+/, '')}`).join(' ')
-  const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, phrase.note].map(joinField)
+  const fields = [formatTimestamp(phrase.at), phrase.text, phrase.zh, encodeNote(phrase.note)].map(joinField)
   // The note field is trimmed of trailing pipes: an empty trailing field
   // would make the line end in `|` and read like a truncated table row. Not when tags
   // follow it: the tags are read by position, so an empty note must stay as an empty field

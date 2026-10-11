@@ -19,6 +19,45 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- The time chip on the open kept-sentence card plays and pauses the sentence on stage: it shows a pause icon and fills
+  while the sentence plays, and a play icon while it is paused. The chip on any other card still brings its sentence to
+  the stage and plays it.
+- A kept sentence's note can run over several lines. The note is a text box that grows with what is typed (three to
+  eight lines) with a 「Note」 label and a footer: `Ctrl+Enter` (or `Cmd+Enter`) saves, `Enter` adds a line, `Esc`
+  cancels, and clicking elsewhere still saves instead of losing the draft. Where there is no note the card offers a
+  dashed 「Write a note」 button, and a collapsed card that has one shows a small note icon. In `notes.md` a line break
+  in a note is written as `<br>` (`<br/>` and `<br />` are read too), so a phrase still takes one line; notes written
+  before read as they always did.
+- The timing panel has a mini timeline of the sentence before, the range being edited, the sentence after and the
+  playhead, with a neighbour drawn where an edge pushed it. A header says whether the loop is playing, each edge is a
+  card with its value, how far it moved, a joined −50 / +50 stepper and 「Set to the playhead」, and the footer lists the
+  keys and has 「Reset」, 「Cancel」 and 「Save」. It opens and closes with a motion (a grid row growing from nothing, the
+  card fading and lifting in), and is inert while it leaves.
+- The five-steps drawer shows one bar of five segments that fill as each step's clock runs, and the steps as a
+  vertical stepper. The one step being worked on is open, with its clock against the suggested time, a one-line tip,
+  start, resume or pause, and 「Mark done」; the two steps done in the conversation say so with a tag. The drawer
+  slides out and its scrim fades out, instead of vanishing.
+
+### Changed
+
+- The page follows dsh's monochrome look: the fallbacks for the theme tokens are dsh's light theme values, a kept
+  sentence's grade is a neutral gray pill with a small colored dot (green, amber, red) instead of a colored chip, the
+  three grade buttons are neutral outlined buttons with the same dots in three equal columns, and the one that is on
+  fills with the brand color. The time range on the stage reads as pressed with a ring while the timing panel is open.
+- A note is edited by clicking its text (the pencil button is gone), and its word chips are neutral.
+- The steps in the drawer are buttons rather than hidden checkboxes, and a running clock stops when its step is ticked.
+
+### Fixed
+
+- The warning color was read from `state-warning-primary`, a token the host does not declare, so it was always the
+  fallback; it is `state-warn-primary`.
+- The header of the five-steps drawer had no styles at all (its class matched no rule), so the title and the close
+  button sat unstyled.
+- Closing the timing panel or the steps drawer while one of their buttons had the focus left the page without its
+  keyboard shortcuts; the focus goes back to the page.
+
 ## [0.6.0] - 2026-10-11
 
 ### Added

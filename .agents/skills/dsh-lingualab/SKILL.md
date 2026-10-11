@@ -39,6 +39,8 @@ node scripts/verify.mjs --list   # 看检查表
    新增路由要同时改 `src/index.ts` 的注册、这份 naming 记录与 README 的路由表。
 2. **笔记格式只有一处解析**：`src/shared/notes-format.ts`。面板与 host 都走它，别在任一侧
    写第二份正则。文件剧集（`file.` 开头的 id）的笔记不走文件，存在插件 profile 的 `openState` 里。
+   一条短语占文件的一行，所以备注字段里的换行写成 `<br>`、读回来再变成换行（`<br/>`、`<br />`、大小写都认，
+   `\r` 丢掉），与 `|` 的转义在同一处；别让原始换行进文件，它会把这条短语截断。
 3. **浏览只认 place id，不认路径**：页面传 `ws_<哈希>` 或 `lib`，由 host 自己解析成绝对路径
    （`src/host/places.ts`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
    每一步都 `realpath` 之后再确认仍在根内。**不要**为了让某条路由方便而接受浏览器传来的路径。

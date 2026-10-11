@@ -16,6 +16,7 @@ import {
   initialRange,
   isLrc,
   moveEdge,
+  originalRange,
   pushedNeighbours,
   retimeLimits,
   timingEdits,
@@ -31,7 +32,7 @@ import { saveSubtitleTiming } from '../../../shared/lib/api.ts'
 
 /** One nudge, and one with Shift held. */
 export const STEP_MS = 50
-const BIG_STEP_MS = 250
+export const BIG_STEP_MS = 250
 
 /** How much of a sentence's end is replayed after the end moves. */
 const END_PREVIEW_MS = 1500
@@ -72,6 +73,14 @@ export interface TimingSession {
   readonly lrc: boolean
   /** The neighbours the range pushes as it stands, saved with it. */
   readonly pushed: readonly PushedNeighbour[]
+  /**
+   * The sentence before this one and the sentence after it, as the file will hold them if the range
+   * is saved as it stands: an edge that pushed a neighbour shows the neighbour where it lands. For
+   * LRC the previous line ends where this one starts, since a line has no end of its own. `null`
+   * where there is no such sentence.
+   */
+  readonly previous: RetimeRange | null
+  readonly next: RetimeRange | null
 }
 
 export interface TimingEditor {
@@ -86,10 +95,31 @@ export interface TimingEditor {
   readonly setFocus: (edge: RetimeEdge) => void
   readonly nudge: (edge: RetimeEdge, deltaMs: number) => void
   readonly toPlayhead: (edge: RetimeEdge) => void
+  /** Put both edges back where the strip opened with them. */
+  readonly reset: () => void
   readonly save: () => void
   readonly reloadStale: () => void
   /** The page's key handler asks here first while the strip is open; true means the key was used. */
   readonly handleKey: (event: ReactKeyboardEvent) => boolean
+}
+
+/** A neighbour's range for the timeline: where a push puts it, otherwise where the file has it. */
+function neighbour(
+  cues: readonly Cue[],
+  index: number,
+  side: PushedNeighbour['side'],
+  pushed: readonly PushedNeighbour[],
+  range: RetimeRange,
+  lrc: boolean,
+): RetimeRange | null {
+  const cue = cues[index]
+  if (cue === undefined) return null
+  const moved = pushed.find((entry) => entry.side === side)
+  if (moved !== undefined) return moved.after
+  const own = originalRange(cue)
+  // An LRC line runs to the next one's start, so the one before follows the start being moved.
+  if (lrc && side === 'previous') return { start: own.start, end: Math.max(own.start, range.start) }
+  return own
 }
 
 /** Drive the strip. */
@@ -125,6 +155,7 @@ export function useTimingEditor({
     if (state === null || state.cues !== cues || pinned === null || pinned.index !== state.index) return null
     const cue = cues[state.index]
     if (cue === undefined) return null
+    const pushed = pushedNeighbours(cues, state.index, state.range, lrc)
     return {
       index: state.index,
       cue,
@@ -133,7 +164,9 @@ export function useTimingEditor({
       focus: state.focus,
       limits: retimeLimits(cues, state.index, lrc, duration > 0 ? Math.round(duration * 1000) : null),
       lrc,
-      pushed: pushedNeighbours(cues, state.index, state.range, lrc),
+      pushed,
+      previous: neighbour(cues, state.index - 1, 'previous', pushed, state.range, lrc),
+      next: neighbour(cues, state.index + 1, 'next', pushed, state.range, lrc),
     }
   }, [state, cues, pinned, lrc, duration])
 
@@ -195,6 +228,11 @@ export function useTimingEditor({
     (edge: RetimeEdge): void => setEdge(edge, useMediaPlayer.getState().currentTime * 1000),
     [setEdge],
   )
+
+  const reset = useCallback((): void => {
+    if (session === null) return
+    apply(session.index, session.base, session.focus, session.focus)
+  }, [session, apply])
 
   const setFocus = useCallback(
     (edge: RetimeEdge): void => {
@@ -299,6 +337,7 @@ export function useTimingEditor({
     setFocus,
     nudge,
     toPlayhead,
+    reset,
     save,
     reloadStale,
     handleKey,

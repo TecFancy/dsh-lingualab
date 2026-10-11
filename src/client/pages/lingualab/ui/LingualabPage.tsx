@@ -67,6 +67,7 @@ import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '.
 import { segmentProgress } from '../../../shared/progress.ts'
 import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
+import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
 import { Segmented } from '../../../shared/ui/Segmented.tsx'
 import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
@@ -77,7 +78,7 @@ import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/ind
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { ReviewFinish, ReviewStrip } from '../../../widgets/review-strip/index.ts'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
-import { StepTracker } from '../../../widgets/step-tracker/index.ts'
+import { STEPS_EXIT_MS, StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
@@ -149,6 +150,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const reviewing = useRef(false)
   const reviewList = useReviewList(view === 'home')
   const [stepsOpen, setStepsOpen] = useState(false)
+  // The scrim behind the steps drawer fades out as the drawer slides out, so it outlives `stepsOpen` briefly.
+  const scrim = usePresence(stepsOpen, STEPS_EXIT_MS)
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
   const [follow, setFollow] = useState(true)
@@ -1203,7 +1206,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             )}
           </div>
 
-          {stepsOpen ? <div className="dsh-lingualab-scrim" onClick={() => setStepsOpen(false)} /> : null}
+          {scrim.mounted ? (
+            <div
+              className={`dsh-lingualab-scrim${stepsOpen ? '' : ' is-leaving'}`}
+              onClick={() => setStepsOpen(false)}
+            />
+          ) : null}
         </>
       )}
       {layer === 'browse' ? (

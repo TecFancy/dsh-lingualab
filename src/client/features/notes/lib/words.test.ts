@@ -29,6 +29,15 @@ describe('splitting a note for display', () => {
     })
   })
 
+  it('keeps the line breaks of a note that runs over several lines', () => {
+    expect(splitNote('prove it  连读\n语气：安慰 [prove] [to them]')).toEqual({
+      words: ['prove', 'to them'],
+      text: 'prove it 连读\n语气：安慰',
+    })
+    expect(splitNote('one\n\n\n\ntwo \n three')).toEqual({ words: [], text: 'one\n\ntwo\nthree' })
+    expect(splitNote('[a]\ntext')).toEqual({ words: ['a'], text: 'text' })
+  })
+
   it('returns plain notes untouched and empty notes empty', () => {
     expect(splitNote('just a note')).toEqual({ words: [], text: 'just a note' })
     expect(splitNote('')).toEqual({ words: [], text: '' })
@@ -45,6 +54,13 @@ describe('taking a word back out of a note', () => {
   it('leaves a note without the word, and plain text that matches it, alone', () => {
     expect(removeWordFromNote('gonna is slang', 'gonna')).toBe('gonna is slang')
     expect(removeWordFromNote('[gonna]', '  ')).toBe('[gonna]')
+  })
+
+  it('keeps the lines of a note that has several', () => {
+    expect(removeWordFromNote('first line\n[gonna] second line', 'gonna')).toBe('first line\nsecond line')
+    expect(removeWordFromNote('first line [gonna]\nsecond line', 'gonna')).toBe('first line\nsecond line')
+    expect(removeWordFromNote('first\nsecond [gonna]', 'gonna')).toBe('first\nsecond')
+    expect(removeWordFromNote('first\n[gonna]', 'gonna')).toBe('first')
   })
 
   it('keeps a phrase as one marker', () => {

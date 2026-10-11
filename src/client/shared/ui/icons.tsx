@@ -243,3 +243,19 @@ export function BookIcon(props: IconProps) {
     </Svg>
   )
 }
+export function PlusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 3.2v9.6M3.2 8h9.6" />
+    </Svg>
+  )
+}
+
+/** Three lines of text, the second one longer than the third: a note. */
+export function LinesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.2 4.4h9.6M3.2 8h9.6M3.2 11.6h6" />
+    </Svg>
+  )
+}
