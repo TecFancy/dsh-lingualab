@@ -24,12 +24,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** Artifacts the build owns, by name under `lib/`. */
 const TRACKED = ['index.js', 'client.js']
 
-const tsdown = join(root, 'node_modules', '.bin', 'tsdown')
+// The package's own bin entry, run with this Node: `.bin/tsdown` is a shell shim
+// on POSIX and `tsdown.cmd` on Windows, and neither spawns without a shell there.
+const tsdown = join(root, 'node_modules', 'tsdown', 'dist', 'run.mjs')
 const out = mkdtempSync(join(tmpdir(), 'dsh-lingualab-build-'))
 
 try {
   try {
-    execFileSync(tsdown, ['--out-dir', out], { cwd: root, stdio: 'pipe' })
+    execFileSync(process.execPath, [tsdown, '--out-dir', out], { cwd: root, stdio: 'pipe' })
   } catch (error) {
     const detail = String(error.stderr ?? error.stdout ?? error.message).trim().split('\n').slice(-3).join(' ')
     console.error(`❌ build:check — the build failed, so lib/ cannot be trusted: ${detail}`)

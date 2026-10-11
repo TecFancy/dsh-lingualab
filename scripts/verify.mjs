@@ -74,13 +74,21 @@ for (const step of selected) {
   process.stdout.write(`▸ ${step.name} … `)
   const stepStart = Date.now()
   try {
-    execFileSync(step.cmd[0], step.cmd.slice(1), { cwd: root, stdio: 'pipe', encoding: 'utf8' })
+    // On Windows `npm` is `npm.cmd`, which only resolves through a shell; every
+    // argument here is a literal from STEPS, so nothing untrusted reaches it.
+    execFileSync(step.cmd[0], step.cmd.slice(1), {
+      cwd: root,
+      stdio: 'pipe',
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    })
     const seconds = ((Date.now() - stepStart) / 1000).toFixed(1)
     console.log(`✅ ${seconds}s`)
     passed.push(step.name)
   } catch (error) {
     console.log('❌')
-    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim()
+    // A spawn failure (ENOENT) has no stdout or stderr; its message is the only clue.
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim() || error.message
     console.error(output.split('\n').map((line) => `   ${line}`).join('\n'))
     failed.push(step.name)
     break
