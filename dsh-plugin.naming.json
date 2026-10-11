@@ -67,6 +67,10 @@
       {
         "kind": "exact",
         "path": "/lingualab/subtitle-timing"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/review"
       }
     ]
   }

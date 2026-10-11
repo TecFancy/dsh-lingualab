@@ -40,6 +40,8 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['↑ ↓  Enter', 'keyBrowse'],
   ['L', 'keyLoop'],
   ['S', 'keyKeep'],
+  ['1  2  3', 'keyGrade'],
+  ['N', 'keyColumn'],
   ['C', 'keyChinese'],
   ['R', 'keyReveal'],
   ['[  ]', 'keySpeed'],

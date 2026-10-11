@@ -41,6 +41,7 @@ import { readNotes, writeNotes } from './host/notes.ts'
 import { openEpisode, resolveFileMedia } from './host/open.ts'
 import { findPlace, listPlaces, placesPayload, resolveInPlace } from './host/places.ts'
 import { readProgressFile, writeProgressFile, type ProgressRead } from './host/progress.ts'
+import { readReview } from './host/review.ts'
 import { parseState, serializeState, type OpenState } from './host/state.ts'
 import { writeTiming } from './host/timing.ts'
 import {
@@ -55,6 +56,7 @@ import {
   OPEN_PATH,
   PLACES_PATH,
   PROGRESS_PATH,
+  REVIEW_PATH,
   SUBTITLE_TIMING_PATH,
   type LibraryConfigWriteRequest,
   type NotesWriteRequest,
@@ -517,6 +519,18 @@ function notesRoute(
   }
 }
 
+/** `GET /lingualab/review`: every kept sentence not graded 「记住了」, across the library. Read only. */
+function reviewRoute(ctx: HostContext, configured: () => string, readState: () => OpenState): WebRoute {
+  return {
+    kind: 'exact',
+    path: REVIEW_PATH,
+    handler: (req, res) => {
+      if (!methodAllowed(req, res, ['GET'])) return
+      sendJson(res, 200, readReview(resolveRoot(ctx, configured()).root, readState()))
+    },
+  }
+}
+
 /**
  * `GET` and `POST /lingualab/progress` — positions and step ticks, shared across devices.
  *
@@ -633,6 +647,7 @@ export function apply(ctx: HostContext, config: Config): void {
     mediaRoute(ctx, configured),
     fileMediaRoute(readState),
     notesRoute(ctx, configured, readState, writeState),
+    reviewRoute(ctx, configured, readState),
     progressRoute(ctx, configured),
     timingRoute(ctx, configured, readState),
   ].map((route) => guarded(ctx, route))

@@ -86,6 +86,12 @@ export const SUBTITLE_TIMING_PATH = '/lingualab/subtitle-timing'
 /** The shortest a cue may be made, in milliseconds: shorter, a sentence loop is a click. */
 export const MIN_CUE_MS = 200
 
+/**
+ * Every kept sentence not yet graded 「记住了」, across the library, for a review that spans
+ * episodes. Read only: a grade is written by the episode that is open, through {@link NOTES_PATH}.
+ */
+export const REVIEW_PATH = '/lingualab/review'
+
 /** The hidden file at the library root that holds the progress, next to the episodes' `notes.md`. */
 export const PROGRESS_FILE = '.lingualab-progress.json'
 
@@ -275,6 +281,27 @@ export interface LibraryConfigPayload {
 /** `POST /lingualab/config` request body. */
 export interface LibraryConfigWriteRequest {
   readonly libraryRoot: string
+}
+
+/** One episode with sentences still to review, as `GET /lingualab/review` lists it. */
+export interface ReviewEpisode {
+  readonly episode: string
+  readonly title: string
+  readonly kind: 'folder' | 'file'
+  /** Its segment ids in play order; empty for an episode without segments. */
+  readonly segments: readonly string[]
+  /** The phrases not graded 「记住了」, in play order (segment, then time). */
+  readonly phrases: readonly NotePhrase[]
+}
+
+/** `GET /lingualab/review`. */
+export interface ReviewPayload {
+  readonly ok: boolean
+  readonly reason: string | null
+  /** Episodes with at least one such sentence, in library order: folders, then loose files. */
+  readonly episodes: readonly ReviewEpisode[]
+  /** Sentences across all of them. */
+  readonly total: number
 }
 
 /** `POST /lingualab/notes` request body. */

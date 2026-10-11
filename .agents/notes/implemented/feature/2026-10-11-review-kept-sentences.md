@@ -1,6 +1,6 @@
 # Agent Note: review kept sentences
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -92,6 +92,8 @@ export interface ReviewEpisode {
   readonly episode: string
   readonly title: string
   readonly kind: 'folder' | 'file'
+  /** Its segment ids in play order; empty for an episode without segments. */
+  readonly segments: readonly string[]
   /** Not-done phrases, in play order. */
   readonly phrases: readonly NotePhrase[]
 }
@@ -130,11 +132,28 @@ five steps out of their drawer; and editing a note from the review strip.
 - The word popover changes from one word to a span, so the stage's tokens need a selection state;
   a single click still behaves as it does today.
 - `1`, `2` and `3` become shortcuts and join the key list in 「更多」.
-- A new route means `dsh-plugin.naming.json`, the README route table and `check-host.mjs` all
-  change, and the host half needs a restart.
+- `N` used to be a second key for keeping a sentence, next to `S`; it now switches the column,
+  and `S` alone keeps.
+- A new route means `dsh-plugin.naming.json` and the README route table change, and the host half
+  needs a restart. `check-host.mjs` needed no change: it reads the routes through the path
+  constants in `src/shared/protocol.ts`. `ReviewEpisode` carries the episode's segment ids as well,
+  so the client orders a queue the same way the host did.
+- A review does not write listening positions: it jumps between kept sentences, and writing those
+  places down would move 「继续」 to wherever the review last was. The position is written once,
+  when the review starts.
+- `←` during a review goes back to the previous item, which can then be graded again; the
+  proposal only named `→`.
+- An episode opened from outside the library is not in the cross-episode review, because the
+  host lists what the scan finds; its sentences are still reviewed from its own 「收藏」 column.
+- Going home writes any grade still waiting for its debounce before the home reads the review
+  count again, so the count never shows a sentence just graded.
+- An existing `notes.md` keeps the preamble it has: the preamble is preserved verbatim, so only a
+  fresh file opens with the one that explains grades.
+- The cards are listed in play order (segment, then time) rather than in the order they were
+  kept, the same order a review takes them in.
 - The Figma frame `Notes / Light` no longer describes the page; it needs a 「收藏」 column frame and
   a review strip.
 - The seven-phrase ceiling note
-  ([2026-10-08-seven-phrase-ceiling](../../implemented/feature/2026-10-08-seven-phrase-ceiling.md))
+  ([2026-10-08-seven-phrase-ceiling](2026-10-08-seven-phrase-ceiling.md))
   argued for a short working set by choice. Grades are that choice, made per sentence while
   listening rather than by ticking boxes afterwards.

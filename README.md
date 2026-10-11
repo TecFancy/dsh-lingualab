@@ -79,15 +79,21 @@ playback unless you switch 「Auto-follow」 off, and marks the kept ones. A few
 place by being used every session. The progress bar spans the episode with a hairline at every
 sentence start, shows the time and the sentence under the pointer on hover, and seeks once, on
 release, when dragged. Clicking an English word copies it or adds it to that sentence's note
-without stopping the audio. **Shadowing** stops after each sentence with the English blurred, so
+without stopping the audio; dragging across words, or `Shift`-clicking a second one, does the same
+for the phrase between them, and a second click on 「已记下」 takes it out again. **Shadowing** stops after each sentence with the English blurred, so
 you say it first and press `R` to check. Reaching the end shows a summary with the next episode,
 and the key caps under the player light up for the key the page just handled. Motion is off under
 the system's reduced-motion setting.
 
 **Keeping a sentence is a star** on the transport row and on each subtitle line, or `S`. The same
-star takes it back. The kept sentences sit in a drawer with three views, 「Practising」, 「Learned」
-and all: tick a sentence once it sticks and it leaves the first view without being deleted, so
-the working set stays short by choice rather than by a ceiling. A folder episode's notes are
+star takes it back. The kept sentences are the right column's other view, 「收藏」, next to the
+subtitles (`N` switches): clicking a card puts its sentence on stage and loops it, and the card of
+the sentence on stage opens with its note, its words and its grade. Each kept sentence has one
+state, set with `1` 「记住了」, `2` 「模糊」 or `3` 「没记住」; one graded 「记住了」 leaves the
+「还在练」 view without being deleted, so the working set stays short by choice rather than by a
+ceiling. **Review** goes through the sentences still being practised one at a time, the English
+hidden until `R`, each looping until it is graded; it starts from the column for one episode, or
+from a card on the home for the whole library. A folder episode's notes are
 markdown with a checklist line per phrase, so they stay readable in an editor and greppable by
 the agent that runs the next-day review; a file episode's notes live in the plugin's profile,
 because the plugin does not write anywhere in the material folder except to add the files you
@@ -96,9 +102,9 @@ hand it.
 ## Status
 
 Both halves are written: the library scan, the import route, the media routes with `Range`
-support, the browsable picker and the notes read/write path on the host side, and the page itself
-— the home, the practice view, the notes drawer and the layers for browsing and for the media
-folder — on the client side.
+support, the browsable picker, the notes read/write path and the review list on the host side, and
+on the client side the page itself: the home, the practice view, the kept-sentences column and review,
+and the layers for browsing and for the media folder.
 
 The page has **no rail row of its own**. It is registered as a `main` panel under the key
 `lingualab`, and the entry is a card on the 「应用」 page, which `dsh-apps-panel` draws from its
@@ -152,6 +158,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio and subtitle bytes of a folder episode, `206` for a range request |
 | `GET`, `HEAD /lingualab/file-media/<id>/<file>` | prefix | The same for a file episode, from the paths recorded when it was picked |
 | `GET`, `POST /lingualab/notes` | exact | One episode's phrases, read or replaced wholesale |
+| `GET /lingualab/review` | exact | Every kept sentence not graded 「记住了」 across the library, episode by episode in library order and in play order inside each; read only |
 | `GET`, `POST /lingualab/config` | exact | Where the library is, and how to change it — by path, or by place and relative folder |
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |

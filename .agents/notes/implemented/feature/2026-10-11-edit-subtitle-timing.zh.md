@@ -102,7 +102,7 @@ export interface TimingWriteRequest {
 - 新路由意味着 `dsh-plugin.naming.json` 和 README 的路由表都要改（`check-host.mjs` 拿记录和 `protocol.ts` 比对，
   不用另改），host 半边也要重启。
 - 这一项排在复习收藏
-  （[2026-10-11-review-kept-sentences](../../proposed/feature/2026-10-11-review-kept-sentences.zh.md)）之前，因为逐句循环的复习依赖句子的边界准确。
+  （[2026-10-11-review-kept-sentences](2026-10-11-review-kept-sentences.zh.md)）之前，因为逐句循环的复习依赖句子的边界准确。
 - 页面用自己实现的 SHA-256 算哈希，不用 `crypto.subtle`：它只在安全上下文里存在，从另一台机器用普通 HTTP
   打开 dsh web 时，编辑器就永远存不了。
 - 每一端都按文件里相邻句子的时间限住；播放条换到别的句子（或循环某一句）时编辑结束，横栏不会去改一句没在播的边界。

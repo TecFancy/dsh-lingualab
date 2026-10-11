@@ -41,9 +41,27 @@ the plugin that was installed and used, not an artifact on a registry.
   page read it is refused with `409`; a Chinese track in its own file moves with the English; LRC moves its start
   only; and only files inside the library can be saved. A kept sentence whose start crosses a whole second keeps its
   star.
+- Review. 「复习」 in the 「收藏」 column goes through the episode's sentences not yet graded 「记住了」, in play order:
+  each goes on stage with its English hidden and loops, `R` reveals it, `1` `2` `3` grade it and move on, `→` skips,
+  `←` goes back and `Esc` ends the review. A strip above the stage reads 「复习 3 / 12」, and the end card counts the
+  grades and offers another pass over the ones graded 「没记住」. A card on the home, 「复习收藏 · 还在练 42 句，来自 5 集」,
+  starts the same review over the whole library, opening each sentence's episode and segment in turn, from the new
+  read-only `GET /lingualab/review`. A review does not move the place 「继续」 resumes from.
+- A phrase can be kept as one: drag across words on the stage, or `Shift`-click a second word, and the popover offers
+  the span between them, stored as `[her skirt]`. 「已记下」 is now a toggle that takes the word or phrase out again,
+  and every word on a card has a remove button.
 
 ### Changed
 
+- The notes drawer is gone. The kept sentences are the right column's other view, 「收藏」, next to the subtitles: the
+  column head switches between them (so does the top bar's 「笔记」 chip, and `N`, which no longer keeps a sentence;
+  `S` does). The stage and the transport stay usable, clicking a card puts its sentence on stage and loops it, the
+  card of the sentence on stage is the open one, and the cards are in play order.
+- A kept sentence has one state instead of a tick and two tag toggles: 「新收藏」, 「模糊」, 「没记住」 or 「记住了」, set
+  with the three buttons on its card or with `1` 「记住了」, `2` 「模糊」 and `3` 「没记住」 on the sentence on stage. The
+  line format is unchanged (`[x]`, `#review`, `#hard`), so an older file reads as one state per line, with `#hard`
+  winning over `#review`; a grade clears the tick and both tags before setting its own and keeps any other tag. A
+  fresh `notes.md` opens with a preamble that explains the grades.
 - Listening positions are kept per segment for an episode that has them, and up to 1000 are remembered (it was 100).
   A position stored before the episode had segments is read as the first segment's, and so are the notes written
   before it, until the next save files them under its heading. The five steps stay per episode.

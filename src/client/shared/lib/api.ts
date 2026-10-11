@@ -16,6 +16,7 @@ import {
   OPEN_PATH,
   PLACES_PATH,
   PROGRESS_PATH,
+  REVIEW_PATH,
   SUBTITLE_TIMING_PATH,
   type BrowsePayload,
   type ImportPayload,
@@ -27,6 +28,7 @@ import {
   type PlacesPayload,
   type ProgressPayload,
   type ProgressTable,
+  type ReviewPayload,
   type TimingEdit,
   type TimingWritePayload,
 } from '../protocol.ts'
@@ -235,6 +237,17 @@ export async function saveNotes(episode: string, phrases: readonly NotePhrase[])
     return (await response.json()) as NotesPayload
   } catch (error) {
     return { ok: false, episode, reason: String(error), phrases: [] }
+  }
+}
+
+/** Everything left to review across the library; a host that does not answer is an empty list with the reason. */
+export async function fetchReview(): Promise<ReviewPayload> {
+  try {
+    const response = await fetch(REVIEW_PATH, { headers: { accept: 'application/json' } })
+    const payload = (await response.json()) as ReviewPayload
+    return Array.isArray(payload.episodes) ? payload : { ok: false, reason: '主机没有回答', episodes: [], total: 0 }
+  } catch (error) {
+    return { ok: false, reason: String(error), episodes: [], total: 0 }
   }
 }
 

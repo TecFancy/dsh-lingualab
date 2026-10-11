@@ -10,7 +10,13 @@
  * pins the sentence being worked on above the transport, the subtitle list as the only
  * scroller, and a short line of reminders. What changed is everything around it — the
  * episode picker became the home, keeping a sentence became a star on the transport, and
- * the notes layer became a drawer of what you kept.
+ * what you kept became the right column's other view, 「收藏」, next to the subtitles.
+ *
+ * A review is a mode of this page rather than a page of its own: it puts each kept sentence on
+ * the stage in turn, hidden until revealed and looping, and the grade the reader gives is written
+ * to the episode's notes like any other edit. A review over the whole library opens each
+ * sentence's episode (and segment) through the same path the home uses, so the page is where the
+ * queue, the player, the open episode and its notes meet.
  *
  * An episode cut into segments (one scene per audio file) plays one segment at a time. The
  * page is where the pieces meet: it knows the reader's positions (so it decides which segment
@@ -30,7 +36,7 @@ import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
 import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
-import { addWordToNote, noteHasWord, useNotes } from '../../../features/notes/index.ts'
+import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
 import {
   continueSegment,
   finishedSegments,
@@ -41,17 +47,35 @@ import {
   writeProgress,
   type Progress,
 } from '../../../features/resume/index.ts'
-import { keptSentenceKey, sameKeptSentence } from '../../../shared/notes-format.ts'
+import {
+  currentItem,
+  episodeQueue,
+  isFinished,
+  libraryQueue,
+  recordOutcome,
+  retryNotYet,
+  startReview,
+  stepBack,
+  tallyReview,
+  useReviewList,
+  type ReviewItem,
+  type ReviewOutcome,
+  type ReviewSession,
+} from '../../../features/review/index.ts'
+import { gradeForKey } from '../../../shared/lib/grades.ts'
+import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
 import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { Segmented } from '../../../shared/ui/Segmented.tsx'
 import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
 import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/index.ts'
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
+import { ReviewFinish, ReviewStrip } from '../../../widgets/review-strip/index.ts'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
@@ -62,7 +86,10 @@ import type { PanelProps, Translate } from '../../../context.ts'
 type View = 'home' | 'practice'
 
 /** Which layer is over the page. Only one at a time; the steps popover is not a layer. */
-type Layer = 'none' | 'browse' | 'notes' | 'folder' | 'segments'
+type Layer = 'none' | 'browse' | 'folder' | 'segments'
+
+/** What the right column shows: the subtitles, or the sentences kept from them. */
+type Column = 'transcript' | 'kept'
 
 /** The set of finished segments of an episode that has none. One value, so the memo below stays stable. */
 const NO_FINISHED: ReadonlySet<string> = new Set()
@@ -112,6 +139,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [view, setView] = useState<View>('home')
   const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
   const [layer, setLayer] = useState<Layer>('none')
+  const [column, setColumn] = useState<Column>('transcript')
+  const [review, setReview] = useState<ReviewSession | null>(null)
+  /**
+   * Whether a review is running, for the bookmark: a review jumps between kept sentences, and
+   * writing those places down would move 「继续」 to wherever the review last was. A ref, set in the
+   * handlers that start and end a review, because the bookmark's own cleanup runs after them.
+   */
+  const reviewing = useRef(false)
+  const reviewList = useReviewList(view === 'home')
   const [stepsOpen, setStepsOpen] = useState(false)
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
@@ -124,7 +160,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const controlBar = useRef<ControlBarHandle>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
-  const isPlaying = useMediaPlayer((state) => state.isPlaying)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
   const revealed = useMediaPlayer((state) => state.revealed)
   const finished = useMediaPlayer((state) => state.finished)
@@ -225,7 +260,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     if (positionKey === null) return
     // Not while a resume is still waiting to be applied: the player sits at the start
     // until it is, and writing that would overwrite the very bookmark it is about to use.
-    if (resumeAt.current !== null) return
+    if (resumeAt.current !== null || reviewing.current) return
     const state = useMediaPlayer.getState()
     writeProgress(positionKey, state.currentTime, state.duration)
   }, [positionKey])
@@ -249,7 +284,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     if (finishCount === seenFinishCount.current) return
     seenFinishCount.current = finishCount
     const state = useMediaPlayer.getState()
-    if (positionKey !== null && view === 'practice' && state.duration > 0) {
+    if (positionKey !== null && view === 'practice' && state.duration > 0 && !reviewing.current) {
       writeProgress(positionKey, state.duration, state.duration)
     }
   }, [finishCount, positionKey, view])
@@ -261,12 +296,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   /** Go home: save the position first, then refresh what the home shows about it. */
   const goHome = useCallback(() => {
     bookmark()
+    reviewing.current = false
+    setReview(null)
+    // A grade given a moment ago may still be waiting for its write; the home's review count is
+    // read again once it has landed, so it does not show the sentence just graded.
+    void notes.flush().then(reviewList.reload)
     useMediaPlayer.getState().setPlaying(false)
     setProgress(readAllProgress())
     setLayer('none')
     setStepsOpen(false)
     setView('home')
-  }, [bookmark])
+  }, [bookmark, notes, reviewList.reload])
 
   /** The segments of this episode that are finished, which the segment list marks. */
   const finishedIds = useMemo(
@@ -295,9 +335,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   /**
    * Keep or un-keep one sentence; the same star on the row and on the transport.
    *
-   * A sentence the reader has already worked on (a note, a tag, a tick) is not removed by
-   * a star, because a star is a reflex and the work behind it is not. The drawer opens
-   * on it instead, where removing it takes a confirmation.
+   * A sentence the reader has already worked on (a note, a grade) is not removed by a star,
+   * because a star is a reflex and the work behind it is not. The 「收藏」 column shows it
+   * instead, where removing it is a button with an undo.
    */
   const keep = useCallback(
     (index?: number): void => {
@@ -314,7 +354,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         done: false,
         segment: segmentId ?? undefined,
       })
-      if (outcome === 'protected') setLayer('notes')
+      if (outcome === 'protected') setColumn('kept')
     },
     [cues, activeIndex, notes, segmentId],
   )
@@ -342,14 +382,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     return index < 0 ? null : { index, phrase: notes.phrases[index] }
   }, [cues, activeIndex, notes.phrases, segmentId])
 
-  /** Put a clicked word into the note of the sentence on stage, keeping the sentence if it was not. */
-  const addWord = useCallback(
+  /**
+   * Put a picked word or phrase into the note of the sentence on stage, keeping the sentence if it
+   * was not; take it out again when the note already holds it.
+   */
+  const toggleWord = useCallback(
     (word: string): void => {
       const cue = cues[activeIndex]
       if (cue === undefined) return
       const existing = stagePhrase?.phrase
       if (stagePhrase !== null && existing !== undefined) {
-        notes.update(stagePhrase.index, { note: addWordToNote(existing.note, word) })
+        const note = noteHasWord(existing.note, word) ? removeWordFromNote(existing.note, word) : addWordToNote(existing.note, word)
+        notes.update(stagePhrase.index, { note })
         return
       }
       const { english, chinese } = splitCue(cue)
@@ -364,6 +408,16 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       })
     },
     [cues, activeIndex, notes, stagePhrase, segmentId],
+  )
+
+  /** Grade the kept sentence on stage; a sentence that is not kept has no grade to give. */
+  const gradeStage = useCallback(
+    (grade: GivenGrade): void => {
+      const phrase = stagePhrase?.phrase
+      if (stagePhrase === null || phrase === undefined) return
+      notes.update(stagePhrase.index, withGrade(phrase, grade))
+    },
+    [notes, stagePhrase],
   )
 
   /** The episodes that can be played, in library order; "next" is the one after the open one. */
@@ -522,6 +576,123 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   }, [cues, activeIndex, timing])
 
   /**
+   * Put one review item on stage: replay it in the open episode, or open its episode (at its
+   * segment) first and replay it there, the way a kept sentence from another segment is replayed.
+   * @returns false when its episode could not be opened, which the review counts as gone.
+   */
+  const goToItem = useCallback(
+    async (item: ReviewItem): Promise<boolean> => {
+      if (item.episode === episodeId) {
+        // A review started from the home can begin in the episode that is already loaded.
+        setSelection(null)
+        setView('practice')
+        replayPhrase(item.phrase)
+        return true
+      }
+      const entry = entryFor(item.episode)
+      const wanted = item.phrase.segment
+      const segmentOf = wanted !== undefined && entry !== null && findSegment(entry.segments, wanted) !== null ? wanted : undefined
+      if (!(await library.openEpisode(item.episode, segmentOf))) return false
+      resumeAt.current = item.phrase.at
+      resumeLoop.current = true
+      resumeText.current = item.phrase.text
+      setSelection(null)
+      setView('practice')
+      return true
+    },
+    [episodeId, replayPhrase, entryFor, library],
+  )
+
+  /**
+   * Move a review to the session given, and put its current item on stage.
+   *
+   * An item whose episode cannot be opened is recorded as gone and the next one is tried, so a
+   * renamed folder costs a line in the summary rather than a stuck review.
+   */
+  const runReview = useCallback(
+    (session: ReviewSession): void => {
+      void (async () => {
+        let next = session
+        for (;;) {
+          setReview(next)
+          const item = currentItem(next)
+          if (item === null) {
+            useMediaPlayer.getState().setPlaying(false)
+            return
+          }
+          if (await goToItem(item)) return
+          next = recordOutcome(next, 'gone')
+        }
+      })()
+    },
+    [goToItem],
+  )
+
+  /** Start a review over these items; nothing happens for an empty queue. */
+  const beginReview = useCallback(
+    (items: readonly ReviewItem[], scope: ReviewSession['scope']): void => {
+      const session = startReview(items, scope)
+      if (session === null) return
+      // The place the reader was listening is written down before the review starts moving it.
+      bookmark()
+      reviewing.current = true
+      setLayer('none')
+      setStepsOpen(false)
+      timing.close()
+      runReview(session)
+    },
+    [bookmark, runReview, timing],
+  )
+
+  /** Review this episode's sentences still being practised. */
+  const reviewEpisode = useCallback((): void => {
+    if (episode === null) return
+    beginReview(
+      episodeQueue(
+        episode.id,
+        episode.title,
+        notes.phrases,
+        segments.map((item) => item.id),
+      ),
+      'episode',
+    )
+  }, [episode, notes.phrases, segments, beginReview])
+
+  /** Review every episode's, from the home. */
+  const reviewLibrary = useCallback((): void => {
+    if (reviewList.payload === null) return
+    beginReview(libraryQueue(reviewList.payload), 'library')
+  }, [reviewList.payload, beginReview])
+
+  /** End the review where it is: the sentence on stage stays there. */
+  const endReview = useCallback((): void => {
+    reviewing.current = false
+    setReview(null)
+  }, [])
+
+  const reviewItem = review === null ? null : currentItem(review)
+  /** The stored index of the review item in the open episode's notes, once they are read; -1 before. */
+  const reviewIndex =
+    reviewItem === null || notes.episode !== reviewItem.episode
+      ? -1
+      : notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, reviewItem.phrase))
+
+  /** Record what happened to the item on stage and go on to the next one. */
+  const answerReview = useCallback(
+    (outcome: ReviewOutcome): void => {
+      if (review === null || isFinished(review)) return
+      if (outcome !== 'skipped' && outcome !== 'gone') {
+        const phrase = notes.phrases[reviewIndex]
+        // A grade needs somewhere to go: the item's episode open and its notes read.
+        if (phrase === undefined) return
+        notes.update(reviewIndex, withGrade(phrase, outcome))
+      }
+      runReview(recordOutcome(review, outcome))
+    },
+    [review, notes, reviewIndex, runReview],
+  )
+
+  /**
    * Take dropped files into the library.
    *
    * Opening is left to the report's button: the reader dropped files to add them to a
@@ -547,7 +718,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   )
 
   // The end-of-episode card: shown once per time the audio ends, until it is answered.
-  const finishOpen = view === 'practice' && finished && finishCount > dismissedFinish && cues.length > 0
+  const finishOpen = view === 'practice' && finished && finishCount > dismissedFinish && cues.length > 0 && review === null
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -574,6 +745,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         } else if (timing.session !== null) {
           handled()
           timing.close()
+        } else if (review !== null) {
+          handled()
+          endReview()
         } else if (finishOpen) {
           handled()
           setDismissedFinish(finishCount)
@@ -595,10 +769,28 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       }
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
-      if (layer !== 'none' && layer !== 'notes') return
+      if (layer !== 'none') return
       // So does the finish card: it is a dialog over the stage with its next action focused,
-      // and Enter there means that button, not "play the selected sentence" behind it.
-      if (finishOpen) return
+      // and Enter there means that button, not "play the selected sentence" behind it. The card
+      // at the end of a review is the same kind of dialog.
+      if (finishOpen || (review !== null && isFinished(review))) return
+
+      // A grade goes to the review item while a review runs, and to the kept sentence on stage
+      // otherwise. The arrows move through the queue instead of through the sentences.
+      const grade = gradeForKey(event.key)
+      if (grade !== null) {
+        handled()
+        if (review !== null) answerReview(grade)
+        else gradeStage(grade)
+        return
+      }
+      if (review !== null && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+        handled()
+        flash('arrows')
+        if (event.key === 'ArrowRight') answerReview('skipped')
+        else runReview(stepBack(review))
+        return
+      }
 
       const current = selection ?? store().activeIndex
       switch (event.key) {
@@ -646,11 +838,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           return
         case 's':
         case 'S':
-        case 'n':
-        case 'N':
           handled()
           flash('s')
           keep(selection ?? undefined)
+          return
+        case 'n':
+        case 'N':
+          handled()
+          setColumn(column === 'kept' ? 'transcript' : 'kept')
           return
         case 'c':
         case 'C':
@@ -691,7 +886,26 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         default:
       }
     },
-    [cues, finishCount, finishOpen, flash, keep, layer, openTiming, selection, stepsOpen, timing, view, zhMode],
+    [
+      answerReview,
+      column,
+      cues,
+      endReview,
+      finishCount,
+      finishOpen,
+      flash,
+      gradeStage,
+      keep,
+      layer,
+      openTiming,
+      review,
+      runReview,
+      selection,
+      stepsOpen,
+      timing,
+      view,
+      zhMode,
+    ],
   )
 
   const hasAudio = library.media !== null
@@ -705,10 +919,23 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     stageCue !== undefined &&
     stageLines !== null &&
     notes.has({ at: stageCue.start, text: stageLines.english, segment: segmentId ?? undefined })
-  // Shadowing hides the English of the sentence being repeated until it has been heard.
-  const masked = shadow && stageCue !== undefined && revealed !== activeIndex
+  // Shadowing hides the English of the sentence being repeated until it has been heard, and a
+  // review hides it until the reader asks for it: saying it from what was heard comes first.
+  const reviewOn = review !== null && !isFinished(review)
+  const masked = (shadow || reviewOn) && stageCue !== undefined && revealed !== activeIndex
   const practising = segmentPhrases.filter((phrase) => !phrase.done).length
-  const drawerOpen = layer === 'notes' || stepsOpen
+  const reviewSegment = reviewItem?.phrase.segment === undefined ? null : findSegment(segments, reviewItem.phrase.segment)
+  const switcher = (
+    <Segmented
+      label={t('columnLabel')}
+      value={column}
+      onChange={setColumn}
+      options={[
+        { id: 'transcript', label: t('transcript'), count: cues.length },
+        { id: 'kept', label: t('columnKept'), count: notes.phrases.length },
+      ]}
+    />
+  )
   return (
     <div
       className="dsh-lingualab-page"
@@ -762,6 +989,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             onFiles={importFiles}
             onBrowse={() => setLayer('browse')}
             onFolder={() => setLayer('folder')}
+            review={reviewList.payload}
+            onReview={reviewLibrary}
           />
         </>
       ) : (
@@ -807,13 +1036,13 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             <span className="dsh-lingualab-spacer" />
             <button
               type="button"
-              className={`dsh-lingualab-chip${layer === 'notes' ? ' is-on' : ''}`}
-              onClick={() => {
-                setStepsOpen(false)
-                setLayer(layer === 'notes' ? 'none' : 'notes')
-              }}
+              className={`dsh-lingualab-chip${column === 'kept' ? ' is-on' : ''}`}
+              onClick={() => setColumn(column === 'kept' ? 'transcript' : 'kept')}
+              title={t('keyColumn')}
+              aria-pressed={column === 'kept'}
             >
-              <NoteIcon size={13} /> {t('notesChip')} {notes.phrases.length > 0 ? notes.phrases.length : ''}
+              <NoteIcon size={13} /> {t('notesChip')} {notes.phrases.length > 0 ? notes.phrases.length : ''}{' '}
+              <kbd>N</kbd>
             </button>
             {episode !== null ? (
               <StepTracker
@@ -831,6 +1060,19 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
           <div className="dsh-lingualab-body">
             <div className="dsh-lingualab-practice">
+              {review !== null && reviewOn && reviewItem !== null ? (
+                <ReviewStrip
+                  t={t}
+                  position={review.at + 1}
+                  total={review.items.length}
+                  source={reviewSegment === null ? reviewItem.title : `${reviewItem.title} · ${segmentLabel(reviewSegment)}`}
+                  ready={reviewIndex >= 0}
+                  onGrade={answerReview}
+                  onSkip={() => answerReview('skipped')}
+                  onBack={() => runReview(stepBack(review))}
+                  onExit={endReview}
+                />
+              ) : null}
               <Stage
                 t={t}
                 cues={cues}
@@ -838,7 +1080,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 zhMode={zhMode}
                 masked={masked}
                 onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                onAddWord={addWord}
+                onToggleWord={toggleWord}
                 hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
                 loading={library.cuesLoading}
                 hasAudio={hasAudio}
@@ -876,6 +1118,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   </button>
                 </div>
               ) : null}
+              {review !== null && !reviewOn ? (
+                <ReviewFinish
+                  t={t}
+                  tally={tallyReview(review)}
+                  onAgain={() => {
+                    const again = retryNotYet(review)
+                    if (again === null) endReview()
+                    else runReview(again)
+                  }}
+                  onExit={endReview}
+                />
+              ) : null}
               {finishOpen ? (
                 <FinishCard
                   t={t}
@@ -904,8 +1158,25 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               ) : null}
             </div>
 
+            {column === 'kept' ? (
+              <NotesPanel
+                t={t}
+                notes={notes}
+                segments={segments}
+                switcher={switcher}
+                currentIndex={stagePhrase?.index ?? null}
+                onReplay={(phrase) => {
+                  // Another sentence ends the edit, as a click on a subtitle line does.
+                  timing.close()
+                  replayPhrase(phrase)
+                }}
+                onReview={reviewEpisode}
+                reviewing={review !== null}
+              />
+            ) : (
             <SubtitlePanel
               t={t}
+              switcher={switcher}
               cues={cues}
               loading={library.cuesLoading}
               activeIndex={activeIndex}
@@ -926,29 +1197,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               }}
               onKeep={(index) => keep(index)}
             />
+            )}
           </div>
 
-          {drawerOpen ? (
-            <div
-              className="dsh-lingualab-scrim"
-              onClick={() => {
-                setLayer('none')
-                setStepsOpen(false)
-              }}
-            />
-          ) : null}
-          {layer === 'notes' ? (
-            <NotesPanel
-              t={t}
-              notes={notes}
-              episodeTitle={episode?.title ?? ''}
-              segments={segments}
-              onReplay={replayPhrase}
-              playingIndex={isPlaying && stagePhrase !== null ? stagePhrase.index : null}
-              onPause={() => useMediaPlayer.getState().setPlaying(false)}
-              onClose={() => setLayer('none')}
-            />
-          ) : null}
+          {stepsOpen ? <div className="dsh-lingualab-scrim" onClick={() => setStepsOpen(false)} /> : null}
         </>
       )}
       {layer === 'browse' ? (

@@ -132,7 +132,7 @@ per sentence); a waveform; splitting or merging sentences; editing the text; and
   compares the record with `protocol.ts` and needs nothing new),
   and the host half needs a restart.
 - This lands before the review of kept sentences
-  ([2026-10-11-review-kept-sentences](../../proposed/feature/2026-10-11-review-kept-sentences.md)), since a review that
+  ([2026-10-11-review-kept-sentences](2026-10-11-review-kept-sentences.md)), since a review that
   loops each sentence depends on its edges being right.
 - The page computes the hash with a SHA-256 of its own rather than `crypto.subtle`, which only
   exists in a secure context; dsh web opened over plain HTTP from another machine would otherwise

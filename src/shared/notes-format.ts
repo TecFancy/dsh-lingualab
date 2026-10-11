@@ -52,7 +52,7 @@ import type { NotePhrase, NotesSummary } from './protocol.ts'
  * and asked which one to replace when it was full. In use that choice came at the
  * worst moment: mid-sentence, with the audio still running, to save a phrase you had
  * already decided to keep. The cap is gone; what the method wanted from it is now
- * done by the `done` tick and the tags, which let a phrase leave the working set
+ * done by grading (see {@link Grade}), which lets a phrase leave the working set
  * without being deleted.
  *
  * This number only exists so a runaway client cannot write an unbounded file. An
@@ -318,4 +318,67 @@ export function keptSentenceKey(sentence: KeptSentence): string {
  */
 export function isActivePhrase(phrase: NotePhrase): boolean {
   return !phrase.done
+}
+
+/**
+ * The one state a kept sentence is in, set by grading it.
+ *
+ * The file has no field for it and does not need one: the tick and the method's two tags
+ * already say it, read in a fixed order. A ticked line is 「记住了」 whatever else it carries; an
+ * unticked one with `#hard` is 「没记住」, also when it has `#review` too; `#review` alone is
+ * 「模糊」; neither is 「新收藏」. So a file written by hand, or before grading existed, reads as
+ * one state per line without being rewritten.
+ */
+export type Grade = 'new' | 'fuzzy' | 'notyet' | 'got'
+
+/** The grades a reader can give, in the order the keys `1` to `3` give them. */
+export const GIVEN_GRADES = ['got', 'fuzzy', 'notyet'] as const
+
+/** A grade the reader gives; 「新收藏」 is only ever where a sentence starts. */
+export type GivenGrade = (typeof GIVEN_GRADES)[number]
+
+/** Read a phrase's grade off its tick and tags. */
+export function gradeOf(phrase: Pick<NotePhrase, 'done' | 'tags'>): Grade {
+  if (phrase.done) return 'got'
+  if (phrase.tags.includes('hard')) return 'notyet'
+  if (phrase.tags.includes('review')) return 'fuzzy'
+  return 'new'
+}
+
+/**
+ * The phrase with a grade given: the tick and both of the method's tags are cleared, then the
+ * grade's own mark is set. Any other tag the reader wrote by hand stays where it was.
+ */
+export function withGrade(phrase: NotePhrase, grade: GivenGrade): NotePhrase {
+  const others = phrase.tags.filter((tag) => !(KNOWN_TAGS as readonly string[]).includes(tag))
+  if (grade === 'got') return { ...phrase, done: true, tags: others }
+  return { ...phrase, done: false, tags: [...others, grade === 'fuzzy' ? 'review' : 'hard'] }
+}
+
+/**
+ * The phrases in the order the episode plays them: segment by segment, then by time.
+ *
+ * A phrase with no segment belongs to the first one, as everywhere else. A segment the order does
+ * not know (an audio file renamed since) goes after the known ones, in the order its phrases first
+ * appear. The sort is stable, so two phrases at the same second keep the order they came in.
+ * @param phrases - an episode's phrases, in any order.
+ * @param segmentOrder - its segment ids in order; empty for an episode without segments.
+ */
+export function inPlayOrder<T extends Pick<NotePhrase, 'at' | 'segment'>>(
+  phrases: readonly T[],
+  segmentOrder: readonly string[],
+): T[] {
+  const rank = new Map<string | undefined, number>(segmentOrder.map((id, at) => [id, at]))
+  const rankOf = (segment: string | undefined): number => {
+    const id = segment ?? segmentOrder[0]
+    const known = rank.get(id)
+    if (known !== undefined) return known
+    // Neither known nor seen yet: after everything seen so far.
+    rank.set(id, segmentOrder.length + rank.size)
+    return rank.get(id) ?? 0
+  }
+  return phrases
+    .map((phrase, index) => ({ phrase, index, rank: rankOf(phrase.segment) }))
+    .sort((left, right) => left.rank - right.rank || left.phrase.at - right.phrase.at || left.index - right.index)
+    .map((item) => item.phrase)
 }

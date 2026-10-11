@@ -177,6 +177,7 @@ describe('the access check, in front of every route', () => {
     ['GET', '/lingualab/progress'],
     ['POST', '/lingualab/progress'],
     ['POST', '/lingualab/subtitle-timing'],
+    ['GET', '/lingualab/review'],
   ]
 
   for (const verdict of [401, 403] as const) {
@@ -364,5 +365,19 @@ describe('moving one sentence in its subtitle file', () => {
     expect(readFileSync(join(harness.root, 'E1', 'a.srt'), 'utf8')).toBe(SRT.replace('00:00:01,000', '00:00:00,800'))
     const again = await retime(hash, 700)
     expect(again).toEqual({ status: 409, payload: expect.objectContaining({ ok: false, code: 'stale' }) })
+  })
+})
+
+describe('the review list', () => {
+  it('answers what is left to review, and refuses a write', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    writeFileSync(join(harness.root, 'E1', 'notes.md'), '# E1\n\n- [ ] 00:04 | Hi. | | | #hard\n- [x] 00:09 | Bye. | |\n')
+    const response = await fetch(`${harness.base}/lingualab/review`)
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as { total: number; episodes: { episode: string; phrases: { text: string }[] }[] }
+    expect(payload.total).toBe(1)
+    expect(payload.episodes[0]?.phrases.map((item) => item.text)).toEqual(['Hi.'])
+    expect((await fetch(`${harness.base}/lingualab/review`, { method: 'POST', body: '{}' })).status).toBe(405)
   })
 })

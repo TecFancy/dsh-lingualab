@@ -9,8 +9,12 @@
  * The two actions a row owns sit on the active or selected row only: loop it, or keep
  * it with the star. A kept row shows its star all the time, filled, so the list reads
  * as a map of what you have already taken from the episode.
+ *
+ * The column is shared with the kept sentences; the switch between the two is the page's and
+ * sits in this heading in place of a title.
  */
 import { useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { visibleCueLines, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
@@ -20,6 +24,8 @@ import type { Translate } from '../../../context.ts'
 
 export interface SubtitlePanelProps {
   readonly t: Translate
+  /** The column's 「字幕 / 收藏」 switch, which the page owns. */
+  readonly switcher: ReactNode
   readonly cues: readonly Cue[]
   /** The subtitles are still being fetched, so an empty list is not yet "no subtitles". */
   readonly loading: boolean
@@ -64,6 +70,7 @@ function bringIntoView(list: HTMLElement, row: HTMLElement, smooth: boolean): vo
 /** The scrolling list of cues. */
 export function SubtitlePanel({
   t,
+  switcher,
   cues,
   loading,
   activeIndex,
@@ -96,8 +103,7 @@ export function SubtitlePanel({
   return (
     <aside className="dsh-lingualab-transcript">
       <div className="dsh-lingualab-transcript-head">
-        <span className="dsh-lingualab-transcript-title">{t('transcript')}</span>
-        <span className="dsh-lingualab-counter">{t('transcriptCount', { count: cues.length })}</span>
+        {switcher}
         <span className="dsh-lingualab-spacer" />
         <label className="dsh-lingualab-switch" title={t('followHint')}>
           <input
