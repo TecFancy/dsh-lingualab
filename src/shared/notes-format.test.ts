@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_PHRASES,
   formatTimestamp,
+  gradeOf,
+  inPlayOrder,
   parseNotes,
   parseTimestamp,
   phraseCapacity,
@@ -9,6 +11,7 @@ import {
   sameKeptSentence,
   serializeNotes,
   summarizeNotes,
+  withGrade,
   withSegmentDefault,
 } from './notes-format.ts'
 import type { NotePhrase } from './protocol.ts'
@@ -264,5 +267,59 @@ describe('segments', () => {
     expect(keptSentenceKey(one)).not.toBe(keptSentenceKey(two))
     // No segment is its own value: an episode without segments keeps matching as before.
     expect(sameKeptSentence({ at: 2, text: 'Kids?' }, { at: 2.9, text: 'Kids?' })).toBe(true)
+  })
+})
+
+describe('grades', () => {
+  it('reads one state per line, the tick first and #hard over #review', () => {
+    expect(gradeOf(phrase({ done: false, tags: [] }))).toBe('new')
+    expect(gradeOf(phrase({ done: false, tags: ['review'] }))).toBe('fuzzy')
+    expect(gradeOf(phrase({ done: false, tags: ['hard'] }))).toBe('notyet')
+    expect(gradeOf(phrase({ done: false, tags: ['review', 'hard'] }))).toBe('notyet')
+    expect(gradeOf(phrase({ done: true, tags: ['hard'] }))).toBe('got')
+  })
+
+  it('replaces the previous state and keeps tags written by hand', () => {
+    const marked = phrase({ done: false, tags: ['review', 'scene', 'hard'] })
+    expect(withGrade(marked, 'got')).toMatchObject({ done: true, tags: ['scene'] })
+    expect(withGrade(marked, 'fuzzy')).toMatchObject({ done: false, tags: ['scene', 'review'] })
+    expect(withGrade(phrase({ done: true, tags: [] }), 'notyet')).toMatchObject({ done: false, tags: ['hard'] })
+  })
+
+  it('writes a grade the way the file has always carried it', () => {
+    const body = serializeNotes('', [withGrade(phrase({ tags: [] }), 'notyet'), withGrade(phrase({ at: 300 }), 'got')])
+    const lines = body.trim().split(String.fromCharCode(10))
+    expect(lines[0]).toMatch(/^- \[ \] .* \| #hard$/)
+    expect(lines[1]).toMatch(/^- \[x\] /)
+    expect(parseNotes(body).phrases.map(gradeOf)).toEqual(['notyet', 'got'])
+  })
+})
+
+describe('inPlayOrder', () => {
+  const at = (seconds: number, segment?: string): Pick<NotePhrase, 'at' | 'segment'> =>
+    segment === undefined ? { at: seconds } : { at: seconds, segment }
+
+  it('orders by time in an episode without segments', () => {
+    expect(inPlayOrder([at(30), at(4), at(12)], []).map((item) => item.at)).toEqual([4, 12, 30])
+  })
+
+  it('orders by segment, then time, with no segment meaning the first', () => {
+    const sorted = inPlayOrder([at(1, '02_b'), at(9, '01_a'), at(3), at(2, '01_a')], ['01_a', '02_b'])
+    expect(sorted.map((item) => [item.segment, item.at])).toEqual([
+      ['01_a', 2],
+      [undefined, 3],
+      ['01_a', 9],
+      ['02_b', 1],
+    ])
+  })
+
+  it('puts a segment the episode no longer has after the known ones, in first-seen order', () => {
+    const sorted = inPlayOrder([at(1, 'zz'), at(5, 'yy'), at(2, '02_b'), at(0, 'zz')], ['01_a', '02_b'])
+    expect(sorted.map((item) => [item.segment, item.at])).toEqual([
+      ['02_b', 2],
+      ['zz', 0],
+      ['zz', 1],
+      ['yy', 5],
+    ])
   })
 })

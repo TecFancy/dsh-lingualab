@@ -1,29 +1,32 @@
 /**
- * The notes drawer: the sentences you kept, and what you did with them.
+ * The right column's 「收藏」 view: the sentences you kept, each with one grade.
  *
- * Keeping a sentence is one tap on the star, so this panel is where the thinking
- * happens afterwards, not where it is blocked. Each row can be replayed (one click
- * seeks there, plays and loops it, and a second click pauses it), given a note of your own, tagged with the method's two
- * words, and ticked off once it sticks. Ticked phrases drop out of the default
- * 「还在练」 view rather than being deleted, which is what the old seven-phrase ceiling
- * was trying to achieve by force: a short working set. A filter does the same thing
- * without asking for a decision in the middle of a sentence.
+ * It takes the subtitle list's place rather than sliding over the page, so the stage and the
+ * transport stay in reach while you go through what you kept: clicking a card puts its sentence
+ * on stage and loops it, as clicking a subtitle line plays one, and `Space` pauses it as anywhere
+ * else. Only the card of the sentence on stage is open. Its note, its words and its grade show
+ * there, which keeps the rest of the column a list of sentences rather than a wall of controls.
  *
- * An episode cut into segments keeps all its kept sentences in one list, and the drawer groups
- * the cards under a heading per segment, in the order the episode plays. Replaying a card
- * from another segment is the page's to do (it has to open that segment first, then seek),
- * so the card only says which phrase to replay.
+ * A sentence has one state, set by grading it (see `Grade`): 「新收藏」 until it is graded, then
+ * 「记住了」, 「模糊」 or 「没记住」. The three filters read off that state, so a sentence graded
+ * 「记住了」 leaves 「还在练」 without being deleted, which is what the old seven-phrase ceiling was
+ * after: a short working set, chosen while listening rather than by ticking boxes afterwards.
+ *
+ * An episode cut into segments keeps all its kept sentences in one list, grouped under a heading
+ * per segment in play order. Replaying a card from another segment is the page's to do (it has to
+ * open that segment first), so a card only says which phrase to replay.
  */
 import { Fragment, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { findSegment, segmentLabel } from '../../../features/library/index.ts'
-import { groupBySegment, splitNote, type NotesState } from '../../../features/notes/index.ts'
+import { groupBySegment, removeWordFromNote, splitNote, type NotesState } from '../../../features/notes/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
-import { BookIcon, CheckIcon, CloseIcon, EditIcon, PauseIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
+import { GRADE_LABELS, gradeKey } from '../../../shared/lib/grades.ts'
+import { GIVEN_GRADES, gradeOf, inPlayOrder, withGrade } from '../../../shared/notes-format.ts'
+import { CheckIcon, CloseIcon, EditIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
+import { Segmented } from '../../../shared/ui/Segmented.tsx'
 import type { Translate } from '../../../context.ts'
 import type { EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
-
-/** Tags the study method uses; a phrase may carry both. */
-const TAGS: readonly string[] = ['review', 'hard']
 
 /** How long the undo stays on screen. */
 const UNDO_MS = 6000
@@ -39,22 +42,18 @@ interface Removed {
 export interface NotesPanelProps {
   readonly t: Translate
   readonly notes: NotesState
-  /** The episode's title, shown under the drawer's heading. */
-  readonly episodeTitle: string
   /** The episode's segments in order; empty for an episode without any. */
   readonly segments: readonly EpisodeSegment[]
-  /** Replay one phrase: seek to it and loop that sentence, opening its segment first when needed. */
+  /** The column's 「字幕 / 收藏」 switch, which the page owns. */
+  readonly switcher: ReactNode
+  /** The stored index of the kept sentence on stage, whose card is open, or `null`. */
+  readonly currentIndex: number | null
+  /** Put one phrase on stage and loop it, opening its segment first when needed. */
   readonly onReplay: (phrase: NotePhrase) => void
-  /**
-   * The stored index of the phrase that is on stage while the audio plays, or null. Its time
-   * chip becomes a pause button: the drawer covers the transport, so without it the only way
-   * to stop a looping sentence was to close the drawer.
-   */
-  readonly playingIndex: number | null
-  /** Pause the audio. */
-  readonly onPause: () => void
-  /** Closes the drawer; the page returns focus to its container. */
-  readonly onClose: () => void
+  /** Start a review of this episode's sentences still being practised. */
+  readonly onReview: () => void
+  /** Whether a review is running, so its button reads as already started. */
+  readonly reviewing: boolean
 }
 
 /** A group's heading: the segment's number and title, or the bare id for a segment that is gone. */
@@ -63,13 +62,15 @@ function segmentName(segments: readonly EpisodeSegment[], id: string): string {
   return segment === null ? id : segmentLabel(segment)
 }
 
-/** The right-hand notes drawer. */
-export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playingIndex, onPause, onClose }: NotesPanelProps) {
+/** The 「收藏」 column. */
+export function NotesPanel({ t, notes, segments, switcher, currentIndex, onReplay, onReview, reviewing }: NotesPanelProps) {
   const [view, setView] = useState<View>('active')
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [removed, setRemoved] = useState<Removed | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const currentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(
     () => () => {
@@ -77,6 +78,18 @@ export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playing
     },
     [],
   )
+
+  // The open card follows the sentence on stage, by scrolling the column itself: an ancestor
+  // scroll would move the conversation that shares the document.
+  useEffect(() => {
+    const list = listRef.current
+    const card = currentRef.current
+    if (list === null || card === null) return
+    // The body is the cards' offset parent (it is positioned), so this is the card's place in it.
+    const top = card.offsetTop
+    if (top >= list.scrollTop && top + card.offsetHeight <= list.scrollTop + list.clientHeight) return
+    list.scrollTo({ top: Math.max(0, top - 12) })
+  }, [currentIndex])
 
   const remove = (phrase: NotePhrase, index: number): void => {
     notes.remove(index)
@@ -95,14 +108,16 @@ export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playing
 
   const activeCount = notes.phrases.filter((phrase) => !phrase.done).length
   const doneCount = notes.phrases.length - activeCount
-  // Indexes are kept alongside the phrases: edits address the stored list, not the view.
-  const rows = notes.phrases
-    .map((phrase, index) => ({ phrase, index }))
-    .filter(({ phrase }) => (view === 'all' ? true : view === 'done' ? phrase.done : !phrase.done))
-  const groups = groupBySegment(
-    rows,
-    segments.map((segment) => segment.id),
+  const order = segments.map((segment) => segment.id)
+  // Indexes are kept alongside the phrases: edits address the stored list, not the view. The
+  // cards read in the order the episode plays, which is not the order they were kept in.
+  const rows = inPlayOrder(
+    notes.phrases
+      .map((phrase, index) => ({ phrase, index, at: phrase.at, segment: phrase.segment }))
+      .filter(({ phrase }) => (view === 'all' ? true : view === 'done' ? phrase.done : !phrase.done)),
+    order,
   )
+  const groups = groupBySegment(rows, order)
 
   /** Words are kept in the note as [word]; editing the text must not lose them. */
   const commit = (index: number, words: readonly string[]): void => {
@@ -112,40 +127,35 @@ export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playing
   }
 
   return (
-    <aside className="dsh-lingualab-notes">
-      <div className="dsh-lingualab-notes-head">
-        <span className="dsh-lingualab-drawer-titles">
-          <span className="dsh-lingualab-drawer-title">{t('notes')}</span>
-          <span className="dsh-lingualab-drawer-sub">
-            {t('notesSubtitle', { episode: episodeTitle, count: notes.phrases.length })}
-          </span>
-        </span>
+    <aside className="dsh-lingualab-transcript is-kept">
+      <div className="dsh-lingualab-transcript-head">
+        {switcher}
         <span className="dsh-lingualab-spacer" />
-        <button type="button" className="dsh-lingualab-icon-btn" onClick={onClose} title={t('close')}>
-          <CloseIcon />
+        <button
+          type="button"
+          className="dsh-lingualab-btn is-primary is-small"
+          onClick={onReview}
+          disabled={activeCount === 0 || reviewing}
+          title={t('reviewStartHint')}
+        >
+          <PlayIcon size={12} /> {t('reviewStart')}
         </button>
       </div>
-
-      <div className="dsh-lingualab-tabs">
-        {(
-          [
-            ['active', t('viewActive'), activeCount],
-            ['done', t('viewDone'), doneCount],
-            ['all', t('viewAll'), notes.phrases.length],
-          ] as const
-        ).map(([id, label, count]) => (
-          <button
-            key={id}
-            type="button"
-            className={`dsh-lingualab-tab${view === id ? ' is-on' : ''}`}
-            onClick={() => setView(id)}
-          >
-            {label} <span className="dsh-lingualab-counter">{count}</span>
-          </button>
-        ))}
+      <div className="dsh-lingualab-kept-filter">
+        <Segmented
+          size="small"
+          label={t('notes')}
+          value={view}
+          onChange={setView}
+          options={[
+            { id: 'active', label: t('viewActive'), count: activeCount },
+            { id: 'done', label: t('viewDone'), count: doneCount },
+            { id: 'all', label: t('viewAll'), count: notes.phrases.length },
+          ]}
+        />
       </div>
 
-      <div className="dsh-lingualab-notes-body">
+      <div className="dsh-lingualab-notes-body" ref={listRef}>
         {notes.phrases.length === 0 ? (
           <div className="dsh-lingualab-empty is-center">
             <StarIcon size={22} />
@@ -162,108 +172,117 @@ export function NotesPanel({ t, notes, episodeTitle, segments, onReplay, playing
         {groups.map((group) => (
           <Fragment key={group.segment ?? ''}>
             {group.segment === undefined ? null : (
-              <div className="dsh-lingualab-notes-group">
-                {segmentName(segments, group.segment)}
-              </div>
+              <div className="dsh-lingualab-notes-group">{segmentName(segments, group.segment)}</div>
             )}
             {group.rows.map(({ phrase, index }) => {
+              const grade = gradeOf(phrase)
+              const open = index === currentIndex
               const { words, text } = splitNote(phrase.note)
               return (
-                <div className={`dsh-lingualab-note${phrase.done ? ' is-done' : ''}`} key={`${phrase.segment ?? ''}-${phrase.at}-${index}`}>
+                <div
+                  key={`${phrase.segment ?? ''}-${phrase.at}-${index}`}
+                  ref={open ? currentRef : null}
+                  className={`dsh-lingualab-note${open ? ' is-open' : ''}${phrase.done ? ' is-done' : ''}`}
+                  onClick={() => {
+                    if (!open) onReplay(phrase)
+                  }}
+                >
                   <div className="dsh-lingualab-note-top">
-                    <label className="dsh-lingualab-note-check" title={phrase.done ? t('stepUndone') : t('notesMarkDone')}>
-                      <input
-                        type="checkbox"
-                        className="dsh-lingualab-visually-hidden"
-                        checked={phrase.done}
-                        onChange={(event) => notes.update(index, { done: event.target.checked })}
-                      />
-                      <span className={`dsh-lingualab-box${phrase.done ? ' is-on' : ''}`}>
-                        {phrase.done ? <CheckIcon size={13} /> : null}
-                      </span>
-                    </label>
                     <button
                       type="button"
-                      className={`dsh-lingualab-note-at${playingIndex === index ? ' is-playing' : ''}`}
-                      onClick={() => (playingIndex === index ? onPause() : onReplay(phrase))}
-                      title={playingIndex === index ? t('notesPause') : t('notesReplay')}
-                      aria-pressed={playingIndex === index}
-                    >
-                      {playingIndex === index ? <PauseIcon size={10} /> : <PlayIcon size={10} />} {formatClock(phrase.at)}
-                    </button>
-                    <span className="dsh-lingualab-spacer" />
-                    <button
-                      type="button"
-                      className="dsh-lingualab-icon-btn is-small"
-                      title={t('notesEdit')}
-                      onClick={() => {
-                        setEditing(index)
-                        setDraft(text)
+                      className="dsh-lingualab-note-at"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onReplay(phrase)
                       }}
+                      title={t('notesReplay')}
                     >
-                      <EditIcon />
+                      <PlayIcon size={10} /> {formatClock(phrase.at)}
                     </button>
-                    <button
-                      type="button"
-                      className="dsh-lingualab-icon-btn is-small is-danger"
-                      title={t('notesDelete')}
-                      onClick={() => remove(phrase, index)}
-                    >
-                      <TrashIcon />
-                    </button>
+                    <span className={`dsh-lingualab-grade is-${grade}`}>{t(GRADE_LABELS[grade])}</span>
+                    <span className="dsh-lingualab-spacer" />
+                    {open ? (
+                      <>
+                        <button
+                          type="button"
+                          className="dsh-lingualab-icon-btn is-small"
+                          title={t('notesEdit')}
+                          onClick={() => {
+                            setEditing(index)
+                            setDraft(text)
+                          }}
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="dsh-lingualab-icon-btn is-small is-danger"
+                          title={t('notesDelete')}
+                          onClick={() => remove(phrase, index)}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="dsh-lingualab-note-text">{phrase.text}</div>
-                  {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
 
-                  {editing === index ? (
-                    <input
-                      className="dsh-lingualab-input"
-                      value={draft}
-                      autoFocus
-                      placeholder={t('notesEditorPlaceholder')}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onBlur={() => commit(index, words)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') commit(index, words)
-                        if (event.key === 'Escape') setEditing(null)
-                        event.stopPropagation()
-                      }}
-                    />
-                  ) : words.length > 0 || text.length > 0 ? (
-                    <div className="dsh-lingualab-memo">
-                      {words.length > 0 ? (
-                        <div className="dsh-lingualab-memo-words">
-                          <BookIcon size={13} />
-                          {words.map((word) => (
-                            <span className="dsh-lingualab-word-chip" key={word}>
-                              {word}
-                            </span>
-                          ))}
+                  {open ? (
+                    <>
+                      {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
+                      {editing === index ? (
+                        <input
+                          className="dsh-lingualab-input"
+                          value={draft}
+                          autoFocus
+                          placeholder={t('notesEditorPlaceholder')}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={() => commit(index, words)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') commit(index, words)
+                            if (event.key === 'Escape') setEditing(null)
+                            event.stopPropagation()
+                          }}
+                        />
+                      ) : words.length > 0 || text.length > 0 ? (
+                        <div className="dsh-lingualab-memo">
+                          {words.length > 0 ? (
+                            <div className="dsh-lingualab-memo-words">
+                              {words.map((word) => (
+                                <span className="dsh-lingualab-word-chip" key={word}>
+                                  {word}
+                                  <button
+                                    type="button"
+                                    className="dsh-lingualab-word-chip-x"
+                                    title={t('wordRemove', { word })}
+                                    aria-label={t('wordRemove', { word })}
+                                    onClick={() => notes.update(index, { note: removeWordFromNote(phrase.note, word) })}
+                                  >
+                                    <CloseIcon size={10} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
                         </div>
                       ) : null}
-                      {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
-                    </div>
+                      <div className="dsh-lingualab-grades" role="group" aria-label={t('keyGrade')}>
+                        {GIVEN_GRADES.map((given) => (
+                          <button
+                            key={given}
+                            type="button"
+                            className={`dsh-lingualab-grade-btn is-${given}${grade === given ? ' is-on' : ''}`}
+                            aria-pressed={grade === given}
+                            onClick={() => notes.update(index, withGrade(phrase, given))}
+                          >
+                            {t(GRADE_LABELS[given])} <kbd>{gradeKey(given)}</kbd>
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   ) : null}
-
-                  <div className="dsh-lingualab-chips">
-                    {TAGS.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`dsh-lingualab-tag${phrase.tags.includes(tag) ? ' is-on' : ''}`}
-                        onClick={() =>
-                          notes.update(index, {
-                            tags: phrase.tags.includes(tag)
-                              ? phrase.tags.filter((item) => item !== tag)
-                              : [...phrase.tags, tag],
-                          })
-                        }
-                      >
-                        #{tag === 'review' ? t('review') : t('hard')}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )
             })}

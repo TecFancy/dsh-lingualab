@@ -13,6 +13,9 @@
  *   3. **How do I add more?** Drop files anywhere, or press the button. With an empty
  *      library this is the whole page, because it is the only useful thing on it.
  *
+ * Between the first two sits the weekly pass the method asks for: how many kept sentences are
+ * still being practised across the library, and a button that reviews them all in one go.
+ *
  * Where the files live is one quiet line at the bottom, with a way to change it.
  * It is a setting touched twice a month, and a page that leads with it reads as a
  * settings page.
@@ -21,9 +24,9 @@ import { findSegment, segmentLabel } from '../../../features/library/index.ts'
 import { episodeProgress, type EpisodeProgress, type Progress } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
-import { AudioIcon, FolderIcon, PlayIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
+import { AudioIcon, FolderIcon, PlayIcon, StarIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
 import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
-import type { EpisodeEntry, LibraryPayload } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, LibraryPayload, ReviewPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
 
@@ -51,6 +54,10 @@ export interface LibraryHomeProps {
   readonly onBrowse: () => void
   /** Open the media folder settings. */
   readonly onFolder: () => void
+  /** What is left to review across the library, or `null` before it has been read. */
+  readonly review: ReviewPayload | null
+  /** Start a review over all of it. */
+  readonly onReview: () => void
 }
 
 /**
@@ -116,6 +123,8 @@ export function LibraryHome({
   onFiles,
   onBrowse,
   onFolder,
+  review,
+  onReview,
 }: LibraryHomeProps) {
   const episodes = allEpisodes(library, current)
   const playable = episodes.filter((entry) => entry.audio !== null)
@@ -162,6 +171,22 @@ export function LibraryHome({
 
             {resume !== null ? (
               <ResumeCard t={t} entry={resume} summary={episodeProgress(progress, resume)} opening={opening} onOpen={onOpen} />
+            ) : null}
+
+            {review !== null && review.total > 0 ? (
+              <section className="dsh-lingualab-reviewcard">
+                <span className="dsh-lingualab-reviewcard-icon">
+                  <StarIcon size={18} filled />
+                </span>
+                <span className="dsh-lingualab-reviewcard-text">
+                  <strong>{t('reviewHomeTitle')}</strong>
+                  <span>{t('reviewHomeSub', { count: review.total, episodes: review.episodes.length })}</span>
+                </span>
+                <span className="dsh-lingualab-spacer" />
+                <button type="button" className="dsh-lingualab-btn" onClick={onReview} disabled={opening}>
+                  <PlayIcon size={13} /> {t('reviewHomeStart')}
+                </button>
+              </section>
             ) : null}
 
             {rest.length > 0 ? (

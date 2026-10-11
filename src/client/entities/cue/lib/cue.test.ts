@@ -17,7 +17,12 @@ describe('parseSRT', () => {
 
     const cues = parseSRT(text)
     expect(cues.map((cue) => cue.text)).toEqual(['First line', 'Second line'])
-    expect(cues[0]).toEqual({ start: 1, end: 3.25, text: 'First line' })
+    expect(cues[0]).toEqual({
+      start: 1,
+      end: 3.25,
+      text: 'First line',
+      origin: { start: 1000, end: 3250, occurrence: 0 },
+    })
   })
 
   it('accepts a dot as the millisecond separator and strips style tags', () => {

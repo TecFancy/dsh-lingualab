@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-11
+
 ### Added
 
 - An episode folder with two or more audio files is now one episode made of segments, one scene per audio file in
@@ -31,9 +33,37 @@ the plugin that was installed and used, not an artifact on a registry.
 - A subtitle named with `双语` or `bilingual` (`01_Scene_双语.srt`) is read as one file with both languages, decided
   by name. Its Chinese lines are the Chinese track, and the picker says "both tracks" for such a folder instead of
   "subtitles unchecked".
+- A sentence whose start or end is a beat off can now be fixed on the page. Click its time range on the stage, press
+  `T`, or pick "Adjust this sentence's start and end" in More: a strip under the stage shows both edges to the
+  millisecond while the sentence loops, `←` `→` nudge the focused edge by 50 ms (250 ms with `Shift`), `Tab`
+  switches edges, `I` and `O` set them to the playhead, `Enter` saves and `Esc` cancels. An edge never crosses its
+  neighbours. The save is written into the subtitle file itself through the new `POST /lingualab/subtitle-timing`:
+  only that cue's timecode line changes, in the format it had, and every other byte (numbering, style tags, line
+  endings, a GBK encoding) stays as it was. The original is kept once as `<name>.bak`; a file that changed since the
+  page read it is refused with `409`; a Chinese track in its own file moves with the English; LRC moves its start
+  only; and only files inside the library can be saved. A kept sentence whose start crosses a whole second keeps its
+  star.
+- Review. 「复习」 in the 「收藏」 column goes through the episode's sentences not yet graded 「记住了」, in play order:
+  each goes on stage with its English hidden and loops, `R` reveals it, `1` `2` `3` grade it and move on, `→` skips,
+  `←` goes back and `Esc` ends the review. A strip above the stage reads 「复习 3 / 12」, and the end card counts the
+  grades and offers another pass over the ones graded 「没记住」. A card on the home, 「复习收藏 · 还在练 42 句，来自 5 集」,
+  starts the same review over the whole library, opening each sentence's episode and segment in turn, from the new
+  read-only `GET /lingualab/review`. A review does not move the place 「继续」 resumes from.
+- A phrase can be kept as one: drag across words on the stage, or `Shift`-click a second word, and the popover offers
+  the span between them, stored as `[her skirt]`. 「已记下」 is now a toggle that takes the word or phrase out again,
+  and every word on a card has a remove button.
 
 ### Changed
 
+- The notes drawer is gone. The kept sentences are the right column's other view, 「收藏」, next to the subtitles: the
+  column head switches between them (so does the top bar's 「笔记」 chip, and `N`, which no longer keeps a sentence;
+  `S` does). The stage and the transport stay usable, clicking a card puts its sentence on stage and loops it, the
+  card of the sentence on stage is the open one, and the cards are in play order.
+- A kept sentence has one state instead of a tick and two tag toggles: 「新收藏」, 「模糊」, 「没记住」 or 「记住了」, set
+  with the three buttons on its card or with `1` 「记住了」, `2` 「模糊」 and `3` 「没记住」 on the sentence on stage. The
+  line format is unchanged (`[x]`, `#review`, `#hard`), so an older file reads as one state per line, with `#hard`
+  winning over `#review`; a grade clears the tick and both tags before setting its own and keeps any other tag. A
+  fresh `notes.md` opens with a preamble that explains the grades.
 - Listening positions are kept per segment for an episode that has them, and up to 1000 are remembered (it was 100).
   A position stored before the episode had segments is read as the first segment's, and so are the notes written
   before it, until the next save files them under its heading. The five steps stay per episode.
@@ -46,6 +76,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Fixed
 
+- An LRC time with a three-digit fraction below 100 (`[00:12.050]`) was read as half a second rather than fifty
+  milliseconds. The digit count now decides, as the parser always meant to.
 - A kept sentence with tags but no note was written as `| 中文 | #review`, which read back with the tag as its note and
   no tag. The empty note field is now kept in front of the tags.
 - Enter on the finish card's focused button now presses it. The page's own Enter, which plays the selected sentence,

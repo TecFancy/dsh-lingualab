@@ -14,6 +14,12 @@ export function formatClock(seconds: number): string {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
+/** `00:18.250` — the clock to the millisecond, for a sentence edge being moved. */
+export function formatClockMs(ms: number): string {
+  const whole = Number.isFinite(ms) && ms > 0 ? Math.round(ms) : 0
+  return `${formatClock(Math.floor(whole / 1000))}.${String(whole % 1000).padStart(3, '0')}`
+}
+
 /** `18.4 MB`, for the size hint next to an episode's audio. */
 export function formatBytes(bytes: number | null): string {
   if (bytes === null || !Number.isFinite(bytes)) return ''

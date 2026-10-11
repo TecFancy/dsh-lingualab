@@ -4,6 +4,7 @@ export {
   SPEED_PRESETS,
   currentSpeed,
   useMediaPlayer,
+  type EditWindow,
   type MediaPlayerState,
 } from './model/store.ts'
 export { useAudioBinding, type AudioRef } from './lib/useAudioBinding.ts'

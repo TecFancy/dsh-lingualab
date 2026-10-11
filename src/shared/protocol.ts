@@ -75,6 +75,23 @@ export const IMPORT_PATH = '/lingualab/import'
  */
 export const PROGRESS_PATH = '/lingualab/progress'
 
+/**
+ * Moving one sentence's start and end, written back into the subtitle file itself.
+ *
+ * Only the timecode line of that cue changes; the host refuses with `409` when the file is no
+ * longer the one the page parsed, and keeps a `.bak` copy of the original before its first write.
+ */
+export const SUBTITLE_TIMING_PATH = '/lingualab/subtitle-timing'
+
+/** The shortest a cue may be made, in milliseconds: shorter, a sentence loop is a click. */
+export const MIN_CUE_MS = 200
+
+/**
+ * Every kept sentence not yet graded 「记住了」, across the library, for a review that spans
+ * episodes. Read only: a grade is written by the episode that is open, through {@link NOTES_PATH}.
+ */
+export const REVIEW_PATH = '/lingualab/review'
+
 /** The hidden file at the library root that holds the progress, next to the episodes' `notes.md`. */
 export const PROGRESS_FILE = '.lingualab-progress.json'
 
@@ -266,6 +283,27 @@ export interface LibraryConfigWriteRequest {
   readonly libraryRoot: string
 }
 
+/** One episode with sentences still to review, as `GET /lingualab/review` lists it. */
+export interface ReviewEpisode {
+  readonly episode: string
+  readonly title: string
+  readonly kind: 'folder' | 'file'
+  /** Its segment ids in play order; empty for an episode without segments. */
+  readonly segments: readonly string[]
+  /** The phrases not graded 「记住了」, in play order (segment, then time). */
+  readonly phrases: readonly NotePhrase[]
+}
+
+/** `GET /lingualab/review`. */
+export interface ReviewPayload {
+  readonly ok: boolean
+  readonly reason: string | null
+  /** Episodes with at least one such sentence, in library order: folders, then loose files. */
+  readonly episodes: readonly ReviewEpisode[]
+  /** Sentences across all of them. */
+  readonly total: number
+}
+
 /** `POST /lingualab/notes` request body. */
 export interface NotesWriteRequest {
   readonly episode: string
@@ -449,6 +487,46 @@ export interface ImportPayload {
    * file or the folder and will repeat.
    */
   readonly retryable?: boolean
+}
+
+/** One cue's timing as a subtitle file writes it, in whole milliseconds. */
+export interface TimingRange {
+  readonly start: number
+  /** For LRC, which writes starts only, the same as `start`. */
+  readonly end: number
+}
+
+/** One change to one subtitle file: which cue, where it goes, and which bytes it was read from. */
+export interface TimingEdit {
+  /** The subtitle file's name, as the episode (or its segment) lists it. */
+  readonly file: string
+  /** The cue as the file has it now, and which of the cues with exactly that range it is (0 = first). */
+  readonly from: TimingRange & { readonly occurrence: number }
+  /** The new range. For LRC only `start` is used. */
+  readonly to: TimingRange
+  /** SHA-256 of the bytes the page parsed, lower-case hex. */
+  readonly expect: string
+}
+
+/** `POST /lingualab/subtitle-timing` request body. */
+export interface TimingWriteRequest {
+  readonly episode: string
+  /** One edit, or two when the Chinese lives in a file of its own. Never two for one file. */
+  readonly edits: readonly TimingEdit[]
+}
+
+/** `POST /lingualab/subtitle-timing`. */
+export interface TimingWritePayload {
+  readonly ok: boolean
+  /**
+   * `saved`: every file was written. `stale`: a file changed since the page read it, or the cue is
+   * not where the page said; nothing was written and the page should load the subtitles again.
+   * `refused`: the request cannot be carried out (a file outside the library, a bad range).
+   */
+  readonly code: 'saved' | 'stale' | 'refused'
+  readonly reason: string | null
+  /** The files written, in request order; empty unless `saved`. */
+  readonly files: readonly string[]
 }
 
 /** `POST /lingualab/config` — set the library root from the picker instead of a typed path. */

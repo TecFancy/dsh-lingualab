@@ -39,7 +39,10 @@ export function mergeBilingual(english: readonly Cue[], chinese: readonly Cue[])
       return cue
     }
     const addition = chineseLinesOf(candidate.text, cue.text)
-    return addition.length === 0 ? cue : { ...cue, text: `${cue.text}\n${addition}` }
+    if (addition.length === 0) return cue
+    // Where the Chinese came from goes with it: moving this sentence has to move that cue too,
+    // or the next load would no longer fold it in.
+    return { ...cue, text: `${cue.text}\n${addition}`, ...(candidate.origin === undefined ? {} : { zhOrigin: candidate.origin }) }
   })
 }
 

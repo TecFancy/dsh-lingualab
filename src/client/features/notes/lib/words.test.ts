@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addWordToNote, noteHasWord, splitNote } from './words.ts'
+import { addWordToNote, noteHasWord, removeWordFromNote, splitNote } from './words.ts'
 
 describe('words kept in a note', () => {
   it('starts a note and appends to one', () => {
@@ -32,5 +32,23 @@ describe('splitting a note for display', () => {
   it('returns plain notes untouched and empty notes empty', () => {
     expect(splitNote('just a note')).toEqual({ words: [], text: 'just a note' })
     expect(splitNote('')).toEqual({ words: [], text: '' })
+  })
+})
+describe('taking a word back out of a note', () => {
+  it('removes only the marker, whatever its case, and keeps the text around it', () => {
+    expect(removeWordFromNote('Claire [gonna] at breakfast', 'Gonna')).toBe('Claire at breakfast')
+    expect(removeWordFromNote('[gonna]', 'gonna')).toBe('')
+    expect(removeWordFromNote('note [her skirt]', 'her skirt')).toBe('note')
+    expect(removeWordFromNote('[a] [b]', 'a')).toBe('[b]')
+  })
+
+  it('leaves a note without the word, and plain text that matches it, alone', () => {
+    expect(removeWordFromNote('gonna is slang', 'gonna')).toBe('gonna is slang')
+    expect(removeWordFromNote('[gonna]', '  ')).toBe('[gonna]')
+  })
+
+  it('keeps a phrase as one marker', () => {
+    expect(addWordToNote('', 'her skirt')).toBe('[her skirt]')
+    expect(splitNote('[her skirt] [get down here]').words).toEqual(['her skirt', 'get down here'])
   })
 })

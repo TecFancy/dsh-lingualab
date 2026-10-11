@@ -142,3 +142,28 @@ describe('the audio length', () => {
     expect(useMediaPlayer.getState().duration).toBe(40)
   })
 })
+
+describe('retiming a sentence', () => {
+  it('keeps the edited sentence active and wraps at the draft end', () => {
+    const store = useMediaPlayer.getState()
+    store.setEditWindow({ index: 1, start: 20.5, end: 21.5 })
+    store.setPlaying(true)
+    // The start moved past the playhead: the sentence is still the one being edited.
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().onTime(20.2)
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+
+    useMediaPlayer.getState().onTime(21.5)
+    expect(useMediaPlayer.getState().seekRequest).toBe(20.5)
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+  })
+
+  it('lets go of the sentence when the window is cleared, and on a new episode', () => {
+    useMediaPlayer.getState().setEditWindow({ index: 0, start: 10, end: 12 })
+    useMediaPlayer.getState().setEditWindow(null)
+    expect(useMediaPlayer.getState().editWindow).toBeNull()
+    useMediaPlayer.getState().setEditWindow({ index: 0, start: 10, end: 12 })
+    useMediaPlayer.getState().reset(cues)
+    expect(useMediaPlayer.getState().editWindow).toBeNull()
+  })
+})

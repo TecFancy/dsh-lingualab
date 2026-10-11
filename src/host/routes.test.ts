@@ -7,6 +7,7 @@
  * to the right status codes, and that a request the host would refuse never reaches a
  * handler that writes.
  */
+import { createHash } from 'node:crypto'
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -175,6 +176,8 @@ describe('the access check, in front of every route', () => {
     ['POST', '/lingualab/import?episode=E1&file=a.mp3'],
     ['GET', '/lingualab/progress'],
     ['POST', '/lingualab/progress'],
+    ['POST', '/lingualab/subtitle-timing'],
+    ['GET', '/lingualab/review'],
   ]
 
   for (const verdict of [401, 403] as const) {
@@ -336,5 +339,45 @@ describe('opening a segment of a folder episode', () => {
       episodes: { segments: { id: string }[] }[]
     }
     expect(library.episodes[0]?.segments.map((segment) => segment.id)).toEqual(['01_a', '02_b'])
+  })
+})
+
+describe('moving one sentence in its subtitle file', () => {
+  const SRT = '1\n00:00:01,000 --> 00:00:02,000\nHello.\n'
+  const retime = async (hash: string, to: number): Promise<{ status: number; payload: { ok: boolean; code: string } }> => {
+    const response = await fetch(`${harness.base}/lingualab/subtitle-timing`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        episode: 'E1',
+        edits: [{ file: 'a.srt', from: { start: 1000, end: 2000, occurrence: 0 }, to: { start: to, end: 2000 }, expect: hash }],
+      }),
+    })
+    return { status: response.status, payload: (await response.json()) as never }
+  }
+
+  it('writes the new start, then refuses the same request as stale', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.srt'), SRT)
+    const hash = createHash('sha256').update(SRT).digest('hex')
+    const saved = await retime(hash, 800)
+    expect(saved.status).toBe(200)
+    expect(readFileSync(join(harness.root, 'E1', 'a.srt'), 'utf8')).toBe(SRT.replace('00:00:01,000', '00:00:00,800'))
+    const again = await retime(hash, 700)
+    expect(again).toEqual({ status: 409, payload: expect.objectContaining({ ok: false, code: 'stale' }) })
+  })
+})
+
+describe('the review list', () => {
+  it('answers what is left to review, and refuses a write', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    writeFileSync(join(harness.root, 'E1', 'notes.md'), '# E1\n\n- [ ] 00:04 | Hi. | | | #hard\n- [x] 00:09 | Bye. | |\n')
+    const response = await fetch(`${harness.base}/lingualab/review`)
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as { total: number; episodes: { episode: string; phrases: { text: string }[] }[] }
+    expect(payload.total).toBe(1)
+    expect(payload.episodes[0]?.phrases.map((item) => item.text)).toEqual(['Hi.'])
+    expect((await fetch(`${harness.base}/lingualab/review`, { method: 'POST', body: '{}' })).status).toBe(405)
   })
 })

@@ -1,6 +1,6 @@
 # Agent Note: 复习收藏的句子
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -70,6 +70,8 @@ export interface ReviewEpisode {
   readonly episode: string
   readonly title: string
   readonly kind: 'folder' | 'file'
+  /** Its segment ids in play order; empty for an episode without segments. */
+  readonly segments: readonly string[]
   /** Not-done phrases, in play order. */
   readonly phrases: readonly NotePhrase[]
 }
@@ -98,8 +100,18 @@ export interface ReviewEpisode {
   带 `#hard` 的行显示为「没记住」。
 - 单词气泡从一个词变成一段，所以舞台上的词需要有选区状态；单击的行为和现在一样。
 - `1`、`2`、`3` 成为快捷键，并加入「更多」里的按键列表。
-- 新路由意味着 `dsh-plugin.naming.json`、README 的路由表和 `check-host.mjs` 都要改，host 半边也要重启。
+- `N` 原来是收藏的第二个键，和 `S` 一样；现在它切换右栏，收藏只剩 `S`。
+- 新路由意味着 `dsh-plugin.naming.json` 和 README 的路由表要改，host 半边也要重启。`check-host.mjs` 不用改：
+  它通过 `src/shared/protocol.ts` 里的路径常量读路由。`ReviewEpisode` 还带上了这一集的分段 id，
+  这样客户端给队列排序的方式和 host 一样。
+- 复习时不记录听到哪里：复习在收藏的句子之间跳，记下这些位置会把「继续」挪到复习最后停的地方。
+  听到哪里只在复习开始时记一次。
+- 复习时 `←` 回到上一项，可以重新评级；提案里只写了 `→`。
+- 从库外打开的剧集不在跨集复习里，因为 host 列的是扫描到的内容；这种剧集的句子仍然可以从它自己的「收藏」栏复习。
+- 回到首页时，先把还在防抖等待的评级写下去，首页再重新读复习数量，所以数量里不会出现刚评过的句子。
+- 已有的 `notes.md` 保留原来的开头说明：开头原样保留，所以只有新建的文件才用解释评级的那一段。
+- 卡片按播放顺序排列（先按段，再按时间），而不是按收藏的先后，和复习的顺序一致。
 - Figma 里的 `Notes / Light` 画板不再对应页面；需要补一张「收藏」栏的画板和一条复习横栏。
 - 七条上限那篇 note
-  （[2026-10-08-seven-phrase-ceiling](../../implemented/feature/2026-10-08-seven-phrase-ceiling.zh.md)）
+  （[2026-10-08-seven-phrase-ceiling](2026-10-08-seven-phrase-ceiling.zh.md)）
   主张靠选择而不是上限让工作集保持短小。评级就是这个选择，而且是边听边逐句做出的，而不是事后去打勾。

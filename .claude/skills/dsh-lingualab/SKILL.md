@@ -47,7 +47,7 @@ node scripts/verify.mjs --list   # 看检查表
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
-4. **写素材目录只有三处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
+4. **写素材目录只有四处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
    `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
    `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
    不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
@@ -58,8 +58,16 @@ node scripts/verify.mjs --list   # 看检查表
    `.part` 下次写这个文件夹时清掉、同时最多两个上传（超了回 `429`）、单个文件 2 GB（流式限额，不信
    `content-length`）。文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
    见 `.agents/notes/implemented/feature/2026-10-09-home-first-and-drop-to-import.md`。
+   四是 `src/host/timing.ts`，把一句的开头和结尾写回媒体库里的字幕文件：只换那一句的时间行，其余字节不动（按 Latin-1
+   读写，GBK 与 GB18030 因此原样保留，UTF-16 带 BOM 的走 Node 自带编码）；请求带页面读到的字节的 SHA-256，
+   对不上回 `409`；按文件里写的毫秒和「同一范围里的第几句」找句子，不按解析后的序号（解析器会排序、丢块）；第一次写某个文件前
+   复制一份 `<名>.bak`，只复制一次；两个文件都检查通过才写；媒体库以外的文件剧集一律 `403`。页面的出处记在 `Cue.origin` /
+   `zhOrigin`，客户端的计数规则必须和 host 一致（没有文本的块也要计数）。
+   见 `.agents/notes/implemented/feature/2026-10-11-edit-subtitle-timing.md`。
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
-   「短的工作集」靠笔记抽屉的「还在练 / 已记住」视图，不靠上限。**不要**再加回弹层询问用户
+   「短的工作集」靠评级：一条收藏只有一个状态（`gradeOf` / `withGrade`），从勾和两个标签读出来，勾优先，
+   `#hard` 压过 `#review`；评级先清掉勾和这两个标签再设自己的，读者手写的其他标签保留。行格式没有新字段，
+   别加。右栏「收藏」的「还在练 / 已记住」视图按它过滤，不靠上限。**不要**再加回弹层询问用户
    替换哪一条。旧的取舍记在 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`，
    那是当时的决定，不要改它。**收藏的句子按「段 + 整秒 + 文本」匹配**（`keptSentenceKey`），因为 `notes.md`
    只存整秒；别改回比较原始浮点时间。重播收藏也走这把钥匙找回原句（页面的 `keptCueStart`），
@@ -68,7 +76,8 @@ node scripts/verify.mjs --list   # 看检查表
    跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
    `npm run lint:fsd` 会拦。
 7. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
-   浮层打开时，除笔记抽屉外，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；带 Ctrl/Cmd/Alt 的组合键
+   浮层打开时，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；收藏已经不是浮层，是右栏的另一个视图。
+   复习进行时 `1` 到 `3` 评级、`←` `→` 在队列里走，而不是在句子之间走。带 Ctrl/Cmd/Alt 的组合键
    一律不处理，那是浏览器和宿主的。
 8. **跨半边契约走三座桥**：`src/client/shared/protocol.ts`、`notes-format.ts` 与 `stem.ts`（文件名配对只有这一份规则：
    字幕归 `owningStem` 给出的最长词干，`双语` / `bilingual` 是「一个文件两种语言」的标记）。
@@ -100,12 +109,14 @@ node scripts/verify.mjs --list   # 看检查表
   打开看一眼 console。
 - **页面有两个视图**：首页（接着上次大卡片、剧集卡片网格、虚线拖放区）与练习。练习视图是顶栏 48，
   下面左右分栏：左边是舞台（当前句、前后句、播放卡片、按键标签），右边是字幕栏（唯一滚动区，
-  宽度 `clamp(300px,34%,440px)`）。改布局时不要把整页变成滚动容器：舞台必须钉住，否则「听这一句」
+  宽度 `clamp(300px,34%,440px)`），栏头的分段控件或 `N` 把它换成「收藏」，宽度和滚动都一样。改布局时不要把整页变成滚动容器：舞台必须钉住，否则「听这一句」
   又要跟着列表滚走。播放卡片只放每分钟都用的控件，低频的收进「更多」。设计稿在 Figma，链接在 README
   与 AGENTS.md，稿里是写死的色值和 Inter，落地只用宿主 token。
 - **练习页的几个行为各有出处，别拆**：进度条（`Scrubber`）拖动期间只在松手时 seek 一次；
   跟读模式（store 的 `pauseAfterSentence` 与 `revealed`）在 `onTime` 里判断，只对刚播完的那一句生效，
-  有循环时让循环管结尾；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），不新增笔记字段；
+  有循环时让循环管结尾；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），拖选或 `Shift` 点选的词组
+  也是一个 `[her skirt]`，再点「已记下」就去掉，不新增笔记字段；复习（`features/review`）是练习页的一种模式，
+  英文用跟读的同一套遮挡，复习期间不写听到哪里；
   听完小结靠 store 的 `finishCount`，卡片按次数关闭，不按剧集。`reset` **不能**清掉 `duration`，字幕
   通常晚于音频元数据读完，清掉进度条就废了。
 - **进度合并没有删除记号**：两边都是「每个键取最新」的并集，所以从 `.lingualab-progress.json` 删掉一条，

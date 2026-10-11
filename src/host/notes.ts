@@ -41,13 +41,16 @@ export function isSafeEpisodeId(id: string): boolean {
   return id.length > 0 && !id.includes('/') && !id.includes('\\') && id !== '.' && id !== '..'
 }
 
-/** The preamble a fresh notes file opens with. */
+/**
+ * The preamble a fresh notes file opens with: what the grades are, and how a line carries them,
+ * for whoever opens the file in an editor.
+ */
 function defaultPreamble(episode: string): string {
   return [
     `# ${episode} 笔记`,
     '',
-    '> 记得住了就打勾，勾掉的句子不再算「还在练」。',
-    '> 想不起的加 `#review`，周日还记不住的加 `#hard`。',
+    '> 每句收藏只有一个状态，在页面上按 1 记住了、2 模糊、3 没记住。',
+    '> 文件里打勾 `[x]` 是记住了，`#review` 是模糊，`#hard` 是没记住，都没有是新收藏。',
   ].join('\n')
 }
 

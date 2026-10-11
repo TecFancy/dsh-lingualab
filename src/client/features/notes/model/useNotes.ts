@@ -29,6 +29,8 @@ const SAVE_DEBOUNCE_MS = 600
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export interface NotesState {
+  /** The episode whose phrases these are, or `null` while the open one is still loading. */
+  readonly episode: string | null
   readonly phrases: readonly NotePhrase[]
   readonly status: SaveStatus
   readonly reason: string | null
@@ -39,9 +41,9 @@ export interface NotesState {
   /**
    * Keep this sentence, or take it back if it is already kept.
    *
-   * A sentence the reader has put work into (a note, a tag, a tick) is never removed by a
-   * star: that is 'protected', and the caller opens the drawer so removing it is a
-   * deliberate act with a confirmation, not a reflex keystroke.
+   * A sentence the reader has put work into (a note, a grade) is never removed by a
+   * star: that is 'protected', and the caller shows the kept sentences so removing it is a
+   * deliberate act with an undo, not a reflex keystroke.
    */
   readonly toggle: (phrase: NotePhrase) => 'added' | 'removed' | 'protected' | 'full'
   /**
@@ -53,6 +55,8 @@ export interface NotesState {
   readonly remove: (index: number) => void
   /** Put a removed phrase back where it was, for the undo after a delete. */
   readonly restore: (phrase: NotePhrase, index: number) => void
+  /** Write what is waiting for its debounce now; resolves once the host has answered. */
+  readonly flush: () => Promise<void>
 }
 
 /** Phrases plus the episode they belong to. */
@@ -87,22 +91,20 @@ export function useNotes(episodeId: string | null): NotesState {
   const pending = useRef<PendingWrite | null>(null)
 
   /** Write what the timer was holding, right now. */
-  const flush = useCallback(() => {
+  const flush = useCallback(async (): Promise<void> => {
     const job = pending.current
     pending.current = null
     if (job === null) return
     clearTimeout(job.timer)
-    void (async () => {
-      const payload = await saveNotes(job.id, job.phrases)
-      setReason(payload.reason)
-      setStatus(payload.ok ? 'saved' : 'error')
-    })()
+    const payload = await saveNotes(job.id, job.phrases)
+    setReason(payload.reason)
+    setStatus(payload.ok ? 'saved' : 'error')
   }, [])
 
   useEffect(() => {
     // A switch flushes what is pending under the *old* id, so the write can never
     // land under the new one.
-    flush()
+    void flush()
     if (episodeId === null) return
     let cancelled = false
     void (async () => {
@@ -204,6 +206,7 @@ export function useNotes(episodeId: string | null): NotesState {
   )
 
   return {
+    episode: loaded.id === episodeId ? loaded.id : null,
     phrases: visible,
     status,
     reason,
@@ -214,6 +217,7 @@ export function useNotes(episodeId: string | null): NotesState {
     update,
     remove,
     restore,
+    flush,
   }
 }
 

@@ -16,6 +16,8 @@ import {
   OPEN_PATH,
   PLACES_PATH,
   PROGRESS_PATH,
+  REVIEW_PATH,
+  SUBTITLE_TIMING_PATH,
   type BrowsePayload,
   type ImportPayload,
   type LibraryConfigPayload,
@@ -26,6 +28,9 @@ import {
   type PlacesPayload,
   type ProgressPayload,
   type ProgressTable,
+  type ReviewPayload,
+  type TimingEdit,
+  type TimingWritePayload,
 } from '../protocol.ts'
 
 /** One empty payload per failure shape, so callers never see `undefined`. */
@@ -235,6 +240,17 @@ export async function saveNotes(episode: string, phrases: readonly NotePhrase[])
   }
 }
 
+/** Everything left to review across the library; a host that does not answer is an empty list with the reason. */
+export async function fetchReview(): Promise<ReviewPayload> {
+  try {
+    const response = await fetch(REVIEW_PATH, { headers: { accept: 'application/json' } })
+    const payload = (await response.json()) as ReviewPayload
+    return Array.isArray(payload.episodes) ? payload : { ok: false, reason: '主机没有回答', episodes: [], total: 0 }
+  } catch (error) {
+    return { ok: false, reason: String(error), episodes: [], total: 0 }
+  }
+}
+
 /**
  * Send this browser's progress to the host and take the merged table back.
  *
@@ -254,6 +270,25 @@ export async function syncProgress(table: ProgressTable, keepalive = false): Pro
     return typeof payload.ok === 'boolean' ? payload : null
   } catch {
     return null
+  }
+}
+
+/**
+ * Move one sentence's edges in its subtitle file (and in the Chinese file, when it has its own).
+ *
+ * A host that does not answer comes back as a refusal with the reason, never as a throw.
+ */
+export async function saveSubtitleTiming(episode: string, edits: readonly TimingEdit[]): Promise<TimingWritePayload> {
+  try {
+    const response = await fetch(SUBTITLE_TIMING_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ episode, edits }),
+    })
+    const payload = (await response.json()) as TimingWritePayload
+    return typeof payload.ok === 'boolean' ? payload : { ok: false, code: 'refused', reason: '主机没有回答', files: [] }
+  } catch (error) {
+    return { ok: false, code: 'refused', reason: String(error), files: [] }
   }
 }
 

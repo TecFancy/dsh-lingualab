@@ -40,6 +40,7 @@ export const STYLES = `
 .dsh-lingualab-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;
   border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3));background:none;cursor:pointer;
   color:var(--dsw-alias-label-secondary,#8a8f98);font:inherit;font-size:12px;white-space:nowrap}
+.dsh-lingualab-chip kbd{font:inherit;font-size:11px;opacity:.6}
 .dsh-lingualab-chip:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-chip.is-on{border-color:var(--dsw-alias-brand-primary,#4d6bfe);color:var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-chip:disabled{opacity:0.45;cursor:default}
@@ -59,7 +60,7 @@ export const STYLES = `
 .dsh-lingualab-segopt-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsh-lingualab-segopt-now{flex:none;font-size:11px;font-weight:500;opacity:.85}
 .dsh-lingualab-segopt-done{flex:none;display:inline-flex;color:var(--dsw-alias-state-success-primary,#2f855a)}
-/* A section heading inside the notes drawer: the segment the cards under it are from. */
+/* A section heading inside the 「收藏」 column: the segment the cards under it are from. */
 .dsh-lingualab-notes-group{flex:none;margin:6px 0 -4px;font-size:12px;font-weight:600;letter-spacing:.02em;
   color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-notes-group:first-child{margin-top:0}
@@ -96,6 +97,14 @@ export const STYLES = `
 .dsh-lingualab-resume-title{margin:0;font-size:28px;line-height:1.25;font-weight:700;letter-spacing:-.01em;word-break:break-word}
 .dsh-lingualab-resume-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-section{display:flex;flex-direction:column;gap:8px}
+/* The home's weekly pass: how much is left to review across the library, and its button. */
+.dsh-lingualab-reviewcard{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:14px;
+  background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.25))}
+.dsh-lingualab-reviewcard-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;
+  flex:none;border-radius:10px;color:var(--dsw-alias-state-warning-primary,#b7791f);
+  background:color-mix(in srgb,var(--dsw-alias-state-warning-primary,#b7791f) 13%,transparent)}
+.dsh-lingualab-reviewcard-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dsh-lingualab-reviewcard-text span{font-size:12.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-section-head{display:flex;align-items:center;gap:8px}
 .dsh-lingualab-section-head h2{margin:0;font-size:14px;font-weight:600}
 .dsh-lingualab-episodes{display:flex;flex-direction:column;gap:2px}
@@ -163,6 +172,8 @@ export const STYLES = `
 .dsh-lingualab-stage-en.is-long{font-size:clamp(20px,2.2vw,30px);line-height:1.35}
 .dsh-lingualab-stage-en.is-masked{filter:blur(12px);user-select:none;pointer-events:none}
 .dsh-lingualab-stage-en .is-word{cursor:pointer;border-radius:8px;transition:background .12s ease,color .12s ease}
+/* The gaps inside a picked phrase are tinted too, so the phrase reads as one piece. */
+.dsh-lingualab-stage-en .is-between{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
 .dsh-lingualab-stage-en .is-word:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
 .dsh-lingualab-stage-en .is-word.is-pinned{color:var(--dsw-alias-brand-primary,#4d6bfe);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
@@ -191,7 +202,39 @@ export const STYLES = `
   font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary,#8a8f98);background:none;
   border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3))}
 .dsh-lingualab-pop-btn:hover:not(:disabled){background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
-.dsh-lingualab-pop-btn:disabled{cursor:default;color:var(--dsw-alias-state-success-primary,#2f855a)}
+.dsh-lingualab-pop-btn:disabled{cursor:default;opacity:.45}
+/* A word or phrase already in the note: the button says so, and takes it out on a click. */
+.dsh-lingualab-pop-btn.is-on{color:var(--dsw-alias-state-success-primary,#2f855a)}
+
+/* The stage's time range opens the timing strip, so it reads as a quiet button. */
+.dsh-lingualab-stage-time{font:inherit;font-variant-numeric:tabular-nums;color:inherit;background:none;border:0;
+  padding:2px 6px;border-radius:6px;cursor:pointer}
+.dsh-lingualab-stage-time:hover,.dsh-lingualab-stage-time.is-on{background:var(--ll-hover);
+  color:var(--dsw-alias-label-primary,inherit)}
+
+/* The timing strip: two edge fields and the save, the width of the player card, right under the stage. */
+.dsh-lingualab-timing{flex:none;display:flex;flex-direction:column;gap:6px;width:min(720px,100%);align-self:center;
+  box-sizing:border-box;margin-bottom:10px;padding:10px 14px;border-radius:14px;
+  border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 45%,transparent);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 5%,var(--dsw-alias-bg-layer-1,transparent))}
+.dsh-lingualab-timing-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.dsh-lingualab-timing-title{font-size:13px;font-weight:600}
+.dsh-lingualab-timing-edge{display:inline-flex;align-items:center;gap:4px;padding:3px;border-radius:10px;
+  border:1px solid transparent}
+.dsh-lingualab-timing-edge.is-focus{border-color:var(--dsw-alias-brand-primary,#4d6bfe)}
+.dsh-lingualab-timing-label{font-size:12px;color:var(--dsw-alias-label-secondary,#8a8f98);padding:0 4px}
+.dsh-lingualab-timing-value{font:inherit;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;
+  min-width:84px;height:28px;border-radius:8px;cursor:pointer;color:var(--dsw-alias-label-primary,inherit);
+  background:var(--ll-hover);border:0}
+.dsh-lingualab-timing-value.is-moved{color:var(--dsw-alias-brand-primary,#4d6bfe)}
+.dsh-lingualab-timing-value:disabled{cursor:default;font-weight:400;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-timing-nudge{width:26px;height:26px;border-radius:8px;cursor:pointer;font:inherit;font-size:15px;
+  color:var(--dsw-alias-label-secondary,#8a8f98);background:none;
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3))}
+.dsh-lingualab-timing-nudge:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-timing .dsh-lingualab-pop-btn kbd{font:inherit;font-size:11px;opacity:.7}
+.dsh-lingualab-timing-hint{font-size:11.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-timing-hint.is-warn{color:var(--dsw-alias-state-warning-primary,#b7791f)}
 
 /* The player card: scrubber on top, then the controls in three groups. */
 .dsh-lingualab-deck{flex:none;display:flex;flex-direction:column;gap:12px;width:min(720px,100%);align-self:center;
@@ -351,6 +394,26 @@ export const STYLES = `
   border:0.5px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.25))}
 .dsh-lingualab-finish-stats dt{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
 .dsh-lingualab-finish-stats dd{margin:0;font-size:11.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-finish-stats.is-four{grid-template-columns:repeat(4,1fr)}
+
+/* ── review: the strip above the stage ───────────────────────── */
+.dsh-lingualab-review{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:min(860px,100%);
+  align-self:center;box-sizing:border-box;margin-top:14px;padding:8px 10px 8px 12px;border-radius:14px;
+  background:var(--ll-surface);border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.35))}
+.dsh-lingualab-review-source{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;
+  color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-review .dsh-lingualab-pop-btn kbd{font:inherit;font-size:11px;opacity:.7}
+
+/* ── segmented control: the right column's switch and the kept filter ── */
+.dsh-lingualab-segmented{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:var(--ll-hover)}
+.dsh-lingualab-segmented button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border:0;
+  border-radius:7px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;background:none;
+  color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-segmented button:hover{color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-segmented button.is-on{color:var(--dsw-alias-label-primary,inherit);background:var(--ll-surface);
+  box-shadow:0 1px 3px rgba(0,0,0,0.14)}
+.dsh-lingualab-segmented.is-small button{height:24px;padding:0 9px;font-size:12px;font-weight:500}
+.dsh-lingualab-segmented-count{font-weight:400;font-variant-numeric:tabular-nums;opacity:.7}
 
 /* ── loading: skeletons that mirror the real layout ──────────── */
 /* The delay keeps a fast load from flashing a placeholder for a single frame. */
@@ -380,31 +443,37 @@ export const STYLES = `
   .dsh-lingualab-sk{animation:none}
   .dsh-lingualab-spinner{animation-duration:2.4s}
   .dsh-lingualab-stage-now,.dsh-lingualab-word-pop,.dsh-lingualab-finish,.dsh-lingualab-finish-card,
-  .dsh-lingualab-finish-badge,.dsh-lingualab-notes,.dsh-lingualab-popover{animation:none}
+  .dsh-lingualab-finish-badge,.dsh-lingualab-popover{animation:none}
   .dsh-lingualab-page *{transition-duration:0s !important}
 }
 
-/* ── drawers: notes and the five steps slide in over a scrim ─── */
+/* ── drawer: the five steps slide in over a scrim ────────────── */
 .dsh-lingualab-scrim{position:absolute;inset:0;z-index:21;background:var(--ll-mask);animation:ll-fade-in .18s ease-out}
-.dsh-lingualab-notes,.dsh-lingualab-popover{position:absolute;top:0;right:0;bottom:0;z-index:22;display:flex;
+.dsh-lingualab-popover{position:absolute;top:0;right:0;bottom:0;z-index:22;display:flex;
   flex-direction:column;width:min(420px,100%);min-height:0;box-sizing:border-box;
   border-left:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3));
   background:var(--ll-surface);box-shadow:-18px 0 48px rgba(0,0,0,0.22);
   animation:ll-slide-in .2s ease-out}
 @keyframes ll-slide-in{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
-.dsh-lingualab-notes-head{display:flex;align-items:center;gap:8px;height:64px;padding:0 16px 0 24px;flex:none;
-  border-bottom:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.18))}
 .dsh-lingualab-drawer-titles{display:flex;flex-direction:column;min-width:0;gap:1px}
 .dsh-lingualab-drawer-title{font-weight:600;font-size:16px;line-height:1.3}
 .dsh-lingualab-drawer-sub{font-size:12px;color:var(--dsw-alias-label-secondary,#8a8f98);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
-.dsh-lingualab-notes-body{flex:1;min-height:0;overflow:auto;padding:6px 24px 16px;display:flex;flex-direction:column;gap:12px}
-.dsh-lingualab-note{display:flex;flex-direction:column;gap:8px;padding:14px 16px 16px;border-radius:14px;flex:none;
-  background:color-mix(in srgb,var(--dsw-alias-label-primary,#888) 4%,var(--ll-surface));
-  border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.25));transition:border-color .12s ease}
+/* ── the 「收藏」 column: one card per kept sentence, the one on stage open ── */
+.dsh-lingualab-transcript.is-kept{position:relative}
+.dsh-lingualab-kept-filter{flex:none;padding:10px 12px 4px}
+.dsh-lingualab-notes-body{position:relative;flex:1;min-height:0;overflow:auto;padding:8px 12px 16px;display:flex;
+  flex-direction:column;gap:8px}
+.dsh-lingualab-note{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;flex:none;cursor:pointer;
+  background:color-mix(in srgb,var(--dsw-alias-label-primary,#888) 3%,transparent);
+  border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.22));transition:border-color .12s ease,background .12s ease}
 .dsh-lingualab-note:hover{border-color:var(--dsw-alias-border-l2,rgba(127,127,127,0.4))}
+.dsh-lingualab-note.is-open{gap:8px;padding:12px 14px 14px;cursor:default;
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 7%,var(--ll-surface));
+  border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 55%,transparent);
+  box-shadow:inset 3px 0 0 var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-note.is-done .dsh-lingualab-note-text{color:var(--dsw-alias-label-secondary,#8a8f98)}
-.dsh-lingualab-note-top{display:flex;align-items:center;gap:10px;min-height:28px}
+.dsh-lingualab-note-top{display:flex;align-items:center;gap:8px;min-height:26px}
 .dsh-lingualab-note-check{display:inline-flex;cursor:pointer;position:relative}
 .dsh-lingualab-box{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;
   box-sizing:border-box;border:1.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.5));
@@ -421,22 +490,42 @@ export const STYLES = `
 .dsh-lingualab-note .dsh-lingualab-icon-btn.is-small{color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-icon-btn.is-danger:hover{color:var(--dsw-alias-state-error-primary,#d92d20);
   background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#d92d20) 12%,transparent)}
-.dsh-lingualab-note-text{display:block;word-break:break-word;font-weight:600;font-size:16px;line-height:1.4}
+.dsh-lingualab-note-text{display:block;word-break:break-word;font-weight:500;font-size:14px;line-height:1.4}
+.dsh-lingualab-note.is-open .dsh-lingualab-note-text{font-weight:600;font-size:16px}
+/* A sentence's one state, as a quiet chip on every card. */
+.dsh-lingualab-grade{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11.5px;
+  font-weight:600;color:var(--dsw-alias-label-secondary,#8a8f98);background:var(--ll-hover)}
+.dsh-lingualab-grade.is-got{color:var(--dsw-alias-state-success-primary,#2f855a);
+  background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#2f855a) 13%,transparent)}
+.dsh-lingualab-grade.is-fuzzy{color:var(--dsw-alias-state-warning-primary,#b7791f);
+  background:color-mix(in srgb,var(--dsw-alias-state-warning-primary,#b7791f) 14%,transparent)}
+.dsh-lingualab-grade.is-notyet{color:var(--dsw-alias-state-error-primary,#d92d20);
+  background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#d92d20) 12%,transparent)}
+/* The three grades as buttons, on the open card and on the review strip. */
+.dsh-lingualab-grades{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.dsh-lingualab-grade-btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;
+  cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-primary,inherit);background:none;
+  border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.35));transition:background .12s ease,border-color .12s ease}
+.dsh-lingualab-grade-btn kbd{font:inherit;font-size:11px;opacity:.6}
+.dsh-lingualab-grade-btn:disabled{opacity:.45;cursor:default}
+.dsh-lingualab-grade-btn.is-got{--ll-grade:var(--dsw-alias-state-success-primary,#2f855a)}
+.dsh-lingualab-grade-btn.is-fuzzy{--ll-grade:var(--dsw-alias-state-warning-primary,#b7791f)}
+.dsh-lingualab-grade-btn.is-notyet{--ll-grade:var(--dsw-alias-state-error-primary,#d92d20)}
+.dsh-lingualab-grade-btn:hover:not(:disabled){border-color:var(--ll-grade);background:color-mix(in srgb,var(--ll-grade) 10%,transparent)}
+.dsh-lingualab-grade-btn.is-on{color:var(--ll-on-brand);background:var(--ll-grade);border-color:transparent}
+.dsh-lingualab-grade-btn.is-on:hover{background:var(--ll-grade)}
 .dsh-lingualab-note-zh{font-size:13px;color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-memo{display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-radius:8px;margin-top:2px;
   background:var(--dsw-alias-bg-base,transparent);border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.25))}
 .dsh-lingualab-memo-words{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--ll-muted)}
-.dsh-lingualab-word-chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;
-  font-weight:500;color:var(--dsw-alias-brand-primary,#4d6bfe);
+.dsh-lingualab-word-chip{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 3px 0 8px;border-radius:6px;
+  font-size:12px;font-weight:500;color:var(--dsw-alias-brand-primary,#4d6bfe);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 12%,transparent)}
+.dsh-lingualab-word-chip-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;
+  border:0;border-radius:4px;cursor:pointer;color:inherit;background:none;opacity:.6}
+.dsh-lingualab-word-chip-x:hover{opacity:1;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 18%,transparent)}
 .dsh-lingualab-memo-text{font-size:13px;color:var(--dsw-alias-label-secondary,#8a8f98)}
-.dsh-lingualab-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-.dsh-lingualab-tag{border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3));background:none;
-  color:var(--dsw-alias-label-secondary,#8a8f98);cursor:pointer;font:inherit;font-size:12px;font-weight:500;height:26px;
-  padding:0 11px;border-radius:999px}
-.dsh-lingualab-tag:hover{background:var(--ll-hover)}
-.dsh-lingualab-tag.is-on{background:var(--dsw-alias-brand-primary,#4d6bfe);border-color:transparent;color:var(--ll-on-brand)}
-.dsh-lingualab-note input[type=checkbox],.dsh-lingualab-step input[type=checkbox]{accent-color:var(--dsw-alias-brand-primary,#4d6bfe)}
+.dsh-lingualab-step input[type=checkbox]{accent-color:var(--dsw-alias-brand-primary,#4d6bfe)}
 .dsh-lingualab-drawer-foot{flex:none;padding:12px 24px;font-size:12px;line-height:1.5;
   color:var(--dsw-alias-label-secondary,#8a8f98);border-top:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,0.18))}
 /* Undo toast: floats over the drawer's bottom, inverted so it reads as a message and not as content. */
@@ -556,6 +645,8 @@ export const STYLES = `
 .dsh-lingualab-btn.is-primary{background:var(--dsw-alias-brand-primary,#4d6bfe);border-color:transparent;color:var(--ll-on-brand)}
 .dsh-lingualab-btn.is-primary:hover{background:var(--dsw-alias-brand-primary,#4d6bfe);filter:brightness(1.08)}
 .dsh-lingualab-btn.is-large{height:38px;padding:0 18px;font-size:14px;border-radius:10px}
+.dsh-lingualab-btn.is-small{height:26px;padding:0 10px;font-size:12px;gap:5px}
+.dsh-lingualab-btn:disabled{opacity:.45;cursor:default}
 .dsh-lingualab-btn:disabled{opacity:0.45;cursor:default}
 
 
