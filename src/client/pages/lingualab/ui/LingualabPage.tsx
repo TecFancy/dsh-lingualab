@@ -55,6 +55,7 @@ import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
+import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 
 /** Which view the page shows. */
@@ -459,6 +460,68 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   )
 
   /**
+   * Why this episode's subtitles cannot be saved from the timing strip, or `null`.
+   *
+   * The page only writes files inside the library: a folder episode always is, a file episode only
+   * when it is a loose file at the library root. The host checks the same thing again.
+   */
+  const timingBlocked = useMemo((): string | null => {
+    if (episode === null || episode.kind === 'folder') return null
+    return (library.payload?.files ?? []).some((entry) => entry.id === episode.id) ? null : t('timingOutside')
+  }, [episode, library.payload, t])
+
+  /**
+   * After a timing save: keep the star on the sentence, read the file again, and stay on the sentence.
+   *
+   * A kept sentence is matched by its whole second, so a start that crossed a second would leave
+   * the star behind; the phrase's `at` moves with it. Reading the file again gives the cues their
+   * new edges and the hash the next save needs; the position is put back on the sentence the way a
+   * replayed note is, looping it when it was playing.
+   */
+  const onTimingSaved = useCallback(
+    (saved: SavedTiming): void => {
+      const before = saved.before.start / 1000
+      const after = saved.after.start / 1000
+      if (Math.floor(before) !== Math.floor(after)) {
+        const key = { at: before, text: splitCue(saved.cue).english, segment: segmentId ?? undefined }
+        const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
+        if (index >= 0) notes.update(index, { at: after })
+      }
+      resumeAt.current = after
+      resumeLoop.current = useMediaPlayer.getState().isPlaying
+      resumeText.current = null
+      library.reloadCues()
+    },
+    [notes, segmentId, library],
+  )
+
+  /** The file changed under the page: read it again and stay where the playhead is. */
+  const onTimingStale = useCallback((): void => {
+    resumeAt.current = useMediaPlayer.getState().currentTime
+    resumeLoop.current = false
+    resumeText.current = null
+    library.reloadCues()
+  }, [library])
+
+  const timing = useTimingEditor({
+    cues,
+    tracks: library.tracks,
+    episodeId,
+    blocked: timingBlocked,
+    onSaved: onTimingSaved,
+    onStale: onTimingStale,
+  })
+
+  /** Open the strip for the sentence on stage; layers close, because the strip takes the keyboard. */
+  const openTiming = useCallback((): void => {
+    if (cues[activeIndex] === undefined) return
+    setLayer('none')
+    setStepsOpen(false)
+    setSelection(null)
+    timing.open(activeIndex)
+  }, [cues, activeIndex, timing])
+
+  /**
    * Take dropped files into the library.
    *
    * Opening is left to the report's button: the reader dropped files to add them to a
@@ -508,6 +571,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         // must not also clear the A-B marks its own buttons set.
         if (controlBar.current?.closeMenu() === true) {
           handled()
+        } else if (timing.session !== null) {
+          handled()
+          timing.close()
         } else if (finishOpen) {
           handled()
           setDismissedFinish(finishCount)
@@ -522,6 +588,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         return
       }
       if (view !== 'practice') return
+      // The timing strip owns the keyboard while it is open: the arrows move an edge, not the sentence.
+      if (timing.session !== null) {
+        if (timing.handleKey(event)) handled()
+        return
+      }
       // A layer owns the keyboard while it is open: its own fields and buttons are the
       // only things a keystroke should reach.
       if (layer !== 'none' && layer !== 'notes') return
@@ -604,6 +675,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           handled()
           store().setPoint('b')
           return
+        case 't':
+        case 'T':
+          handled()
+          openTiming()
+          return
         case '[':
           handled()
           store().cycleSpeed(-1)
@@ -615,7 +691,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         default:
       }
     },
-    [cues, finishCount, finishOpen, flash, keep, layer, selection, stepsOpen, view, zhMode],
+    [cues, finishCount, finishOpen, flash, keep, layer, openTiming, selection, stepsOpen, timing, view, zhMode],
   )
 
   const hasAudio = library.media !== null
@@ -766,6 +842,18 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
                 loading={library.cuesLoading}
                 hasAudio={hasAudio}
+                onRetime={() => (timing.session === null ? openTiming() : timing.close())}
+                retiming={timing.session !== null}
+              />
+              <TimingStrip
+                t={t}
+                editor={timing}
+                blocked={
+                  timingBlocked ??
+                  (timing.session !== null && (timing.session.cue.origin === undefined || library.tracks.english === null)
+                    ? t('timingNoSource')
+                    : null)
+                }
               />
               <div className="dsh-lingualab-deck">
                 <ControlBar
@@ -775,6 +863,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   onZhMode={setZhMode}
                   kept={keptNow}
                   onToggleKeep={() => keep()}
+                  onRetime={openTiming}
                   disabled={!hasAudio || cues.length === 0}
                 />
                 <KeyHints t={t} flash={flashed} active={focused} />
@@ -830,6 +919,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 const cue = cues[index]
                 if (cue === undefined) return
                 setSelection(null)
+                // Another sentence ends the edit: the strip belongs to the one it was opened on.
+                timing.close()
                 useMediaPlayer.getState().seek(cue.start)
                 useMediaPlayer.getState().setPlaying(true)
               }}

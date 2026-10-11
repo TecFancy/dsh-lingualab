@@ -42,6 +42,7 @@ import { openEpisode, resolveFileMedia } from './host/open.ts'
 import { findPlace, listPlaces, placesPayload, resolveInPlace } from './host/places.ts'
 import { readProgressFile, writeProgressFile, type ProgressRead } from './host/progress.ts'
 import { parseState, serializeState, type OpenState } from './host/state.ts'
+import { writeTiming } from './host/timing.ts'
 import {
   BROWSE_PATH,
   CONFIG_PATH,
@@ -54,6 +55,7 @@ import {
   OPEN_PATH,
   PLACES_PATH,
   PROGRESS_PATH,
+  SUBTITLE_TIMING_PATH,
   type LibraryConfigWriteRequest,
   type NotesWriteRequest,
   type OpenPayload,
@@ -377,7 +379,7 @@ function openRoute(
 /**
  * `POST /lingualab/import` — one dropped file into the library.
  *
- * The one route that writes into the media folder. Who may call it is decided by
+ * One of the routes that write into the media folder. Who may call it is decided by
  * `guarded` in `register`, which asks the host's own request trust: a loopback `Host`, a
  * matching `Origin` and the signed session cookie. That, and not the header below, is the
  * access control. The custom header is a second, narrower check that only says "this came
@@ -548,6 +550,32 @@ function progressRoute(ctx: HostContext, configured: () => string): WebRoute {
   }
 }
 
+/**
+ * `POST /lingualab/subtitle-timing` — move one sentence's start and end in its subtitle file.
+ *
+ * The second route that writes into the media folder, after the import, and admitted the same
+ * way (`guarded` in `register`). It only ever changes subtitle files inside the library, and only
+ * their timecodes; `host/timing.ts` holds the rules.
+ */
+function timingRoute(ctx: HostContext, configured: () => string, readState: () => OpenState): WebRoute {
+  return {
+    kind: 'exact',
+    path: SUBTITLE_TIMING_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['POST'])) return
+      let body: unknown
+      try {
+        body = await readJsonBody(req)
+      } catch (error) {
+        sendJson(res, 400, { ok: false, code: 'refused', reason: `请求体读不了：${String(error)}`, files: [] })
+        return
+      }
+      const result = writeTiming(resolveRoot(ctx, configured()).root, readState(), body)
+      sendJson(res, result.status, result.payload)
+    },
+  }
+}
+
 /** Mount every route. The config is read per request, so edits need no reload. */
 export function apply(ctx: HostContext, config: Config): void {
   // Through the box: a volatile field holds the value, and the settings service can
@@ -606,6 +634,7 @@ export function apply(ctx: HostContext, config: Config): void {
     fileMediaRoute(readState),
     notesRoute(ctx, configured, readState, writeState),
     progressRoute(ctx, configured),
+    timingRoute(ctx, configured, readState),
   ].map((route) => guarded(ctx, route))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)

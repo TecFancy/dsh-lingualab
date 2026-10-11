@@ -193,6 +193,36 @@ export const STYLES = `
 .dsh-lingualab-pop-btn:hover:not(:disabled){background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-pop-btn:disabled{cursor:default;color:var(--dsw-alias-state-success-primary,#2f855a)}
 
+/* The stage's time range opens the timing strip, so it reads as a quiet button. */
+.dsh-lingualab-stage-time{font:inherit;font-variant-numeric:tabular-nums;color:inherit;background:none;border:0;
+  padding:2px 6px;border-radius:6px;cursor:pointer}
+.dsh-lingualab-stage-time:hover,.dsh-lingualab-stage-time.is-on{background:var(--ll-hover);
+  color:var(--dsw-alias-label-primary,inherit)}
+
+/* The timing strip: two edge fields and the save, the width of the player card, right under the stage. */
+.dsh-lingualab-timing{flex:none;display:flex;flex-direction:column;gap:6px;width:min(720px,100%);align-self:center;
+  box-sizing:border-box;margin-bottom:10px;padding:10px 14px;border-radius:14px;
+  border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 45%,transparent);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 5%,var(--dsw-alias-bg-layer-1,transparent))}
+.dsh-lingualab-timing-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.dsh-lingualab-timing-title{font-size:13px;font-weight:600}
+.dsh-lingualab-timing-edge{display:inline-flex;align-items:center;gap:4px;padding:3px;border-radius:10px;
+  border:1px solid transparent}
+.dsh-lingualab-timing-edge.is-focus{border-color:var(--dsw-alias-brand-primary,#4d6bfe)}
+.dsh-lingualab-timing-label{font-size:12px;color:var(--dsw-alias-label-secondary,#8a8f98);padding:0 4px}
+.dsh-lingualab-timing-value{font:inherit;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;
+  min-width:84px;height:28px;border-radius:8px;cursor:pointer;color:var(--dsw-alias-label-primary,inherit);
+  background:var(--ll-hover);border:0}
+.dsh-lingualab-timing-value.is-moved{color:var(--dsw-alias-brand-primary,#4d6bfe)}
+.dsh-lingualab-timing-value:disabled{cursor:default;font-weight:400;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-timing-nudge{width:26px;height:26px;border-radius:8px;cursor:pointer;font:inherit;font-size:15px;
+  color:var(--dsw-alias-label-secondary,#8a8f98);background:none;
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,0.3))}
+.dsh-lingualab-timing-nudge:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-timing .dsh-lingualab-pop-btn kbd{font:inherit;font-size:11px;opacity:.7}
+.dsh-lingualab-timing-hint{font-size:11.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
+.dsh-lingualab-timing-hint.is-warn{color:var(--dsw-alias-state-warning-primary,#b7791f)}
+
 /* The player card: scrubber on top, then the controls in three groups. */
 .dsh-lingualab-deck{flex:none;display:flex;flex-direction:column;gap:12px;width:min(720px,100%);align-self:center;
   box-sizing:border-box;padding:16px 20px 14px;border-radius:20px;

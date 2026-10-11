@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchLibrary, openEpisodeById, openEpisodeFile } from '../../../shared/lib/api.ts'
 import { mediaOf, mediaOfSegment } from '../../../shared/lib/media.ts'
-import { fetchCues, mergeBilingual, type Cue } from '../../../entities/cue/index.ts'
+import { fetchSubtitle, mergeBilingual, type Cue, type SubtitleTrack } from '../../../entities/cue/index.ts'
 import type { EpisodeEntry, EpisodeMedia, EpisodeSegment, LibraryPayload } from '../../../shared/protocol.ts'
 import { findSegment } from '../lib/segments.ts'
 import { subtitleKey } from '../lib/subtitleKey.ts'
@@ -42,6 +42,11 @@ export interface LibraryState {
   /** The segment on screen, or `null` when the episode has none. */
   readonly segment: EpisodeSegment | null
   readonly cues: readonly Cue[]
+  /**
+   * The files the cues were read from, with the hash of the bytes. `chinese` is set only when the
+   * Chinese came from a file of its own; a bilingual file is one `english` track.
+   */
+  readonly tracks: SubtitleTracks
   readonly cuesLoading: boolean
   /** True while the host is resolving a pick; the picker shows it as a wait. */
   readonly opening: boolean
@@ -52,16 +57,27 @@ export interface LibraryState {
   readonly openFile: (place: string, rel: string) => Promise<boolean>
   /** Re-read the library listing; used after the folder setting changes. */
   readonly reload: () => void
+  /** Read the open episode's subtitles again, even though their names have not changed: after a timing edit. */
+  readonly reloadCues: () => void
 }
+
+/** The subtitle files behind the cues on screen. */
+export interface SubtitleTracks {
+  readonly english: SubtitleTrack | null
+  readonly chinese: SubtitleTrack | null
+}
+
+const NO_TRACKS: SubtitleTracks = { english: null, chinese: null }
 
 /** Cues plus the episode and segment they were parsed from. */
 interface LoadedCues {
   /** `cuesOwner` of what the cues were parsed from. */
   readonly owner: string | null
   readonly cues: readonly Cue[]
+  readonly tracks: SubtitleTracks
 }
 
-const NOTHING_LOADED: LoadedCues = { owner: null, cues: [] }
+const NOTHING_LOADED: LoadedCues = { owner: null, cues: [], tracks: NO_TRACKS }
 
 /** What an episode without segments hands out for its segment list: one list, not a new one per render. */
 const NO_SEGMENTS: readonly EpisodeSegment[] = []
@@ -112,6 +128,8 @@ export function useLibrary(): LibraryState {
   const [loaded, setLoaded] = useState<LoadedCues>(NOTHING_LOADED)
   const [cuesLoading, setCuesLoading] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  /** Bumped to read the same subtitle files again. */
+  const [cuesToken, setCuesToken] = useState(0)
   const segments = episode?.segments ?? NO_SEGMENTS
   // An episode with segments always has one on screen: the one named, else the first.
   const segment = findSegment(segments, segmentId) ?? segments[0] ?? null
@@ -173,18 +191,26 @@ export function useLibrary(): LibraryState {
     void (async () => {
       setCuesLoading(true)
       try {
-        const english = enUrl === null ? [] : await fetchCues(enUrl, track.subtitleEn ?? '')
-        const chinese =
-          zhUrl === null || zhUrl === enUrl ? [] : await fetchCues(zhUrl, track.subtitleZh ?? '')
+        const enName = track.subtitleEn ?? ''
+        const zhName = track.subtitleZh ?? ''
+        const english = enUrl === null ? null : await fetchSubtitle(enUrl, enName)
+        const chinese = zhUrl === null || zhUrl === enUrl ? null : await fetchSubtitle(zhUrl, zhName)
         if (cancelled) return
         parsedKey.current = key
-        setLoaded({ owner, cues: mergeBilingual(english, chinese) })
+        setLoaded({
+          owner,
+          cues: mergeBilingual(english?.cues ?? [], chinese?.cues ?? []),
+          tracks: {
+            english: english === null ? null : { file: enName, hash: english.hash },
+            chinese: chinese === null ? null : { file: zhName, hash: chinese.hash },
+          },
+        })
         setError(null)
       } catch (cause) {
         if (cancelled) return
         // `loaded` no longer holds what the key names, so the next open must parse again.
         parsedKey.current = null
-        setLoaded({ owner, cues: [] })
+        setLoaded({ owner, cues: [], tracks: NO_TRACKS })
         setError(String(cause))
       } finally {
         if (!cancelled) setCuesLoading(false)
@@ -193,7 +219,7 @@ export function useLibrary(): LibraryState {
     return () => {
       cancelled = true
     }
-  }, [episode, media, segment, owner])
+  }, [episode, media, segment, owner, cuesToken])
 
   /** One place both picks end: the host answers with the entry and its URLs. */
   const applyOpen = useCallback((result: Awaited<ReturnType<typeof openEpisodeById>>): boolean => {
@@ -234,8 +260,15 @@ export function useLibrary(): LibraryState {
     setReloadToken((token) => token + 1)
   }, [])
 
+  const reloadCues = useCallback(() => {
+    parsedKey.current = null
+    setCuesToken((token) => token + 1)
+  }, [])
+
   // Only the cues that belong to the episode and segment on screen are ever handed out.
-  const cues = episode !== null && loaded.owner === owner ? loaded.cues : NO_CUES
+  const current = episode !== null && loaded.owner === owner
+  const cues = current ? loaded.cues : NO_CUES
+  const tracks = current ? loaded.tracks : NO_TRACKS
 
   return {
     payload,
@@ -246,11 +279,13 @@ export function useLibrary(): LibraryState {
     segments,
     segment,
     cues,
+    tracks,
     cuesLoading,
     opening,
     openError,
     openEpisode,
     openFile,
     reload,
+    reloadCues,
   }
 }

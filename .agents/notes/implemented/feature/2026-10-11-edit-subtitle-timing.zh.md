@@ -1,6 +1,6 @@
 # Agent Note: 调整一句的时间
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -95,9 +95,14 @@ export interface TimingWriteRequest {
 ## Consequences
 
 - 素材目录多了第四处写入：库里的字幕文件和它们的 `.bak` 副本。`AGENTS.md` 和技能的约定 4 要把它列上。
-- `T`，以及横栏里的 `I`、`O`、`Tab` 和方向键，加入「更多」里的按键列表。
+- `T` 加入「更多」里的按键列表，「更多」里也多一项用来打开横栏；横栏自己的键（`I`、`O`、`Tab` 和方向键）写在横栏上，
+  在那里才生效。
 - 句子类型要带上每一句的出处（文件、原来的时间范围、第几句，以及配上的中文那一句的这些信息）。解析器和合并负责记下这些，
   返回给其他代码的内容不变。
-- 新路由意味着 `dsh-plugin.naming.json`、README 的路由表和 `check-host.mjs` 都要改，host 半边也要重启。
+- 新路由意味着 `dsh-plugin.naming.json` 和 README 的路由表都要改（`check-host.mjs` 拿记录和 `protocol.ts` 比对，
+  不用另改），host 半边也要重启。
 - 这一项排在复习收藏
-  （[2026-10-11-review-kept-sentences](2026-10-11-review-kept-sentences.zh.md)）之前，因为逐句循环的复习依赖句子的边界准确。
+  （[2026-10-11-review-kept-sentences](../../proposed/feature/2026-10-11-review-kept-sentences.zh.md)）之前，因为逐句循环的复习依赖句子的边界准确。
+- 页面用自己实现的 SHA-256 算哈希，不用 `crypto.subtle`：它只在安全上下文里存在，从另一台机器用普通 HTTP
+  打开 dsh web 时，编辑器就永远存不了。
+- 每一端都按文件里相邻句子的时间限住；播放条换到别的句子（或循环某一句）时编辑结束，横栏不会去改一句没在播的边界。

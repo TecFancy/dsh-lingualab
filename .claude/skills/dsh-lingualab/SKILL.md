@@ -47,7 +47,7 @@ node scripts/verify.mjs --list   # 看检查表
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
-4. **写素材目录只有三处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
+4. **写素材目录只有四处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
    `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
    `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
    不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
@@ -58,6 +58,12 @@ node scripts/verify.mjs --list   # 看检查表
    `.part` 下次写这个文件夹时清掉、同时最多两个上传（超了回 `429`）、单个文件 2 GB（流式限额，不信
    `content-length`）。文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
    见 `.agents/notes/implemented/feature/2026-10-09-home-first-and-drop-to-import.md`。
+   四是 `src/host/timing.ts`，把一句的开头和结尾写回媒体库里的字幕文件：只换那一句的时间行，其余字节不动（按 Latin-1
+   读写，GBK 与 GB18030 因此原样保留，UTF-16 带 BOM 的走 Node 自带编码）；请求带页面读到的字节的 SHA-256，
+   对不上回 `409`；按文件里写的毫秒和「同一范围里的第几句」找句子，不按解析后的序号（解析器会排序、丢块）；第一次写某个文件前
+   复制一份 `<名>.bak`，只复制一次；两个文件都检查通过才写；媒体库以外的文件剧集一律 `403`。页面的出处记在 `Cue.origin` /
+   `zhOrigin`，客户端的计数规则必须和 host 一致（没有文本的块也要计数）。
+   见 `.agents/notes/implemented/feature/2026-10-11-edit-subtitle-timing.md`。
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
    「短的工作集」靠笔记抽屉的「还在练 / 已记住」视图，不靠上限。**不要**再加回弹层询问用户
    替换哪一条。旧的取舍记在 `.agents/notes/implemented/feature/2026-10-08-seven-phrase-ceiling.md`，

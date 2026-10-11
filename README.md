@@ -157,6 +157,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder (with an optional `segment` to open one of its segments, the first when omitted), or a single audio file with the subtitles beside it |
 | `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
+| `POST /lingualab/subtitle-timing` | exact | Move one sentence's start and end in its subtitle file inside the library: only that timecode line changes, `409` when the file is not the one the page read, a `.bak` of the original before the first write |
 | `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 
 ## Repository layout

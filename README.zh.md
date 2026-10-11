@@ -123,6 +123,7 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 | `GET /lingualab/browse` | exact | 某个位置下的一个目录：子目录、音频、字幕，以及每个音频配到了哪些字幕 |
 | `POST /lingualab/open` | exact | 把某一集设为当前：扫描到的文件夹剧集（可以带 `segment` 打开其中一段，不带就是第一段），或一个音频文件加旁边的字幕 |
 | `POST /lingualab/import` | exact | 把拖进来的一个音频或字幕文件收进某集的文件夹，从不覆盖；要带 `x-lingualab-import: 1` 请求头，并且会话被宿主放行 |
+| `POST /lingualab/subtitle-timing` | exact | 把一句的开头和结尾写回媒体库里的字幕文件：只改那一句的时间行，文件和页面读到的不一样时回 `409`，第一次写之前留一份原文件的 `.bak` |
 | `GET`、`POST /lingualab/progress` | exact | 听到哪里和五步法勾选，存在媒体库根目录的 `.lingualab-progress.json`；`POST` 把浏览器那份合并进来（每一集取最近的），并回整张合并后的表 |
 
 ## 仓库结构

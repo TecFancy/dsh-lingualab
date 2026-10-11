@@ -15,6 +15,9 @@
  *     you do is say it from what you heard, and the text is the answer key.
  *   · **Nothing is a blank.** No subtitles, no audio and "finished" each get a message
  *     that says what to do next, because an empty stage looks like a crash.
+ *
+ * The sentence's time range is also a button: it opens the strip that moves the sentence's
+ * start and end, because the range is where a reader looks when a loop clips a word.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
@@ -45,6 +48,10 @@ export interface StageProps {
   readonly hasWord: (word: string) => boolean
   readonly loading: boolean
   readonly hasAudio: boolean
+  /** Open the timing strip for the sentence on stage; the time range is its button. */
+  readonly onRetime: () => void
+  /** Whether the strip is open, so the range reads as pressed. */
+  readonly retiming: boolean
 }
 
 /** Where the popover sits, relative to the English block. */
@@ -55,7 +62,20 @@ interface Pinned {
 }
 
 /** The centre of the practice view. */
-export function Stage({ t, cues, activeIndex, zhMode, masked, onReveal, onAddWord, hasWord, loading, hasAudio }: StageProps) {
+export function Stage({
+  t,
+  cues,
+  activeIndex,
+  zhMode,
+  masked,
+  onReveal,
+  onAddWord,
+  hasWord,
+  loading,
+  hasAudio,
+  onRetime,
+  retiming,
+}: StageProps) {
   const cue = cues[activeIndex]
   const previous = cues[activeIndex - 1]
   const next = cues[activeIndex + 1]
@@ -170,9 +190,15 @@ export function Stage({ t, cues, activeIndex, zhMode, masked, onReveal, onAddWor
         <span className="dsh-lingualab-pill">
           {t('cueOf', { n: activeIndex + 1, total: cues.length })}
         </span>
-        <span>
+        <button
+          type="button"
+          className={`dsh-lingualab-stage-time${retiming ? ' is-on' : ''}`}
+          onClick={onRetime}
+          title={t('timingOpen')}
+          aria-pressed={retiming}
+        >
           {formatClock(cue.start)} – {formatClock(cue.end)}
-        </span>
+        </button>
       </div>
 
       <div className="dsh-lingualab-stage-side is-prev" aria-hidden>

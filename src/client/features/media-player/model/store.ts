@@ -35,6 +35,21 @@ const SHADOW_WINDOW_S = 1.5
 /** How many times a wrap repeats before the loop stops by itself. `0` is endless. */
 const DEFAULT_REPEATS = 0
 
+/**
+ * The sentence whose edges are being moved, with the edges as they stand in the editor.
+ *
+ * While it is set the player plays that window and nothing else: the sentence stays the active
+ * one whatever the playhead says (a start moved past the playhead would otherwise make the
+ * previous sentence active, and loop that), and reaching the end wraps to the start without
+ * counting passes, because the reader is listening for the edges, not practising.
+ */
+export interface EditWindow {
+  readonly index: number
+  /** Seconds. */
+  readonly start: number
+  readonly end: number
+}
+
 interface SeekGuard {
   readonly target: number
   readonly expiresAt: number
@@ -66,6 +81,8 @@ export interface MediaPlayerState {
   readonly finishCount: number
   /** The sentence whose English the reader has uncovered in shadow mode, or -1. */
   readonly revealed: number
+  /** The sentence being retimed, or `null`. */
+  readonly editWindow: EditWindow | null
 
   reset: (cues: readonly Cue[]) => void
   setPlaying: (playing: boolean) => void
@@ -86,6 +103,8 @@ export interface MediaPlayerState {
   clearAB: () => void
   setRepeats: (repeats: number) => void
   stepCue: (delta: number) => void
+  /** Pin playback to a sentence being retimed, or let go of it with `null`. */
+  setEditWindow: (window: EditWindow | null) => void
 }
 
 /** Clamp a speed index into range. */
@@ -113,6 +132,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
   finished: false,
   finishCount: 0,
   revealed: -1,
+  editWindow: null,
 
   // A new episode starts with no loop and the default repeat count. The speed is
   // deliberately *not* reset: it is a preference about how the reader listens, not
@@ -135,6 +155,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       guard: null,
       finished: false,
       revealed: -1,
+      editWindow: null,
     })),
 
   // Starting to play covers the English again in shadow mode: the reveal belongs to one pass.
@@ -165,7 +186,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       seekRequest: Math.max(0, time),
       seekToken: state.seekToken + 1,
       currentTime: Math.max(0, time),
-      activeIndex: findActiveCue(state.cues, time),
+      activeIndex: state.editWindow?.index ?? findActiveCue(state.cues, time),
       guard: { target: Math.max(0, time), expiresAt: Date.now() + SEEK_GUARD_MS },
       finished: false,
     })),
@@ -181,6 +202,15 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     }
 
     const state = get()
+    const edit = state.editWindow
+    if (edit !== null) {
+      if (state.isPlaying && time >= edit.end - 0.01) {
+        get().seek(edit.start)
+        return
+      }
+      set({ currentTime: time, activeIndex: edit.index })
+      return
+    }
     const heard = state.cues[state.activeIndex]
     if (
       state.pauseAfterSentence &&
@@ -253,7 +283,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     const target = index ?? state.activeIndex
     const cue = state.cues[target]
     if (cue === undefined) return
-    set({ activeIndex: target, loopMode: 'sentence', playsDone: 0 })
+    // Looping another sentence (or this one, as practice) ends an edit of its edges.
+    set({ activeIndex: target, loopMode: 'sentence', playsDone: 0, editWindow: null })
     state.seek(cue.start)
     set({ isPlaying: true })
   },
@@ -280,11 +311,20 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     const next = stepCueIndex(state.activeIndex, delta, state.cues.length)
     const cue = state.cues[next]
     if (cue === undefined) return
-    set({ activeIndex: next, playsDone: 0 })
+    // Moving to another sentence ends an edit: the window belongs to the one it was opened on.
+    set({ activeIndex: next, playsDone: 0, editWindow: null })
     state.seek(cue.start)
     // Shadowing is one sentence at a time, so moving to another one means 'play it'.
     if (state.pauseAfterSentence) set({ isPlaying: true })
   },
+
+  setEditWindow: (window) =>
+    set((state) => ({
+      editWindow: window,
+      activeIndex: window?.index ?? state.activeIndex,
+      // Passes counted while the edges moved are not passes of the sentence.
+      playsDone: 0,
+    })),
 }))
 
 /** The speed currently in effect. */

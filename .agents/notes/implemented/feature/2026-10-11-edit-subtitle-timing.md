@@ -1,6 +1,6 @@
 # Agent Note: edit a sentence's timing
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -123,12 +123,19 @@ per sentence); a waveform; splitting or merging sentences; editing the text; and
 
 - The material directory gains a fourth write: subtitle files inside the library, and their
   `.bak` copies. `AGENTS.md` and the skill's convention 4 list it.
-- `T`, and inside the strip `I`, `O`, `Tab` and the arrows, join the key list in 「更多」.
+- `T` joins the key list in 「更多」, which also gains an entry that opens the strip; the strip's
+  own keys (`I`, `O`, `Tab` and the arrows) are spelled out on the strip, where they apply.
 - The cue type has to carry where each cue came from (file, original range, occurrence, and the
   matched Chinese cue's), which the parser and the merge record without changing what they
   return to everything else.
-- A new route means `dsh-plugin.naming.json`, the README route table and `check-host.mjs` change,
+- A new route means `dsh-plugin.naming.json` and the README route table change (`check-host.mjs`
+  compares the record with `protocol.ts` and needs nothing new),
   and the host half needs a restart.
 - This lands before the review of kept sentences
-  ([2026-10-11-review-kept-sentences](2026-10-11-review-kept-sentences.md)), since a review that
+  ([2026-10-11-review-kept-sentences](../../proposed/feature/2026-10-11-review-kept-sentences.md)), since a review that
   loops each sentence depends on its edges being right.
+- The page computes the hash with a SHA-256 of its own rather than `crypto.subtle`, which only
+  exists in a secure context; dsh web opened over plain HTTP from another machine would otherwise
+  have an editor that can never save.
+- Each edge is clamped by its neighbours as the file has them, and the transport moving to another
+  sentence (or looping one) ends the edit, so the strip never edits edges nothing is playing.

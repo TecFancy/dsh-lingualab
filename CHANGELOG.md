@@ -31,6 +31,16 @@ the plugin that was installed and used, not an artifact on a registry.
 - A subtitle named with `双语` or `bilingual` (`01_Scene_双语.srt`) is read as one file with both languages, decided
   by name. Its Chinese lines are the Chinese track, and the picker says "both tracks" for such a folder instead of
   "subtitles unchecked".
+- A sentence whose start or end is a beat off can now be fixed on the page. Click its time range on the stage, press
+  `T`, or pick "Adjust this sentence's start and end" in More: a strip under the stage shows both edges to the
+  millisecond while the sentence loops, `←` `→` nudge the focused edge by 50 ms (250 ms with `Shift`), `Tab`
+  switches edges, `I` and `O` set them to the playhead, `Enter` saves and `Esc` cancels. An edge never crosses its
+  neighbours. The save is written into the subtitle file itself through the new `POST /lingualab/subtitle-timing`:
+  only that cue's timecode line changes, in the format it had, and every other byte (numbering, style tags, line
+  endings, a GBK encoding) stays as it was. The original is kept once as `<name>.bak`; a file that changed since the
+  page read it is refused with `409`; a Chinese track in its own file moves with the English; LRC moves its start
+  only; and only files inside the library can be saved. A kept sentence whose start crosses a whole second keeps its
+  star.
 
 ### Changed
 
@@ -46,6 +56,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Fixed
 
+- An LRC time with a three-digit fraction below 100 (`[00:12.050]`) was read as half a second rather than fifty
+  milliseconds. The digit count now decides, as the parser always meant to.
 - A kept sentence with tags but no note was written as `| 中文 | #review`, which read back with the tag as its note and
   no tag. The empty note field is now kept in front of the tags.
 - Enter on the finish card's focused button now presses it. The page's own Enter, which plays the selected sentence,

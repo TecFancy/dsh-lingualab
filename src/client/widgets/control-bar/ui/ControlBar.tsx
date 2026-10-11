@@ -44,6 +44,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['R', 'keyReveal'],
   ['[  ]', 'keySpeed'],
   ['A  B', 'keyMarks'],
+  ['T', 'keyTiming'],
 ]
 
 /** Labels for the four Chinese display modes, in the order they are offered. */
@@ -62,6 +63,8 @@ export interface ControlBarProps {
   readonly kept: boolean
   /** Keeps or un-keeps the sentence playing now; the page decides what that touches. */
   readonly onToggleKeep: () => void
+  /** Open the strip that moves the sentence's start and end. */
+  readonly onRetime: () => void
   readonly disabled?: boolean
 }
 
@@ -77,7 +80,7 @@ export interface ControlBarHandle {
 
 /** The row under the sentence. */
 export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function ControlBar(
-  { t, zhMode, onZhMode, kept, onToggleKeep, disabled = false },
+  { t, zhMode, onZhMode, kept, onToggleKeep, onRetime, disabled = false },
   handle,
 ) {
   const isPlaying = useMediaPlayer((state) => state.isPlaying)
@@ -268,6 +271,16 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
                 </select>
               </label>
             ) : null}
+            <button
+              type="button"
+              className="dsh-lingualab-btn"
+              onClick={() => {
+                setMenu(false)
+                onRetime()
+              }}
+            >
+              {t('keyTiming')} <kbd>T</kbd>
+            </button>
             <dl className="dsh-lingualab-menu-keys">
               {SHORTCUTS.map(([keys, label]) => (
                 <div key={keys} style={{ display: 'contents' }}>
