@@ -40,6 +40,9 @@ the plugin that was installed and used, not an artifact on a registry.
 - A kept sentence is the same one only when its segment matches too, so two scenes that both open on the same line
   at 00:02 no longer share a star. `POST /lingualab/open` takes an optional `segment` and answers with the one it
   opened, and an unknown segment is refused with a reason.
+- `scripts/check-bilingual.mjs` refuses an argument it does not know and a `--root` outside the temp directory, as
+  the notes gates do. A misspelled flag used to be dropped, and `--root <another checkout> --write` rewrote that
+  checkout's records. Its self-test now also runs the shared `--root` guard cases.
 
 ### Fixed
 

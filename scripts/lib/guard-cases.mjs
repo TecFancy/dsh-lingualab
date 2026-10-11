@@ -2,9 +2,8 @@
  * Shared `--root` guard cases for the gate self-tests.
  *
  * Copied from fsd-react, where the guard is the same ~30 lines in several
- * gates. Here it lives in `check-notes.mjs` and `check-note-links.mjs`, whose
- * self-tests import this file; `check-bilingual.mjs` takes `--root` without
- * the guard and does not use it. The cases live in one place so every copy
+ * gates. Here it lives in `check-notes.mjs`, `check-note-links.mjs` and
+ * `check-bilingual.mjs`, whose self-tests import this file. The cases live in one place so every copy
  * answers to one list, while each script still exercises its *own* copy - the
  * caller supplies a spawn helper that runs that script.
  *
@@ -15,7 +14,7 @@
  *
  * Imported dynamically, from inside each `selfTest`, so that a normal gate run
  * keeps working if this file is absent: only the self-tests depend on it.
- * That is how its absence went unnoticed here, so `verify.mjs` now runs both
+ * That is how its absence went unnoticed here, so `verify.mjs` now runs the
  * self-tests.
  */
 
