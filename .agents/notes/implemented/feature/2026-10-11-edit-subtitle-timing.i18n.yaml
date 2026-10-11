@@ -3,5 +3,20 @@
 # Key = the English heading path; value = a hash of each side's body text
 # outside fenced code blocks. Editing either side alone changes its hash.
 "/":
-  en: 24fdcbf8a60a7304
-  zh: ada599d433eba529
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/agent-note-edit-a-sentence-s-timing":
+  en: c5e98e3240f16d7c
+  zh: c5e98e3240f16d7c
+"/agent-note-edit-a-sentence-s-timing/problem":
+  en: e1ae26c08a1e3bb8
+  zh: cd86d856be889135
+"/agent-note-edit-a-sentence-s-timing/decision":
+  en: fa8f4e53acc7f50c
+  zh: 3432dcc3ff9edd56
+"/agent-note-edit-a-sentence-s-timing/alternatives-considered":
+  en: 65f829c5845edd30
+  zh: 1db43f47db3fefd1
+"/agent-note-edit-a-sentence-s-timing/consequences":
+  en: f96839780b9d69da
+  zh: 63eb971ba9fd6735

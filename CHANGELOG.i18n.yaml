@@ -3,5 +3,113 @@
 # Key = the English heading path; value = a hash of each side's body text
 # outside fenced code blocks. Editing either side alone changes its hash.
 "/":
-  en: 144b69bf34780081
-  zh: 969a1851a23c48a4
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog":
+  en: 44eed631f7c24922
+  zh: 6d2b152881cd51a8
+"/changelog/unreleased":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/unreleased/added":
+  en: 9ab20609ae954146
+  zh: 2a519442b2690261
+"/changelog/unreleased/changed":
+  en: 338a3b29e3ec5010
+  zh: 1d8299672b3478df
+"/changelog/0-5-0-2026-10-11":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-5-0-2026-10-11/added":
+  en: 8f1cc075435ae8d7
+  zh: fd4cd9e16f66dcb9
+"/changelog/0-5-0-2026-10-11/changed":
+  en: 23033e43ebd3d1fb
+  zh: fdde54be1d45a057
+"/changelog/0-5-0-2026-10-11/fixed":
+  en: dfb75b1c97769c4d
+  zh: 9bf4fce68e7ab43a
+"/changelog/0-4-0-2026-10-10":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-4-0-2026-10-10/added":
+  en: 2549c741f4b80c35
+  zh: 1f21476db1c9a01c
+"/changelog/0-4-0-2026-10-10/changed":
+  en: a59b2e68c9825b4a
+  zh: d11c69cc37f03d02
+"/changelog/0-4-0-2026-10-10/fixed":
+  en: 870ad9d3ca7f35ed
+  zh: 6aa5fa09e56dc77c
+"/changelog/0-3-1-2026-10-10":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-3-1-2026-10-10/changed":
+  en: eb94dcae52f33e2f
+  zh: 9ec807288ae9315a
+"/changelog/0-3-0-2026-10-10":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-3-0-2026-10-10/added":
+  en: a26e5231db4b69a4
+  zh: 6bf4a13440d2fd22
+"/changelog/0-3-0-2026-10-10/changed":
+  en: ccb465bcebcd58d4
+  zh: 548586f11cde65cf
+"/changelog/0-3-0-2026-10-10/removed":
+  en: 7ad82556dc20fc96
+  zh: e1eb04601a5421b6
+"/changelog/0-3-0-2026-10-10/fixed":
+  en: ac903d4890faaa8e
+  zh: 0b40dfbff1bfd3b1
+"/changelog/0-2-0-2026-10-09":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-2-0-2026-10-09/changed":
+  en: 79a05a4226e09417
+  zh: 1cf483705d4ffd2e
+"/changelog/0-2-0-2026-10-09/fixed":
+  en: 5e42922e8fe4aeed
+  zh: 46dd7ef0177c3651
+"/changelog/0-1-5-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-5-2026-10-08/added":
+  en: 46060203f6be356f
+  zh: b13591b03d2e148b
+"/changelog/0-1-5-2026-10-08/fixed":
+  en: 36c5cac7898a4a18
+  zh: c8e8d403451593a8
+"/changelog/0-1-4-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-4-2026-10-08/added":
+  en: bcd65f6d7c0d97ed
+  zh: 3e2189bbb4208b87
+"/changelog/0-1-3-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-3-2026-10-08/added":
+  en: 51834b583f70cca0
+  zh: b21f24cb1a380b15
+"/changelog/0-1-2-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-2-2026-10-08/fixed":
+  en: fbaa7bb1675b7ea2
+  zh: 56bdae6c882ce927
+"/changelog/0-1-2-2026-10-08/changed":
+  en: 6b48f056ec609c85
+  zh: 70a56fdc9db1a4c3
+"/changelog/0-1-1-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-1-2026-10-08/fixed":
+  en: 4d1e55ca6da99f99
+  zh: aec60dae036cc3f8
+"/changelog/0-1-0-2026-10-08":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-1-0-2026-10-08/added":
+  en: 7a48bc92d909a095
+  zh: dcfcead4918421fb
