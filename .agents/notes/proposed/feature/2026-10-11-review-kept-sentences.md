@@ -17,6 +17,11 @@ Keeping a sentence is one tap on the star, and that part works. What comes after
 - Review is per episode, while the method is not. A fresh `notes.md` opens with 「想不起的加
   `#review`，周日还记不住的加 `#hard`」, a weekly pass over everything, and the page only ever
   shows one episode's sentences.
+- A word picked on the stage goes into the sentence's note as `[word]`, and nothing on screen
+  takes it out again: the popover says 「已记下」 and stops there, and the card shows the word as a
+  chip with no way to remove it, short of editing `notes.md` by hand.
+- Only one word at a time can be picked. A collocation or a phrase (「her skirt」, 「get down
+  here」) is often the thing worth keeping, and there is no way to keep it as one.
 
 ## Decision
 
@@ -45,6 +50,14 @@ reader wrote by hand are kept. The checkbox and the two tag toggles leave the ca
 the state as one chip. The line format of `notes.md` does not change, so older files and the
 agent's grep read as before; a line with both tags reads as 「没记住」. A fresh `notes.md` opens
 with a preamble that explains the grades instead of the tags.
+
+**Words and phrases can be taken back, and a phrase can be kept as one.** On the stage, a
+click picks a word as today, and dragging across words or `Shift`-clicking a second word picks
+the span between them; the popover then offers the phrase with the same 「复制」 and 「记下」. A
+phrase is stored as `[her skirt]`, which the note's marker already allows (`splitNote` reads
+any text between brackets), so the format does not change. 「已记下」 becomes a toggle that removes
+the word or phrase again, and every chip on the card carries a remove button. Removing a marker
+takes out the `[...]` and nothing else of the note.
 
 **Review is a mode of the practice page.** 「复习」 in the 「收藏」 column head starts it for the
 episode on screen. The queue is the episode's sentences that are not 「记住了」, in play order
@@ -114,6 +127,8 @@ five steps out of their drawer; and editing a note from the review strip.
   card's normal behaviour (`Space` and the transport are always reachable).
 - `#review` and `#hard` now mean the latest grade rather than the day a phrase was missed. An
   older file reads naturally: a `#review` line shows as 「模糊」, a `#hard` line as 「没记住」.
+- The word popover changes from one word to a span, so the stage's tokens need a selection state;
+  a single click still behaves as it does today.
 - `1`, `2` and `3` become shortcuts and join the key list in 「更多」.
 - A new route means `dsh-plugin.naming.json`, the README route table and `check-host.mjs` all
   change, and the host half needs a restart.
