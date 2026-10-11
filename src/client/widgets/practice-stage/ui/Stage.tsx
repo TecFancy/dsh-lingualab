@@ -75,6 +75,15 @@ function spanOf(one: number, two: number): Span {
   return { from: Math.min(one, two), to: Math.max(one, two) }
 }
 
+/**
+ * The classes that tint a word inside the picked span. Only the span's two ends are rounded, so
+ * the words and the gaps between them read as one band rather than a row of separate pills.
+ */
+function wordMark(span: Span | null, index: number): string {
+  if (span === null || index < span.from || index > span.to) return ''
+  return ` is-pinned${index === span.from ? ' is-from' : ''}${index === span.to ? ' is-to' : ''}`
+}
+
 /** The centre of the practice view. */
 export function Stage({
   t,
@@ -296,7 +305,7 @@ export function Stage({
                   <span
                     key={index}
                     data-token={index}
-                    className={`is-word${marked !== null && index >= marked.from && index <= marked.to ? ' is-pinned' : ''}`}
+                    className={`is-word${wordMark(marked, index)}`}
                     onMouseDown={(event) => press(event, index)}
                     onMouseEnter={() => sweep(index)}
                   >

@@ -1,6 +1,7 @@
 /** Public API of the media-player feature: the store and the audio binding. */
 export {
   DEFAULT_SPEED_INDEX,
+  LEAD_IN_CHOICES,
   SPEED_PRESETS,
   currentSpeed,
   useMediaPlayer,

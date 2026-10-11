@@ -3,26 +3,5 @@
 # Key = the English heading path; value = a hash of each side's body text
 # outside fenced code blocks. Editing either side alone changes its hash.
 "/":
-  en: e3b0c44298fc1c14
-  zh: e3b0c44298fc1c14
-"/dsh-lingualab":
-  en: 37e7c11e68192c1e
-  zh: ebb9bee8d24c92a4
-"/dsh-lingualab/what-it-does":
-  en: 473c5f611f9dd07c
-  zh: 3cc495f0f66d4de8
-"/dsh-lingualab/status":
-  en: 7a0b3319518008b3
-  zh: 96b77b6fc573fd94
-"/dsh-lingualab/design":
-  en: 521cd3aba1bec2e6
-  zh: c42f0771611ca4fd
-"/dsh-lingualab/releasing":
-  en: bf6793a22c2ea133
-  zh: ddf840e87920149b
-"/dsh-lingualab/host-routes":
-  en: 7d296da7606bf952
-  zh: be000eed73f6efeb
-"/dsh-lingualab/repository-layout":
-  en: e3b0c44298fc1c14
-  zh: e3b0c44298fc1c14
+  en: f14962a925143031
+  zh: 8bc2fa24b967e84f

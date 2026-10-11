@@ -171,12 +171,22 @@ export const STYLES = `
   word-break:break-word;transition:filter .2s ease}
 .dsh-lingualab-stage-en.is-long{font-size:clamp(20px,2.2vw,30px);line-height:1.35}
 .dsh-lingualab-stage-en.is-masked{filter:blur(12px);user-select:none;pointer-events:none}
-.dsh-lingualab-stage-en .is-word{cursor:pointer;border-radius:8px;transition:background .12s ease,color .12s ease}
-/* The gaps inside a picked phrase are tinted too, so the phrase reads as one piece. */
-.dsh-lingualab-stage-en .is-between{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
-.dsh-lingualab-stage-en .is-word:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
-.dsh-lingualab-stage-en .is-word.is-pinned{color:var(--dsw-alias-brand-primary,#4d6bfe);
-  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
+/* A tinted word reaches a little past its letters on both sides, through a box shadow (drawn only
+   outside the box, so the tint never doubles) rather than padding, which would shift the line. */
+.dsh-lingualab-stage-en{--ll-word-tint:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 14%,transparent)}
+.dsh-lingualab-stage-en .is-word{cursor:pointer;border-radius:.18em;
+  transition:background .12s ease,color .12s ease,box-shadow .12s ease}
+.dsh-lingualab-stage-en .is-word:hover{background:var(--ll-word-tint);
+  box-shadow:-.12em 0 0 var(--ll-word-tint),.12em 0 0 var(--ll-word-tint)}
+/* A picked phrase is one band: the gaps are tinted too, and only its two ends are rounded. */
+.dsh-lingualab-stage-en .is-between{background:var(--ll-word-tint)}
+.dsh-lingualab-stage-en .is-word.is-pinned{color:var(--dsw-alias-brand-primary,#4d6bfe);background:var(--ll-word-tint);
+  border-radius:0;box-shadow:none}
+.dsh-lingualab-stage-en .is-word.is-pinned.is-from{border-top-left-radius:.18em;border-bottom-left-radius:.18em;
+  box-shadow:-.12em 0 0 var(--ll-word-tint)}
+.dsh-lingualab-stage-en .is-word.is-pinned.is-to{border-top-right-radius:.18em;border-bottom-right-radius:.18em;
+  box-shadow:.12em 0 0 var(--ll-word-tint)}
+.dsh-lingualab-stage-en .is-word.is-pinned.is-from.is-to{box-shadow:-.12em 0 0 var(--ll-word-tint),.12em 0 0 var(--ll-word-tint)}
 .dsh-lingualab-stage-zh{font-size:clamp(15px,1.5vw,20px);color:color-mix(in srgb,var(--dsw-alias-label-secondary,#8a8f98) 80%,transparent)}
 .dsh-lingualab-stage-zh[data-zh="always"]{color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-stage-empty{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:420px;
@@ -235,6 +245,7 @@ export const STYLES = `
 .dsh-lingualab-timing .dsh-lingualab-pop-btn kbd{font:inherit;font-size:11px;opacity:.7}
 .dsh-lingualab-timing-hint{font-size:11.5px;color:var(--dsw-alias-label-secondary,#8a8f98)}
 .dsh-lingualab-timing-hint.is-warn{color:var(--dsw-alias-state-warning-primary,#b7791f)}
+.dsh-lingualab-timing-hint.is-pushed{color:var(--dsw-alias-brand-primary,#4d6bfe)}
 
 /* The player card: scrubber on top, then the controls in three groups. */
 .dsh-lingualab-deck{flex:none;display:flex;flex-direction:column;gap:12px;width:min(720px,100%);align-self:center;

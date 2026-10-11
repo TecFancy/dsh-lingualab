@@ -55,32 +55,49 @@ function edit(file: string, bytes: Buffer, from: [number, number, number?], to: 
 
 describe('retimeText', () => {
   it('changes one SRT timecode and keeps the separator and the hour width', () => {
-    const result = retimeText('0:00:01.000 --> 00:00:02,500\ntext', 'srt', {
-      from: { start: 1000, end: 2500, occurrence: 0 },
-      to: { start: 1250, end: 2750 },
-    })
+    const result = retimeText('0:00:01.000 --> 00:00:02,500\ntext', 'srt', [
+      { from: { start: 1000, end: 2500, occurrence: 0 }, to: { start: 1250, end: 2750 } },
+    ])
     expect(result).toEqual({ ok: true, text: '0:00:01.250 --> 00:00:02,750\ntext' })
+  })
+
+  it('moves a cue and its neighbour in one pass, finding each as the text was read', () => {
+    // The first cue moves onto the second's old range; the second must still be found.
+    const text = '00:00:01,000 --> 00:00:02,000\na\n\n00:00:02,000 --> 00:00:03,000\nb'
+    const result = retimeText(text, 'srt', [
+      { from: { start: 2000, end: 3000, occurrence: 0 }, to: { start: 2500, end: 3000 } },
+      { from: { start: 1000, end: 2000, occurrence: 0 }, to: { start: 2000, end: 3000 } },
+    ])
+    expect(result).toEqual({ ok: true, text: '00:00:02,000 --> 00:00:03,000\na\n\n00:00:02,500 --> 00:00:03,000\nb' })
+  })
+
+  it('fails as a whole when one of several cues is missing', () => {
+    const result = retimeText(SRT, 'srt', [
+      { from: { start: 1000, end: 2500, occurrence: 0 }, to: { start: 1000, end: 2400 } },
+      { from: { start: 9000, end: 9500, occurrence: 0 }, to: { start: 9000, end: 9600 } },
+    ])
+    expect(result.ok).toBe(false)
   })
 
   it('addresses the second of two cues with the same range', () => {
     const text = '00:00:01,000 --> 00:00:02,000\na\n\n00:00:01,000 --> 00:00:02,000\nb'
-    const result = retimeText(text, 'srt', { from: { start: 1000, end: 2000, occurrence: 1 }, to: { start: 1100, end: 2000 } })
+    const result = retimeText(text, 'srt', [{ from: { start: 1000, end: 2000, occurrence: 1 }, to: { start: 1100, end: 2000 } }])
     expect(result).toEqual({ ok: true, text: '00:00:01,000 --> 00:00:02,000\na\n\n00:00:01,100 --> 00:00:02,000\nb' })
   })
 
   it('moves an LRC start, in centiseconds when the tag had two digits', () => {
     const text = '[ti:x]\n[00:01.50]one\n[00:03.00]two'
-    const result = retimeText(text, 'lrc', { from: { start: 1500, end: 1500, occurrence: 0 }, to: { start: 1730, end: 1730 } })
+    const result = retimeText(text, 'lrc', [{ from: { start: 1500, end: 1500, occurrence: 0 }, to: { start: 1730, end: 1730 } }])
     expect(result).toEqual({ ok: true, text: '[ti:x]\n[00:01.73]one\n[00:03.00]two' })
   })
 
   it('reads a three-digit LRC fraction as milliseconds', () => {
-    const result = retimeText('[01:02.050]x', 'lrc', { from: { start: 62_050, end: 62_050, occurrence: 0 }, to: { start: 62_100, end: 62_100 } })
+    const result = retimeText('[01:02.050]x', 'lrc', [{ from: { start: 62_050, end: 62_050, occurrence: 0 }, to: { start: 62_100, end: 62_100 } }])
     expect(result).toEqual({ ok: true, text: '[01:02.100]x' })
   })
 
   it('says so when the cue is not in the text', () => {
-    const result = retimeText(SRT, 'srt', { from: { start: 9000, end: 9500, occurrence: 0 }, to: { start: 9000, end: 9600 } })
+    const result = retimeText(SRT, 'srt', [{ from: { start: 9000, end: 9500, occurrence: 0 }, to: { start: 9000, end: 9600 } }])
     expect(result.ok).toBe(false)
   })
 })
@@ -156,9 +173,24 @@ describe('writeTiming', () => {
     expect(escape.status).toBe(404)
     const twice = writeTiming(root, EMPTY_STATE, {
       episode: 'S01E01',
-      edits: [edit('a.en.srt', bytes, [1000, 2500], [1000, 2400]), edit('a.en.srt', bytes, [3000, 4000], [3000, 4100])],
+      edits: [edit('a.en.srt', bytes, [1000, 2500], [1000, 2400]), edit('a.en.srt', bytes, [1000, 2500], [1000, 2300])],
     })
-    expect(twice.payload.reason).toBe('同一个文件只能改一处')
+    expect(twice.payload.reason).toBe('同一句只能改一次')
+  })
+
+  it('moves a start earlier and the previous end with it, in one write', () => {
+    const bytes = put('S01E01', 'a.en.srt', SRT)
+    const result = writeTiming(root, EMPTY_STATE, {
+      episode: 'S01E01',
+      edits: [edit('a.en.srt', bytes, [3000, 4000], [2200, 4000]), edit('a.en.srt', bytes, [1000, 2500], [1000, 2200])],
+    })
+    expect(result.payload).toEqual({ ok: true, code: 'saved', reason: null, files: ['a.en.srt'] })
+    expect(readFileSync(join(root, 'S01E01', 'a.en.srt'), 'utf8')).toBe(
+      SRT.replace('00:00:01,000 --> 00:00:02,500', '00:00:01,000 --> 00:00:02,200').replace(
+        '00:00:03,000 --> 00:00:04,000',
+        '00:00:02,200 --> 00:00:04,000',
+      ),
+    )
   })
 
   it('edits a loose file at the library root, and refuses a picked file outside it', () => {

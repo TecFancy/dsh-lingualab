@@ -16,9 +16,11 @@ import {
   initialRange,
   isLrc,
   moveEdge,
+  pushedNeighbours,
   retimeLimits,
   timingEdits,
   type Cue,
+  type PushedNeighbour,
   type RetimeEdge,
   type RetimeLimits,
   type RetimeRange,
@@ -34,12 +36,17 @@ const BIG_STEP_MS = 250
 /** How much of a sentence's end is replayed after the end moves. */
 const END_PREVIEW_MS = 1500
 
-/** What the page learns after a save. */
-export interface SavedTiming {
-  readonly index: number
+/** One cue a save moved. */
+export interface MovedCue {
   readonly cue: Cue
   readonly before: RetimeRange
   readonly after: RetimeRange
+}
+
+/** What the page learns after a save: the sentence, and the neighbours it pushed. */
+export interface SavedTiming extends MovedCue {
+  readonly index: number
+  readonly pushed: readonly MovedCue[]
 }
 
 export interface TimingEditorOptions {
@@ -63,6 +70,8 @@ export interface TimingSession {
   readonly focus: RetimeEdge
   readonly limits: RetimeLimits
   readonly lrc: boolean
+  /** The neighbours the range pushes as it stands, saved with it. */
+  readonly pushed: readonly PushedNeighbour[]
 }
 
 export interface TimingEditor {
@@ -124,6 +133,7 @@ export function useTimingEditor({
       focus: state.focus,
       limits: retimeLimits(cues, state.index, lrc, duration > 0 ? Math.round(duration * 1000) : null),
       lrc,
+      pushed: pushedNeighbours(cues, state.index, state.range, lrc),
     }
   }, [state, cues, pinned, lrc, duration])
 
@@ -201,7 +211,7 @@ export function useTimingEditor({
 
   const save = useCallback((): void => {
     if (session === null || saving || blocked !== null || episodeId === null) return
-    const edits = timingEdits(session.cue, session.range, tracks.english, tracks.chinese)
+    const edits = timingEdits(cues, session.index, session.range, tracks.english, tracks.chinese)
     if (edits === null) return
     const unchanged = session.range.start === session.base.start && session.range.end === session.base.end
     if (unchanged) {
@@ -224,11 +234,15 @@ export function useTimingEditor({
         cue: session.cue,
         before: session.base,
         after: session.range,
+        pushed: session.pushed.flatMap((neighbour) => {
+          const cue = cues[neighbour.index]
+          return cue === undefined ? [] : [{ cue, before: neighbour.before, after: neighbour.after }]
+        }),
       }
       close()
       onSaved(saved)
     })()
-  }, [session, saving, blocked, episodeId, tracks, close, onSaved])
+  }, [session, saving, blocked, episodeId, cues, tracks, close, onSaved])
 
   const reloadStale = useCallback((): void => {
     close()

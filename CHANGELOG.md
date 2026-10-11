@@ -19,6 +19,25 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- A lead-in in the 「More」 menu (off, 0.1, 0.2, 0.3 or 0.5 s): every jump to a sentence (stepping, looping it,
+  replaying a kept one, rewinding after shadowing) starts that much before its start, so a subtitle that begins
+  after the voice no longer clips the first syllable. The sentence stays the active one through the run-up, so a
+  loop or shadowing never acts on the sentence before it. A seek to a plain time and the timing strip get no
+  lead-in. The choice is remembered per browser.
+
+### Changed
+
+- In the timing strip an edge now pushes its neighbour instead of stopping at it. Moving a start earlier than the
+  previous sentence's end moves that end with it, and moving an end past the next sentence's start moves that start,
+  so a sentence cut back to back with the one before can still start earlier when its voice does. The strip says
+  where the neighbour's edge goes, the save writes both cues (and the Chinese file's cues as far as they would
+  overlap), and the push stops where the neighbour would be shorter than 0.2 s. `POST /lingualab/subtitle-timing`
+  accepts several cues of one file in one request.
+- A phrase picked on the stage is tinted as one band, rounded at its two ends only, instead of a row of rounded
+  words with square gaps between them.
+
 ## [0.5.0] - 2026-10-11
 
 ### Added

@@ -4,8 +4,8 @@
  * It sits under the sentence rather than in a bar of its own, because "play this
  * sentence again" and "which sentence" are one thought. Only the controls used every
  * minute stay on the row: sentence steps, play, speed, loop-this-sentence, and the
- * Chinese display. Everything that is a setup step rather than a gesture — the A and
- * B marks, how many times an A-B loop repeats — lives in the 「更多」 menu, because a
+ * Chinese display. Everything that is a setup step rather than a gesture (the A and
+ * B marks, how many times an A-B loop repeats, the lead-in) lives in the 「更多」 menu, because a
  * row of thirteen controls was the reason a first-time reader did not know which one
  * to press.
  *
@@ -14,7 +14,7 @@
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
+import { LEAD_IN_CHOICES, SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { Scrubber } from './Scrubber.tsx'
@@ -92,6 +92,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   const pointA = useMediaPlayer((state) => state.pointA)
   const pointB = useMediaPlayer((state) => state.pointB)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
+  const leadIn = useMediaPlayer((state) => state.leadIn)
 
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
@@ -273,6 +274,20 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
                 </select>
               </label>
             ) : null}
+            <label className="dsh-lingualab-menu-row" title={t('leadInHint')}>
+              <span>{t('leadIn')}</span>
+              <select
+                className="dsh-lingualab-bar-btn"
+                value={String(leadIn)}
+                onChange={(event) => store().setLeadIn(Number(event.target.value))}
+              >
+                {LEAD_IN_CHOICES.map((seconds) => (
+                  <option key={seconds} value={seconds}>
+                    {seconds === 0 ? t('leadInOff') : `${String(seconds)} s`}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="dsh-lingualab-btn"

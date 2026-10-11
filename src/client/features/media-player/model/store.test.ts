@@ -110,6 +110,79 @@ describe('shadow mode', () => {
   })
 })
 
+describe('the lead-in', () => {
+  // Each test sets its own; the store is a singleton, so it is put back after.
+  const withLeadIn = (seconds: number): void => {
+    useMediaPlayer.setState({ leadIn: seconds })
+  }
+
+  it('starts a jump to a sentence early and keeps that sentence active through the run-up', () => {
+    withLeadIn(0.3)
+    useMediaPlayer.getState().seekCue(1)
+    expect(useMediaPlayer.getState().seekRequest).toBeCloseTo(19.7)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().onTime(19.8)
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+    useMediaPlayer.getState().onTime(20.1)
+    expect(useMediaPlayer.getState().runUp).toBeNull()
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+    withLeadIn(0)
+  })
+
+  it('does not let shadowing stop the previous sentence during the run-up', () => {
+    // Back to back: the run-up of the second sentence is the tail of the first.
+    useMediaPlayer.getState().reset([
+      { start: 10, end: 12, text: 'One' },
+      { start: 12, end: 14, text: 'Two' },
+    ])
+    withLeadIn(0.2)
+    const store = useMediaPlayer.getState()
+    store.setPauseAfterSentence(true)
+    store.seekCue(1)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().setPlaying(true)
+    useMediaPlayer.getState().onTime(11.85)
+    useMediaPlayer.getState().onTime(12.05)
+    expect(useMediaPlayer.getState().isPlaying).toBe(true)
+    expect(useMediaPlayer.getState().activeIndex).toBe(1)
+    useMediaPlayer.getState().setPauseAfterSentence(false)
+    withLeadIn(0)
+  })
+
+  it('wraps a sentence loop to its lead-in, and an A-B loop to the exact mark', () => {
+    withLeadIn(0.5)
+    useMediaPlayer.getState().loopSentence(0)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().onTime(10.2)
+    useMediaPlayer.getState().onTime(12)
+    expect(useMediaPlayer.getState().seekRequest).toBeCloseTo(9.5)
+    expect(useMediaPlayer.getState().activeIndex).toBe(0)
+
+    useMediaPlayer.setState({ loopMode: 'ab', pointA: 15, pointB: 16, guard: null, runUp: null })
+    useMediaPlayer.getState().onTime(16)
+    expect(useMediaPlayer.getState().seekRequest).toBe(15)
+    withLeadIn(0)
+  })
+
+  it('leaves a plain seek alone, and treats a time that is a sentence start as the sentence', () => {
+    withLeadIn(0.2)
+    useMediaPlayer.getState().seek(20)
+    expect(useMediaPlayer.getState().seekRequest).toBe(20)
+    useMediaPlayer.getState().seekCueAt(20)
+    expect(useMediaPlayer.getState().seekRequest).toBeCloseTo(19.8)
+    useMediaPlayer.getState().seekCueAt(21)
+    expect(useMediaPlayer.getState().seekRequest).toBe(21)
+    withLeadIn(0)
+  })
+
+  it('keeps only the lengths it offers', () => {
+    useMediaPlayer.getState().setLeadIn(0.3)
+    expect(useMediaPlayer.getState().leadIn).toBe(0.3)
+    useMediaPlayer.getState().setLeadIn(7)
+    expect(useMediaPlayer.getState().leadIn).toBe(0)
+  })
+})
+
 describe('the end of the audio', () => {
   it('is remembered until something plays or moves again', () => {
     useMediaPlayer.getState().markFinished()

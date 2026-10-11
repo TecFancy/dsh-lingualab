@@ -38,9 +38,13 @@ strip owns the keyboard:
 Without a waveform (see
 [2026-10-08-v1-without-waveform](../../implemented/simplification/2026-10-08-v1-without-waveform.md)),
 the ear is the instrument: the loop and `I` / `O` while listening are what make placing an
-edge practical. An edge cannot cross its neighbours: the start stays at or after the previous
-sentence's end, the end at or before the next one's start, and the end stays at least 0.2 s
-after the start. A file whose cues already overlap keeps the overlap it has.
+edge practical. An edge pushes its neighbour rather than stopping at it. Many files cut sentences
+back to back, so the start of one is the end of the one before, and a sentence whose voice begins
+early can only be fixed by moving its start into the previous cue. The previous sentence's end
+then moves with it (and the next sentence's start with an end moved past it), the strip says so
+under the keys, and the save writes both cues. The push stops where the neighbour would be shorter
+than 0.2 s, and every cue stays at least 0.2 s long. A file whose cues already overlap keeps the
+overlap until an edge is pushed into it.
 
 **A save edits the timecode line and nothing else.** The host finds the cue's timecode line in
 the file's bytes and replaces only the times. Numbering, text, style tags, blank lines, line
@@ -137,5 +141,5 @@ per sentence); a waveform; splitting or merging sentences; editing the text; and
 - The page computes the hash with a SHA-256 of its own rather than `crypto.subtle`, which only
   exists in a secure context; dsh web opened over plain HTTP from another machine would otherwise
   have an editor that can never save.
-- Each edge is clamped by its neighbours as the file has them, and the transport moving to another
+- Each edge is clamped by its neighbours' far edges as the file has them, and the transport moving to another
   sentence (or looping one) ends the edit, so the strip never edits edges nothing is playing.

@@ -505,7 +505,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         openSegment(phrase.segment, { at: phrase.at, loop: true, text: phrase.text })
         return
       }
-      useMediaPlayer.getState().seek(keptCueStart(cues, phrase.at, phrase.text))
+      useMediaPlayer.getState().seekCueAt(keptCueStart(cues, phrase.at, phrase.text))
       useMediaPlayer.getState().setLoopMode('sentence')
       // A seek alone leaves paused audio paused, and the card's play icon then did nothing.
       useMediaPlayer.getState().setPlaying(true)
@@ -528,19 +528,22 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    * After a timing save: keep the star on the sentence, read the file again, and stay on the sentence.
    *
    * A kept sentence is matched by its whole second, so a start that crossed a second would leave
-   * the star behind; the phrase's `at` moves with it. Reading the file again gives the cues their
+   * the star behind; the phrase's `at` moves with it, and the same for a next sentence whose start
+   * the end pushed. Reading the file again gives the cues their
    * new edges and the hash the next save needs; the position is put back on the sentence the way a
    * replayed note is, looping it when it was playing.
    */
   const onTimingSaved = useCallback(
     (saved: SavedTiming): void => {
-      const before = saved.before.start / 1000
-      const after = saved.after.start / 1000
-      if (Math.floor(before) !== Math.floor(after)) {
-        const key = { at: before, text: splitCue(saved.cue).english, segment: segmentId ?? undefined }
+      for (const moved of [saved, ...saved.pushed]) {
+        const before = moved.before.start / 1000
+        const after = moved.after.start / 1000
+        if (Math.floor(before) === Math.floor(after)) continue
+        const key = { at: before, text: splitCue(moved.cue).english, segment: segmentId ?? undefined }
         const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
         if (index >= 0) notes.update(index, { at: after })
       }
+      const after = saved.after.start / 1000
       resumeAt.current = after
       resumeLoop.current = useMediaPlayer.getState().isPlaying
       resumeText.current = null
@@ -824,7 +827,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           const cue = cues[current]
           if (cue !== undefined) {
             setSelection(null)
-            store().seek(cue.start)
+            store().seekCue(current)
             store().setPlaying(true)
           }
           return
@@ -1192,7 +1195,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 setSelection(null)
                 // Another sentence ends the edit: the strip belongs to the one it was opened on.
                 timing.close()
-                useMediaPlayer.getState().seek(cue.start)
+                useMediaPlayer.getState().seekCue(index)
                 useMediaPlayer.getState().setPlaying(true)
               }}
               onKeep={(index) => keep(index)}
