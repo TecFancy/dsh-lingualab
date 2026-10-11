@@ -78,7 +78,7 @@ export const PROGRESS_PATH = '/lingualab/progress'
 /**
  * Moving one sentence's start and end, written back into the subtitle file itself.
  *
- * Only the timecode line of that cue changes; the host refuses with `409` when the file is no
+ * Only the timecode lines of that cue (and of a neighbour it pushed) change; the host refuses with `409` when the file is no
  * longer the one the page parsed, and keeps a `.bak` copy of the original before its first write.
  */
 export const SUBTITLE_TIMING_PATH = '/lingualab/subtitle-timing'
@@ -511,7 +511,10 @@ export interface TimingEdit {
 /** `POST /lingualab/subtitle-timing` request body. */
 export interface TimingWriteRequest {
   readonly episode: string
-  /** One edit, or two when the Chinese lives in a file of its own. Never two for one file. */
+  /**
+   * The sentence's cue, plus a neighbour whose shared edge it pushed, in the English file and again
+   * in the Chinese one when that is a file of its own. Never the same cue twice.
+   */
   readonly edits: readonly TimingEdit[]
 }
 

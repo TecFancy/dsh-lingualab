@@ -5,13 +5,17 @@
  * and saves the result into the subtitle file. Everything here is a pure function of the cue
  * list, so the limits can be tested without a player:
  *
- *   · **An edge never crosses a neighbour.** The start stays at or after the previous cue's
- *     end, the end at or before the next cue's start. A file whose cues already overlap keeps
- *     the overlap it has (the limit is the original edge then), because refusing to touch such a
- *     cue would leave exactly the badly timed files without a fix.
+ *   · **An edge pushes its neighbour.** Many files cut sentences back to back, so the start of
+ *     one is the end of the one before. When speech begins before the cue does, the start has to
+ *     go earlier than the previous end; the previous cue's end then moves with it, and the same
+ *     for an end pushed past the next cue's start (see {@link pushedNeighbours}). The two never
+ *     overlap after a push, and the push stops where the neighbour would get shorter than the
+ *     minimum. A file whose cues already overlap keeps the overlap until an edge is pushed into
+ *     it, because refusing to touch such a cue would leave exactly the badly timed files without
+ *     a fix.
  *   · **A cue is at least {@link MIN_CUE_MS} long.** Shorter, the loop is a click.
  *   · **LRC has starts only.** A line ends where the next begins, so only the start moves, and
- *     it stays clear of both neighbours' starts.
+ *     it stays clear of both neighbours' starts; the previous line's end follows by itself.
  *
  * Times here are whole milliseconds, the unit the file writes and the host matches on.
  */
@@ -86,13 +90,54 @@ export function retimeLimits(cues: readonly Cue[], index: number, lrc: boolean, 
       endEditable: false,
     }
   }
+  // An edge may push into a neighbour as far as leaves the neighbour its minimum length.
   return {
-    minStart: previous === undefined ? 0 : Math.min(originalRange(previous).end, own.start),
+    minStart: previous === undefined ? 0 : Math.min(originalRange(previous).start + MIN_CUE_MS, own.start),
     maxStart: Number.POSITIVE_INFINITY,
     minEnd: 0,
-    maxEnd: next === undefined ? Math.max(ceiling, own.end) : Math.max(originalRange(next).start, own.end),
+    maxEnd: next === undefined ? Math.max(ceiling, own.end) : Math.max(originalRange(next).end - MIN_CUE_MS, own.end),
     endEditable: true,
   }
+}
+
+/** A neighbour whose shared edge an edit pushed, with its range before and after. */
+export interface PushedNeighbour {
+  readonly index: number
+  readonly side: 'previous' | 'next'
+  readonly before: RetimeRange
+  readonly after: RetimeRange
+}
+
+/**
+ * The neighbours a range pushes: the previous cue when the start went earlier than both its own
+ * old start and the previous end, the next cue when the end went later than both its own old end
+ * and the next start. Their other edge stays. LRC pushes nothing, a line's end being the next
+ * line's start already.
+ * @param cues - the cue list on screen, sorted by start.
+ * @param index - the cue being edited.
+ * @param range - its range as it stands, within {@link retimeLimits}.
+ * @param lrc - whether its file is LRC.
+ */
+export function pushedNeighbours(cues: readonly Cue[], index: number, range: RetimeRange, lrc: boolean): PushedNeighbour[] {
+  const cue = cues[index]
+  if (cue === undefined || lrc) return []
+  const own = originalRange(cue)
+  const pushed: PushedNeighbour[] = []
+  const previous = cues[index - 1]
+  if (previous !== undefined) {
+    const before = originalRange(previous)
+    if (range.start < before.end && range.start < own.start) {
+      pushed.push({ index: index - 1, side: 'previous', before, after: { start: before.start, end: range.start } })
+    }
+  }
+  const next = cues[index + 1]
+  if (next !== undefined) {
+    const before = originalRange(next)
+    if (range.end > before.start && range.end > own.end) {
+      pushed.push({ index: index + 1, side: 'next', before, after: { start: range.end, end: before.end } })
+    }
+  }
+  return pushed
 }
 
 /** Keep `value` within `[low, high]`; when the two cross, `high` wins. */
@@ -121,16 +166,26 @@ export function moveEdge(range: RetimeRange, edge: RetimeEdge, value: number, li
  * The Chinese cue is moved by the same amount rather than to the same range: the two tracks are
  * cut independently, so the Chinese often starts a little apart, and keeping that offset is what
  * keeps the two folded together on the next load.
- * @returns the edits, or `null` when the cue does not know where it came from.
+ *
+ * A pushed neighbour ({@link pushedNeighbours}) is written too. Its Chinese moves only as far as
+ * clears the sentence's own Chinese, and not at all when the two English cues share one Chinese cue.
+ * @param cues - the cue list on screen, sorted by start.
+ * @param index - the cue being edited.
+ * @param range - its new range.
+ * @returns the edits, or `null` when a cue to write does not know where it came from.
  */
 export function timingEdits(
-  cue: Cue,
+  cues: readonly Cue[],
+  index: number,
   range: RetimeRange,
   english: SubtitleTrack | null,
   chinese: SubtitleTrack | null,
 ): TimingEdit[] | null {
-  if (cue.origin === undefined || english === null) return null
+  const cue = cues[index]
+  if (cue?.origin === undefined || english === null) return null
   const origin = cue.origin
+  const pushed = pushedNeighbours(cues, index, range, isLrc(english.file))
+  if (pushed.some((neighbour) => cues[neighbour.index]?.origin === undefined)) return null
   const to = (file: string, from: CueOrigin, start: number, end: number): TimingEdit => {
     const lrc = isLrc(file)
     const safeStart = Math.max(0, start)
@@ -143,11 +198,25 @@ export function timingEdits(
   }
   const englishEnd = isLrc(english.file) ? range.start : range.end
   const edits = [to(english.file, origin, range.start, englishEnd)]
-  if (cue.zhOrigin !== undefined && chinese !== null && chinese.file !== english.file) {
-    const shiftStart = range.start - origin.start
-    // An LRC end is the start, so the Chinese end follows the start when the English file is LRC.
-    const shiftEnd = isLrc(english.file) ? shiftStart : range.end - origin.end
-    edits.push(to(chinese.file, cue.zhOrigin, cue.zhOrigin.start + shiftStart, cue.zhOrigin.end + shiftEnd))
+  for (const neighbour of pushed) {
+    const from = cues[neighbour.index]?.origin
+    if (from !== undefined) edits.push(to(english.file, from, neighbour.after.start, neighbour.after.end))
+  }
+  if (cue.zhOrigin === undefined || chinese === null || chinese.file === english.file) return edits
+
+  const zhOrigin = cue.zhOrigin
+  const shiftStart = range.start - origin.start
+  // An LRC end is the start, so the Chinese end follows the start when the English file is LRC.
+  const shiftEnd = isLrc(english.file) ? shiftStart : range.end - origin.end
+  const zh = to(chinese.file, zhOrigin, zhOrigin.start + shiftStart, zhOrigin.end + shiftEnd)
+  edits.push(zh)
+  for (const neighbour of pushed) {
+    const from = cues[neighbour.index]?.zhOrigin
+    const shared =
+      from === undefined || (from.start === zhOrigin.start && from.end === zhOrigin.end && from.occurrence === zhOrigin.occurrence)
+    if (shared) continue
+    if (neighbour.side === 'previous' && from.end > zh.to.start) edits.push(to(chinese.file, from, from.start, zh.to.start))
+    if (neighbour.side === 'next' && from.start < zh.to.end) edits.push(to(chinese.file, from, zh.to.end, from.end))
   }
   return edits
 }

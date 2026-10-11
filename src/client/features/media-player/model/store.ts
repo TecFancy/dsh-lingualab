@@ -15,6 +15,15 @@
  * **The loop decision.** Wrapping is delegated to {@link planLoop}, a pure
  * function with its own tests. This file owns the state it reads and the effects
  * it implies, nothing else.
+ *
+ * **The lead-in.** Subtitles found in the wild often start a beat after the voice,
+ * so jumping to a sentence's start clips its first syllable. With a lead-in set,
+ * every jump *to a sentence* (stepping, looping it, replaying it, rewinding after
+ * shadowing) starts that much earlier. The playhead is then inside the previous
+ * sentence, so the store remembers which sentence it is running up to and keeps
+ * that one active until the start is reached: otherwise the previous sentence
+ * would be the one looped, or the one shadowing pauses after. A seek to a plain
+ * time (the scrubber, a bookmark) and the timing strip never get a lead-in.
  */
 import { create } from 'zustand'
 import { findActiveCue, type Cue } from '../../../entities/cue/index.ts'
@@ -34,6 +43,32 @@ const SHADOW_WINDOW_S = 1.5
 
 /** How many times a wrap repeats before the loop stops by itself. `0` is endless. */
 const DEFAULT_REPEATS = 0
+
+/** The lead-ins offered, in seconds; `0` is off. */
+export const LEAD_IN_CHOICES: readonly number[] = [0, 0.1, 0.2, 0.3, 0.5]
+
+/** Where the chosen lead-in is remembered, per browser. */
+const LEAD_IN_KEY = 'dsh-lingualab:lead-in'
+
+/** How far before a run-up's start a position still counts as the run-up (a seek lands a little early). */
+const RUN_UP_SLACK_S = 0.25
+
+/** The lead-in this browser chose last, or off when none was (or storage is not there). */
+function readLeadIn(): number {
+  try {
+    const stored = Number(globalThis.localStorage.getItem(LEAD_IN_KEY))
+    return LEAD_IN_CHOICES.includes(stored) ? stored : 0
+  } catch {
+    return 0
+  }
+}
+
+/** The sentence a lead-in is running up to, and where it starts. */
+interface RunUp {
+  readonly index: number
+  /** Seconds. */
+  readonly at: number
+}
 
 /**
  * The sentence whose edges are being moved, with the edges as they stand in the editor.
@@ -83,6 +118,10 @@ export interface MediaPlayerState {
   readonly revealed: number
   /** The sentence being retimed, or `null`. */
   readonly editWindow: EditWindow | null
+  /** How many seconds before a sentence's start a jump to it begins playing; `0` is off. */
+  readonly leadIn: number
+  /** The sentence the playhead is running up to through a lead-in, or `null`. */
+  readonly runUp: RunUp | null
 
   reset: (cues: readonly Cue[]) => void
   setPlaying: (playing: boolean) => void
@@ -91,6 +130,11 @@ export interface MediaPlayerState {
   reveal: (index: number) => void
   toggle: () => void
   seek: (time: number) => void
+  /** Jump to a sentence: its start, less the lead-in, with the sentence kept active through the run-up. */
+  seekCue: (index: number) => void
+  /** Jump to a time that is a sentence's start as a sentence (with the lead-in), or as a plain time when it is not one. */
+  seekCueAt: (time: number) => void
+  setLeadIn: (seconds: number) => void
   onTime: (time: number) => void
   clearGuard: () => void
   setDuration: (duration: number) => void
@@ -133,6 +177,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
   finishCount: 0,
   revealed: -1,
   editWindow: null,
+  leadIn: readLeadIn(),
+  runUp: null,
 
   // A new episode starts with no loop and the default repeat count. The speed is
   // deliberately *not* reset: it is a preference about how the reader listens, not
@@ -156,6 +202,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       finished: false,
       revealed: -1,
       editWindow: null,
+      runUp: null,
     })),
 
   // Starting to play covers the English again in shadow mode: the reveal belongs to one pass.
@@ -189,7 +236,35 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       activeIndex: state.editWindow?.index ?? findActiveCue(state.cues, time),
       guard: { target: Math.max(0, time), expiresAt: Date.now() + SEEK_GUARD_MS },
       finished: false,
+      runUp: null,
     })),
+
+  seekCue: (index) => {
+    const state = get()
+    const cue = state.cues[index]
+    if (cue === undefined) return
+    const from = Math.max(0, cue.start - state.leadIn)
+    state.seek(from)
+    if (from < cue.start) set({ activeIndex: state.editWindow?.index ?? index, runUp: { index, at: cue.start } })
+  },
+
+  seekCueAt: (time) => {
+    const state = get()
+    const index = findActiveCue(state.cues, time)
+    const cue = state.cues[index]
+    if (cue !== undefined && Math.abs(cue.start - time) < 0.001) state.seekCue(index)
+    else state.seek(time)
+  },
+
+  setLeadIn: (seconds) => {
+    const leadIn = LEAD_IN_CHOICES.includes(seconds) ? seconds : 0
+    set({ leadIn })
+    try {
+      globalThis.localStorage.setItem(LEAD_IN_KEY, String(leadIn))
+    } catch {
+      // A browser without storage still plays with the lead-in; it is just not remembered.
+    }
+  },
 
   onTime: (time) => {
     const { guard, cues } = get()
@@ -211,6 +286,15 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       set({ currentTime: time, activeIndex: edit.index })
       return
     }
+    const runUp = state.runUp
+    if (runUp !== null) {
+      // Still before the sentence it is running up to: that sentence stays the one playing.
+      if (time < runUp.at && time >= runUp.at - state.leadIn - RUN_UP_SLACK_S) {
+        set({ currentTime: time, activeIndex: runUp.index })
+        return
+      }
+      set({ runUp: null })
+    }
     const heard = state.cues[state.activeIndex]
     if (
       state.pauseAfterSentence &&
@@ -227,7 +311,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
       // start must not be what the reader hears first when they press play again.
       // The sentence is over, so the English it hid is uncovered for the self-check.
       set({ isPlaying: false, revealed: state.activeIndex })
-      get().seek(heard.start)
+      get().seekCue(state.activeIndex)
       return
     }
     const decision = planLoop({
@@ -253,11 +337,14 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
         pointB: state.pointB,
       })
       set({ isPlaying: false, playsDone: decision.playsDone })
-      if (window !== null) get().seek(window.start)
+      if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
+      else if (window !== null) get().seek(window.start)
       return
     }
     if (decision.seekTo !== null) {
-      get().seek(decision.seekTo)
+      // A sentence loop wraps to the sentence, lead-in and all; an A-B loop to its exact mark.
+      if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
+      else get().seek(decision.seekTo)
       set({ playsDone: decision.playsDone })
       return
     }
@@ -285,7 +372,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     if (cue === undefined) return
     // Looping another sentence (or this one, as practice) ends an edit of its edges.
     set({ activeIndex: target, loopMode: 'sentence', playsDone: 0, editWindow: null })
-    state.seek(cue.start)
+    get().seekCue(target)
     set({ isPlaying: true })
   },
 
@@ -313,7 +400,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     if (cue === undefined) return
     // Moving to another sentence ends an edit: the window belongs to the one it was opened on.
     set({ activeIndex: next, playsDone: 0, editWindow: null })
-    state.seek(cue.start)
+    get().seekCue(next)
     // Shadowing is one sentence at a time, so moving to another one means 'play it'.
     if (state.pauseAfterSentence) set({ isPlaying: true })
   },

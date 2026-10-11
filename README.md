@@ -62,7 +62,7 @@ somewhere to go.
 
 Practice is built around the sentence, not the file. The transport row holds only what is used
 every minute: previous and next sentence, play, speed, loop this sentence, the Chinese display
-and the star. The A-B region, its repeat count and the list of keys sit behind 「More」. Click a
+and the star. The A-B region, its repeat count, the lead-in (start each sentence a little early) and the list of keys sit behind 「More」. Click a
 subtitle line to jump there and play it; speed has ten steps and never changes pitch. Subtitles
 put English above Chinese whatever the source order, and the Chinese side has four display modes
 so the native language never becomes the thing being read. The page remembers where you stopped
@@ -164,7 +164,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder (with an optional `segment` to open one of its segments, the first when omitted), or a single audio file with the subtitles beside it |
 | `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
-| `POST /lingualab/subtitle-timing` | exact | Move one sentence's start and end in its subtitle file inside the library: only that timecode line changes, `409` when the file is not the one the page read, a `.bak` of the original before the first write |
+| `POST /lingualab/subtitle-timing` | exact | Move one sentence's start and end in its subtitle file inside the library, with the shared edge of a neighbour it pushed: only those timecode lines change, `409` when the file is not the one the page read, a `.bak` of the original before the first write |
 | `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 
 ## Repository layout

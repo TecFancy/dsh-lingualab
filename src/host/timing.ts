@@ -1,5 +1,5 @@
 /**
- * Moving one cue's start and end inside a subtitle file, and nothing else.
+ * Moving a cue's start and end inside a subtitle file, and nothing else.
  *
  * The page loops one sentence at a time, so a cue whose edges are a beat off clips a word on
  * every pass. The reader fixes it on the page, and the fix is written into the file itself, so
@@ -19,6 +19,11 @@
  * way a GBK file could come back as GBK. UTF-16 files, which start with a byte-order mark, are
  * decoded and encoded again through Node's own UTF-16 support.
  *
+ * **A neighbour can move with it.** When the reader pulls a start earlier than the previous cue's
+ * end (or an end later than the next cue's start), the page sends that neighbour's new edge too,
+ * so one request may carry several cues of one file. They are all looked for in the text as it
+ * was read and replaced in one pass, so moving one never changes how another is found.
+ *
  * **A stale page is refused.** The request carries a hash of the bytes the page parsed and the
  * cue's range as it read it. When either no longer matches, nothing is written and the answer
  * says so, so an edit made elsewhere in the meantime is never overwritten blind. Every edit of a
@@ -37,8 +42,8 @@ import { resolveFileMedia } from './open.ts'
 import { isInside } from './places.ts'
 import { isFileEpisodeId, type OpenState } from './state.ts'
 
-/** The most edits one request may carry: an English file and a Chinese one. */
-const MAX_EDITS = 2
+/** The most edits one request may carry: a cue and both neighbours, in an English file and a Chinese one. */
+const MAX_EDITS = 6
 
 /** Subtitle formats this module can edit, by extension. */
 const EDITABLE = new Set(['srt', 'vtt', 'lrc'])
@@ -87,68 +92,93 @@ function lrcMs(minutes: string, seconds: string, fraction: string): number {
   return Number(minutes) * 60_000 + Number(seconds) * 1000 + part
 }
 
+/** The key of a range, the same for two cues with exactly the same times. */
+function rangeKey(start: number, end: number): string {
+  return `${String(start)}-${String(end)}`
+}
+
+/** Which cue of a text an edit moves, and where to. */
+type CueMove = Pick<TimingEdit, 'from' | 'to'>
+
 /**
- * Replace one cue's times in a subtitle text.
+ * Replace some cues' times in a subtitle text, in one pass over it.
+ *
+ * Every cue is looked for as the text was read, so an edit that moves one cue onto another's old
+ * range never changes which cue the other edit finds.
  * @param text - the whole file as one string (Latin-1 or decoded UTF-16).
  * @param format - `srt`, `vtt` or `lrc`.
- * @param edit - which cue, and where it goes.
- * @returns the new text, or why the cue could not be found.
+ * @param edits - which cues, and where each goes.
+ * @returns the new text, or why a cue could not be found.
  */
 export function retimeText(
   text: string,
   format: string,
-  edit: Pick<TimingEdit, 'from' | 'to'>,
+  edits: readonly CueMove[],
 ): { readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: string } {
-  let seen = 0
-  let replaced: string | null = null
-  if (format === 'lrc') {
-    const lines = text.split('\n').map((line) => {
-      if (replaced !== null) return line
-      const match = LRC_TAG.exec(line)
-      if (match === null) return line
-      const [tag, minutes = '', seconds = '', separator = '', fraction = ''] = match
-      if (lrcMs(minutes, seconds, fraction) !== edit.from.start || seen++ !== edit.from.occurrence) return line
-      replaced = `[${formatLrcTime(edit.to.start, minutes.length, separator, fraction.length)}]`
-      return `${line.slice(0, match.index)}${replaced}${line.slice(match.index + tag.length)}`
-    })
-    return replaced === null ? { ok: false, reason: '文件里找不到这一句的时间' } : { ok: true, text: lines.join('\n') }
+  const seen = new Map<string, number>()
+  const found = new Set<CueMove>()
+  /** Count one more cue at this range, and return the edit meant for it, if any. */
+  const claim = (start: number, end: number): CueMove | undefined => {
+    const key = rangeKey(start, end)
+    const occurrence = seen.get(key) ?? 0
+    seen.set(key, occurrence + 1)
+    const edit = edits.find((each) => each.from.start === start && each.from.end === end && each.from.occurrence === occurrence)
+    if (edit !== undefined) found.add(edit)
+    return edit
   }
-  const next = text.replace(
-    RANGE_LINE,
-    (whole, h1: string, m1: string, s1: string, sep1: string, ms1: string, arrow: string, h2: string, m2: string, s2: string, sep2: string, ms2: string) => {
-      if (replaced !== null) return whole
-      if (rangeMs(h1, m1, s1, ms1) !== edit.from.start || rangeMs(h2, m2, s2, ms2) !== edit.from.end) return whole
-      if (seen++ !== edit.from.occurrence) return whole
-      replaced = `${formatRangeTime(edit.to.start, h1.length, sep1)}${arrow}${formatRangeTime(edit.to.end, h2.length, sep2)}`
-      return replaced
-    },
-  )
-  return replaced === null ? { ok: false, reason: '文件里找不到这一句的时间' } : { ok: true, text: next }
+  let next: string
+  if (format === 'lrc') {
+    next = text
+      .split('\n')
+      .map((line) => {
+        const match = LRC_TAG.exec(line)
+        if (match === null) return line
+        const [tag, minutes = '', seconds = '', separator = '', fraction = ''] = match
+        const at = lrcMs(minutes, seconds, fraction)
+        const edit = claim(at, at)
+        if (edit === undefined) return line
+        const replaced = `[${formatLrcTime(edit.to.start, minutes.length, separator, fraction.length)}]`
+        return `${line.slice(0, match.index)}${replaced}${line.slice(match.index + tag.length)}`
+      })
+      .join('\n')
+  } else {
+    next = text.replace(
+      RANGE_LINE,
+      (whole, h1: string, m1: string, s1: string, sep1: string, ms1: string, arrow: string, h2: string, m2: string, s2: string, sep2: string, ms2: string) => {
+        const edit = claim(rangeMs(h1, m1, s1, ms1), rangeMs(h2, m2, s2, ms2))
+        if (edit === undefined) return whole
+        return `${formatRangeTime(edit.to.start, h1.length, sep1)}${arrow}${formatRangeTime(edit.to.end, h2.length, sep2)}`
+      },
+    )
+  }
+  return found.size === edits.length ? { ok: true, text: next } : { ok: false, reason: '文件里找不到这一句的时间' }
 }
 
 /**
- * Apply one edit to a file's bytes, keeping every byte that is not the timecode.
+ * Apply one file's edits to its bytes, keeping every byte that is not a timecode.
  * @param bytes - the file as it is on disk.
  * @param format - `srt`, `vtt` or `lrc`.
- * @param edit - the edit, whose `expect` is checked against `bytes`.
+ * @param edits - the edits of this one file, each of whose `expect` is checked against `bytes`.
  */
-export function retimeBytes(bytes: Buffer, format: string, edit: TimingEdit): EditOutcome {
-  if (sha256Hex(bytes) !== edit.expect) {
-    return { ok: false, code: 'stale', reason: `「${edit.file}」在页面读过之后改过了，重新加载字幕再调` }
+export function retimeBytes(bytes: Buffer, format: string, edits: readonly TimingEdit[]): EditOutcome {
+  const file = edits[0]?.file ?? ''
+  const hash = sha256Hex(bytes)
+  if (edits.some((edit) => edit.expect !== hash)) {
+    return { ok: false, code: 'stale', reason: `「${file}」在页面读过之后改过了，重新加载字幕再调` }
   }
   const utf16 =
     bytes.length >= 2 && ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff))
   if (!utf16) {
-    const result = retimeText(bytes.toString('latin1'), format, edit)
+    const result = retimeText(bytes.toString('latin1'), format, edits)
     return result.ok
       ? { ok: true, bytes: Buffer.from(result.text, 'latin1') }
-      : { ok: false, code: 'stale', reason: `「${edit.file}」${result.reason}` }
+      : { ok: false, code: 'stale', reason: `「${file}」${result.reason}` }
   }
   const bigEndian = bytes[0] === 0xfe
   const body = Buffer.from(bytes.subarray(2))
   if (bigEndian) body.swap16()
-  const result = retimeText(body.toString('utf16le'), format, edit)
-  if (!result.ok) return { ok: false, code: 'stale', reason: `「${edit.file}」${result.reason}` }
+  const result = retimeText(body.toString('utf16le'), format, edits)
+  if (!result.ok) return { ok: false, code: 'stale', reason: `「${file}」${result.reason}` }
   const encoded = Buffer.from(result.text, 'utf16le')
   if (bigEndian) encoded.swap16()
   return { ok: true, bytes: Buffer.concat([bytes.subarray(0, 2), encoded]) }
@@ -182,7 +212,8 @@ function readEdits(body: unknown): { readonly episode: string; readonly edits: T
     }
     parsed.push({ file, from: from as TimingEdit['from'], to: to as TimingEdit['to'], expect: expect.toLowerCase() })
   }
-  if (new Set(parsed.map((edit) => edit.file)).size !== parsed.length) return '同一个文件只能改一处'
+  const cues = parsed.map((edit) => [edit.file, rangeKey(edit.from.start, edit.from.end), String(edit.from.occurrence)].join('\0'))
+  if (new Set(cues).size !== cues.length) return '同一句只能改一次'
   return { episode, edits: parsed }
 }
 
@@ -254,23 +285,29 @@ export function writeTiming(root: string, state: OpenState, body: unknown): Timi
   const request = readEdits(body)
   if (typeof request === 'string') return answer(400, 'refused', request)
 
+  // The edits of each file together, files in the order they first appear.
+  const byFile = new Map<string, TimingEdit[]>()
+  for (const edit of request.edits) byFile.set(edit.file, [...(byFile.get(edit.file) ?? []), edit])
+
   const planned: { readonly path: string; readonly bytes: Buffer; readonly file: string }[] = []
-  for (const edit of request.edits) {
-    const format = extname(edit.file).slice(1).toLowerCase()
-    const problem = rangeProblem(edit, format)
-    if (problem !== null) return answer(400, 'refused', problem)
-    const resolved = resolveSubtitle(root, state, request.episode, edit.file)
+  for (const [file, edits] of byFile) {
+    const format = extname(file).slice(1).toLowerCase()
+    for (const edit of edits) {
+      const problem = rangeProblem(edit, format)
+      if (problem !== null) return answer(400, 'refused', problem)
+    }
+    const resolved = resolveSubtitle(root, state, request.episode, file)
     if (!resolved.ok) return answer(resolved.status, 'refused', resolved.reason)
     const path = resolved.path
     let bytes: Buffer
     try {
       bytes = readFileSync(path)
     } catch (error) {
-      return answer(500, 'refused', `读不了「${edit.file}」：${String(error)}`)
+      return answer(500, 'refused', `读不了「${file}」：${String(error)}`)
     }
-    const outcome = retimeBytes(bytes, format, edit)
+    const outcome = retimeBytes(bytes, format, edits)
     if (!outcome.ok) return answer(outcome.code === 'stale' ? 409 : 400, outcome.code, outcome.reason)
-    planned.push({ path, bytes: outcome.bytes, file: edit.file })
+    planned.push({ path, bytes: outcome.bytes, file })
   }
 
   for (const write of planned) {

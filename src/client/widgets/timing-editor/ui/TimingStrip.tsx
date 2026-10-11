@@ -3,7 +3,9 @@
  *
  * Two edge fields, each with a nudge on either side and a "set to the playhead" button, the save
  * and cancel buttons, and one line saying which keys do what. The field with focus is the one the
- * arrow keys move; clicking a field gives it focus. There is no waveform: the sentence loops while
+ * arrow keys move; clicking a field gives it focus. An edge pushed into a neighbour moves the
+ * neighbour's shared edge too, and a line under the keys says where it goes, because that sentence
+ * is not on screen. There is no waveform: the sentence loops while
  * the strip is open, and the ear is the instrument (see the note on editing a sentence's timing).
  */
 import { formatClockMs } from '../../../shared/lib/format.ts'
@@ -98,6 +100,13 @@ export function TimingStrip({ t, editor, blocked }: TimingStripProps) {
         </button>
       </div>
       <div className="dsh-lingualab-timing-hint">{session.lrc ? t('timingHintLrc') : t('timingHint')}</div>
+      {session.pushed.map((neighbour) => (
+        <div className="dsh-lingualab-timing-hint is-pushed" key={neighbour.side}>
+          {neighbour.side === 'previous'
+            ? t('timingPushedPrevious', { time: formatClockMs(neighbour.after.end) })
+            : t('timingPushedNext', { time: formatClockMs(neighbour.after.start) })}
+        </div>
+      ))}
       {blocked !== null ? <div className="dsh-lingualab-timing-hint is-warn">{blocked}</div> : null}
       {editor.error !== null ? (
         <div className="dsh-lingualab-error">
