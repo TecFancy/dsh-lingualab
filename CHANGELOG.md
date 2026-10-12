@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-12
+
 ### Fixed
 
 - Saving kept sentences can no longer lose a `notes.md`. The file is written to a temporary sibling and renamed into place,
