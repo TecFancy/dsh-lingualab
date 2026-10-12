@@ -72,6 +72,11 @@ notes/learning/english/media/
 Agent 也 grep 得到，次日复习就靠它；文件剧集的笔记存在插件自己的 profile 里，因为这个插件除了加进你交给它
 的文件之外，不往素材目录里写别的东西。
 
+**设置**是首页和练习页顶栏最右边的滑块图标，点开是一个抽屉，只改变这一页，不改 dsh 本身：主题（「默认」「墨蓝」
+「松绿」「纸张」「暮紫」「高对比」，各有浅色和深色两套配色）、明暗是跟随 dsh 还是固定一种、舞台上那一句的字号，
+以及提前起播。主题的做法是在页面根元素上设置宿主自己的颜色令牌，所以页面以外的东西都不受影响。这些选择存在这个浏览器里，
+换一台设备按默认来。
+
 ## 当前状态
 
 两个半边都写完了：host 那边是库扫描、导入路由、带 `Range` 的媒体路由、可浏览的选择层、笔记读写与复习清单；
@@ -90,7 +95,7 @@ client 那边是页面本身：首页、练习视图、「收藏」栏与复习�
 [LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY)。
 画板有 `Practice / Light` 与 `Practice / Dark`、`Home / Light` 与 `Home / Dark`、
 `Notes / Light` 和 `Five steps / Light`。这份稿是比例与层级的参照，不是取值的来源：稿里写死了十六进制色值和
-Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以会跟着主题走。
+Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以会跟着主题走。在设置里选的主题，只在页面根元素上覆盖这些同样的令牌，别处不动。
 
 ## 发版
 
@@ -141,7 +146,7 @@ src/host/                    library scan, places and path rules, browsing, open
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the slot-free features (library,
-                             import, notes, media player, resume)
+                             import, notes, media player, resume, settings)
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

@@ -39,9 +39,17 @@ export const STYLES = `
   /* Panels that float (drawers, cards, popovers). Not the host's bg-overlay: that token is
      its scrim colour, a mid gray in dark, and a panel painted with it reads as washed out. */
   --ll-surface:var(--dsw-alias-bg-layer-1,#ffffff);
+  /* How much the sentence on stage is scaled by: the settings drawer's stage size (see below). */
+  --ll-stage-scale:1;
   position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;
   background:var(--dsw-alias-bg-base,transparent);color:var(--dsw-alias-label-primary,inherit);
-  font-size:14px;line-height:1.5;outline:none}
+  font-size:14px;line-height:1.5;outline:none;
+  /* A theme switch fades instead of flashing; the reduced-motion rule below zeroes it with the rest. */
+  transition:background-color .2s ease,color .2s ease}
+/* The stage size from the settings drawer. Only the two stage lines scale, so the rest of the page
+   keeps the size the host's type scale gives it. */
+.dsh-lingualab-page[data-ll-stage-size="s"]{--ll-stage-scale:.85}
+.dsh-lingualab-page[data-ll-stage-size="l"]{--ll-stage-scale:1.2}
 .dsh-lingualab-page button{font-family:inherit}
 .dsh-lingualab-page button:focus-visible,.dsh-lingualab-page select:focus-visible,
 .dsh-lingualab-page input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#0f1115);outline-offset:1px}
@@ -86,6 +94,7 @@ export const STYLES = `
 .dsh-lingualab-icon-btn:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-icon-btn:disabled{opacity:0.4;cursor:default}
 .dsh-lingualab-icon-btn.is-star.is-on{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.dsh-lingualab-icon-btn.is-on{color:var(--dsw-alias-brand-primary,#0f1115)}
 
 /* ── home ────────────────────────────────────────────────────── */
 .dsh-lingualab-home{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -185,9 +194,9 @@ export const STYLES = `
 .dsh-lingualab-stage-now{position:relative;width:100%;max-width:860px;display:flex;flex-direction:column;align-items:center;
   gap:12px;animation:ll-sentence-in .2s ease-out}
 @keyframes ll-sentence-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.dsh-lingualab-stage-en{font-size:clamp(26px,3.1vw,44px);line-height:1.25;font-weight:700;letter-spacing:-.01em;
+.dsh-lingualab-stage-en{font-size:calc(clamp(26px,3.1vw,44px) * var(--ll-stage-scale));line-height:1.25;font-weight:700;letter-spacing:-.01em;
   word-break:break-word;transition:filter .2s ease}
-.dsh-lingualab-stage-en.is-long{font-size:clamp(20px,2.2vw,30px);line-height:1.35}
+.dsh-lingualab-stage-en.is-long{font-size:calc(clamp(20px,2.2vw,30px) * var(--ll-stage-scale));line-height:1.35}
 .dsh-lingualab-stage-en.is-masked{filter:blur(12px);user-select:none;pointer-events:none}
 /* A tinted word reaches a little past its letters on both sides, through a box shadow (drawn only
    outside the box, so the tint never doubles) rather than padding, which would shift the line. */
@@ -208,7 +217,7 @@ export const STYLES = `
 .dsh-lingualab-stage-en .is-word.is-pinned.is-to{border-top-right-radius:.18em;border-bottom-right-radius:.18em;
   box-shadow:.12em 0 0 var(--ll-word-tint)}
 .dsh-lingualab-stage-en .is-word.is-pinned.is-from.is-to{box-shadow:-.12em 0 0 var(--ll-word-tint),.12em 0 0 var(--ll-word-tint)}
-.dsh-lingualab-stage-zh{font-size:clamp(15px,1.5vw,20px);color:color-mix(in srgb,var(--dsw-alias-label-secondary,#61666b) 80%,transparent);
+.dsh-lingualab-stage-zh{font-size:calc(clamp(15px,1.5vw,20px) * var(--ll-stage-scale));color:color-mix(in srgb,var(--dsw-alias-label-secondary,#61666b) 80%,transparent);
   transition:color var(--ll-fade),opacity var(--ll-fade)}
 .dsh-lingualab-stage-zh[data-zh="always"]{color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-stage-empty{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:420px;
@@ -864,6 +873,43 @@ export const STYLES = `
 .dsh-lingualab-step-actions .dsh-lingualab-btn.is-primary{flex:1;font-weight:600}
 .dsh-lingualab-step-actions .dsh-lingualab-btn.is-primary.is-running{
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 82%,var(--ll-surface))}
+/* ── settings drawer: the five-steps drawer's frame, a little narrower, with radio groups inside ── */
+.dsh-lingualab-popover.is-settings{width:min(420px,100%);outline:none}
+/* The drawer is painted with the surface colour, so a chosen segment painted with it too would read as sunk
+   in dark; layer 2 lifts it (and is the same white in light). */
+.dsh-lingualab-popover.is-settings .dsh-lingualab-segmented button.is-on{background:var(--dsw-alias-bg-layer-2,#ffffff)}
+.dsh-lingualab-settings-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px;
+  padding:0 20px 20px}
+.dsh-lingualab-settings-label{margin:18px 0 2px;font-size:12px;font-weight:600;letter-spacing:.02em;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-settings-label:first-child{margin-top:4px}
+.dsh-lingualab-setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
+.dsh-lingualab-setting-block{display:flex;flex-direction:column;gap:10px;padding-top:6px}
+.dsh-lingualab-setting-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dsh-lingualab-setting-name{font-size:13px;font-weight:500}
+.dsh-lingualab-setting-hint{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dsh-lingualab-theme{display:flex;flex-direction:column;align-items:stretch;gap:3px;box-sizing:border-box;padding:8px 8px 10px;
+  border-radius:12px;text-align:left;cursor:pointer;font:inherit;color:inherit;background:none;
+  border:1.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));
+  transition:border-color var(--ll-fade),background var(--ll-fade)}
+.dsh-lingualab-theme:hover{background:var(--ll-wash)}
+.dsh-lingualab-theme.is-on{border-color:var(--dsw-alias-brand-primary,#0f1115)}
+.dsh-lingualab-theme-preview{display:flex;flex-direction:column;justify-content:center;gap:7px;box-sizing:border-box;
+  height:64px;margin-bottom:5px;padding:0 12px;border-radius:8px;border:1px solid transparent;
+  transition:background-color var(--ll-fade),border-color var(--ll-fade)}
+.dsh-lingualab-theme-line{display:flex;align-items:center;gap:6px}
+.dsh-lingualab-theme-dot{flex:none;width:8px;height:8px;border-radius:999px}
+.dsh-lingualab-theme-bar{display:block;height:6px;border-radius:3px}
+.dsh-lingualab-theme-bar.is-long{width:72%}
+.dsh-lingualab-theme-bar.is-short{width:46%;height:5px}
+.dsh-lingualab-theme-track{display:block;height:4px;border-radius:2px;overflow:hidden}
+.dsh-lingualab-theme-track span{display:block;width:58%;height:100%;border-radius:2px}
+.dsh-lingualab-theme-name{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;
+  color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-theme-name svg{flex:none;color:var(--dsw-alias-brand-primary,#0f1115)}
+.dsh-lingualab-theme-desc{font-size:11.5px;line-height:1.4;color:var(--dsw-alias-label-secondary,#61666b)}
+
 /* A real input that cannot be seen: it stays focusable, so the label around it works from
    the keyboard, which \`display:none\` would break. */
 .dsh-lingualab-visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;

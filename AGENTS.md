@@ -28,10 +28,12 @@ src/client/             客户端半边，FSD 分层，没有 app 层
   entities/cue/         字幕解析与双语分行
   features/             library（读一集或其中一段）、media-player（播放与循环）、notes（收藏，无 7 条上限，按段分组）、
                         import-media（拖入分组与上传）、resume（听到哪里按集或按段存，五步勾选按集：浏览器缓存加 host 同步）、
-                        review（复习队列：本集或整个库，逐句评级）
+                        review（复习队列：本集或整个库，逐句评级）、
+                        settings（主题、明暗、舞台字号，存浏览器；主题是覆盖宿主 token 的调色板）
   widgets/              library-home（首页与拖放区）、control-bar、subtitle-panel、notes-panel（右栏的「收藏」）、
                         episode-picker（只剩浏览）、media-folder、step-tracker、segment-picker（分段按钮与列表）、
-                        timing-editor（舞台下面调整一句开头和结尾的横栏）、review-strip（复习横栏与结束卡片）
+                        timing-editor（舞台下面调整一句开头和结尾的横栏）、review-strip（复习横栏与结束卡片）、
+                        settings-panel（右侧「设置」抽屉：主题卡片、明暗、舞台字号、提前起播）
   pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像

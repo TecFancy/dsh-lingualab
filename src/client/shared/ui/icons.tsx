@@ -259,3 +259,14 @@ export function LinesIcon(props: IconProps) {
     </Svg>
   )
 }
+
+/** Two horizontal sliders, each with a knob: the settings. */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.5 5h6.4M12.1 5h1.4M2.5 11h1.4M7.1 11h6.4" />
+      <circle cx={10.5} cy={5} r={1.6} />
+      <circle cx={5.5} cy={11} r={1.6} />
+    </Svg>
+  )
+}

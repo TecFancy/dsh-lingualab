@@ -136,6 +136,13 @@ node scripts/verify.mjs --list   # 看检查表
   `ref.click()` 再传下去。
 - **`layout.selectPanel` 之外的入口只有一处**：这一页由「应用」页的卡片打开，`panel` 字段写的是
   `lingualab`。改 `PANEL_ID` 就要同步改 `dsh-apps-panel` 的注册表，否则卡片点了没反应。
+- **主题是覆盖宿主 token，不是第二套颜色**：`features/settings/lib/themes.ts` 里每套主题有浅、深两份调色板，键就是页面读的那十一个
+  `--dsw-alias-*`。`resolveThemeVars(theme, appearance, hostDark)` 是纯函数：默认主题加「跟随 dsh」返回 `null`（什么也不设，和以前一模一样），
+  否则返回要写到 `.dsh-lingualab-page` 根元素 inline style 上的变量和 `colorScheme`，`--ll-*` 派生值在同一个元素上跟着重算。
+  宿主的明暗看 `<body>` 上有没有 `data-ds-dark-theme` 属性，`useHostDark` 用 MutationObserver 盯它。样式继续只读那十一个 token，
+  不要写死色值；加一套主题就是改 `THEMES` 表，再补 locale 里的名字与描述。设置存在 `localStorage` 的 `dsh-lingualab:settings`，
+  只在这台设备上，不进 host，也不进进度文件。舞台字号靠根元素的 `data-ll-stage-size` 与 `--ll-stage-scale`。设置抽屉（`widgets/settings-panel`）
+  照着五步法抽屉做，和它互相关闭，抽屉里的按键不冒泡给页面快捷键。
 
 ## 发版与 Release（2026-10-08 定）
 

@@ -19,7 +19,7 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-10-11
+## [0.7.0] - 2026-10-12
 
 ### Added
 
@@ -41,6 +41,13 @@ the plugin that was installed and used, not an artifact on a registry.
   vertical stepper. The one step being worked on is open, with its clock against the suggested time, a one-line tip,
   start, resume or pause, and 「Mark done」; the two steps done in the conversation say so with a tag. The drawer
   slides out and its scrim fades out, instead of vanishing.
+- A settings drawer, opened from the sliders icon at the right end of the top bar on the home and in the practice
+  view (the five-steps drawer and this one close each other). It holds six colour themes (「默认」, 「墨蓝」, 「松绿」,
+  「纸张」, 「暮紫」 and 「高对比」), each with a light and a dark palette and shown as a card painted in its own
+  colours; whether light or dark follows dsh or is pinned; the size of the sentence on stage (small, medium, large);
+  and the lead-in, the same setting as in 「More」. A theme sets dsh's own colour tokens on the page's root element, so
+  nothing outside the page changes, and the default theme following dsh sets nothing at all. The choices are kept in
+  this browser and apply at once.
 
 ### Changed
 
