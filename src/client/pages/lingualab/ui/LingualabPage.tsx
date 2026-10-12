@@ -30,7 +30,7 @@
  * which is focusable, so the keys work while the panel has focus and stop at its edge.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
@@ -62,12 +62,14 @@ import {
   type ReviewOutcome,
   type ReviewSession,
 } from '../../../features/review/index.ts'
+import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
 import { gradeForKey } from '../../../shared/lib/grades.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
 import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
-import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { usePresence } from '../../../shared/lib/usePresence.ts'
+import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
 import { Segmented } from '../../../shared/ui/Segmented.tsx'
 import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
@@ -77,7 +79,8 @@ import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/ind
 import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
 import { ReviewFinish, ReviewStrip } from '../../../widgets/review-strip/index.ts'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
-import { StepTracker } from '../../../widgets/step-tracker/index.ts'
+import { SETTINGS_EXIT_MS, SettingsPanel } from '../../../widgets/settings-panel/index.ts'
+import { STEPS_EXIT_MS, StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
@@ -149,6 +152,24 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const reviewing = useRef(false)
   const reviewList = useReviewList(view === 'home')
   const [stepsOpen, setStepsOpen] = useState(false)
+  // The scrim behind the steps drawer fades out as the drawer slides out, so it outlives `stepsOpen` briefly.
+  const scrim = usePresence(stepsOpen, STEPS_EXIT_MS)
+  // The settings drawer is the steps drawer's sibling: only one of the two is open at a time, and it
+  // is open in either view, so its scrim lives outside the practice branch.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsScrim = usePresence(settingsOpen, SETTINGS_EXIT_MS)
+  const theme = useSettings((state) => state.theme)
+  const appearance = useSettings((state) => state.appearance)
+  const stageSize = useSettings((state) => state.stageSize)
+  const hostDark = useHostDark()
+  /**
+   * The reader's theme as inline custom properties on the root, or `undefined` when it is the
+   * default following the host (nothing is set, and the page is exactly as the host styles it).
+   */
+  const themeStyle = useMemo((): CSSProperties | undefined => {
+    const resolved = resolveThemeVars(theme, appearance, hostDark)
+    return resolved === null ? undefined : ({ ...resolved.vars, colorScheme: resolved.scheme } as CSSProperties)
+  }, [theme, appearance, hostDark])
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
   const [follow, setFollow] = useState(true)
@@ -745,6 +766,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         // must not also clear the A-B marks its own buttons set.
         if (controlBar.current?.closeMenu() === true) {
           handled()
+        } else if (settingsOpen) {
+          handled()
+          setSettingsOpen(false)
         } else if (timing.session !== null) {
           handled()
           timing.close()
@@ -764,6 +788,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         }
         return
       }
+      // The settings drawer owns the keyboard while it is open, as a layer does.
+      if (settingsOpen) return
       if (view !== 'practice') return
       // The timing strip owns the keyboard while it is open: the arrows move an edge, not the sentence.
       if (timing.session !== null) {
@@ -904,6 +930,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       review,
       runReview,
       selection,
+      settingsOpen,
       stepsOpen,
       timing,
       view,
@@ -939,9 +966,28 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       ]}
     />
   )
+  /** The icon at the right end of both top bars; it opens the settings and closes the five steps. */
+  const settingsButton = (
+    <button
+      type="button"
+      className={`dsh-lingualab-icon-btn${settingsOpen ? ' is-on' : ''}`}
+      onClick={() => {
+        setStepsOpen(false)
+        setLayer('none')
+        setSettingsOpen(!settingsOpen)
+      }}
+      title={t('settingsOpen')}
+      aria-label={t('settingsOpen')}
+      aria-expanded={settingsOpen}
+    >
+      <SettingsIcon size={16} />
+    </button>
+  )
   return (
     <div
       className="dsh-lingualab-page"
+      style={themeStyle}
+      data-ll-stage-size={stageSize}
       ref={containerRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -977,6 +1023,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             ) : null}
             <span className="dsh-lingualab-top-title">{t('appTitle')}</span>
             <span className="dsh-lingualab-spacer" />
+            {settingsButton}
           </div>
           <LibraryHome
             t={t}
@@ -1026,6 +1073,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 open={layer === 'segments'}
                 onToggle={() => {
                   setStepsOpen(false)
+                  setSettingsOpen(false)
                   if (layer !== 'segments') setProgress(readAllProgress())
                   setLayer(layer === 'segments' ? 'none' : 'segments')
                 }}
@@ -1055,10 +1103,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 open={stepsOpen}
                 onToggle={() => {
                   setLayer('none')
+                  setSettingsOpen(false)
                   setStepsOpen(!stepsOpen)
                 }}
               />
             ) : null}
+            {settingsButton}
           </div>
 
           <div className="dsh-lingualab-body">
@@ -1203,9 +1253,21 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             )}
           </div>
 
-          {stepsOpen ? <div className="dsh-lingualab-scrim" onClick={() => setStepsOpen(false)} /> : null}
+          {scrim.mounted ? (
+            <div
+              className={`dsh-lingualab-scrim${stepsOpen ? '' : ' is-leaving'}`}
+              onClick={() => setStepsOpen(false)}
+            />
+          ) : null}
         </>
       )}
+      {settingsScrim.mounted ? (
+        <div
+          className={`dsh-lingualab-scrim${settingsOpen ? '' : ' is-leaving'}`}
+          onClick={() => setSettingsOpen(false)}
+        />
+      ) : null}
+      <SettingsPanel t={t} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {layer === 'browse' ? (
         <EpisodePicker
           t={t}

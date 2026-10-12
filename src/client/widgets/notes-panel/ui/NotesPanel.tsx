@@ -19,14 +19,26 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { findSegment, segmentLabel } from '../../../features/library/index.ts'
+import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { groupBySegment, removeWordFromNote, splitNote, type NotesState } from '../../../features/notes/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { GRADE_LABELS, gradeKey } from '../../../shared/lib/grades.ts'
 import { GIVEN_GRADES, gradeOf, inPlayOrder, withGrade } from '../../../shared/notes-format.ts'
-import { CheckIcon, CloseIcon, EditIcon, PlayIcon, StarIcon, TrashIcon, UndoIcon } from '../../../shared/ui/icons.tsx'
+import {
+  CheckIcon,
+  CloseIcon,
+  LinesIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
+  StarIcon,
+  TrashIcon,
+  UndoIcon,
+} from '../../../shared/ui/icons.tsx'
 import { Segmented } from '../../../shared/ui/Segmented.tsx'
 import type { Translate } from '../../../context.ts'
 import type { EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
+import { NoteEditor } from './NoteEditor.tsx'
 
 /** How long the undo stays on screen. */
 const UNDO_MS = 6000
@@ -66,11 +78,12 @@ function segmentName(segments: readonly EpisodeSegment[], id: string): string {
 export function NotesPanel({ t, notes, segments, switcher, currentIndex, onReplay, onReview, reviewing }: NotesPanelProps) {
   const [view, setView] = useState<View>('active')
   const [editing, setEditing] = useState<number | null>(null)
-  const [draft, setDraft] = useState('')
   const [removed, setRemoved] = useState<Removed | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const currentRef = useRef<HTMLDivElement | null>(null)
+  // Whether the sentence on stage is playing, which the open card's time chip shows and toggles.
+  const playing = useMediaPlayer((player) => player.isPlaying)
 
   useEffect(
     () => () => {
@@ -120,9 +133,12 @@ export function NotesPanel({ t, notes, segments, switcher, currentIndex, onRepla
   const groups = groupBySegment(rows, order)
 
   /** Words are kept in the note as [word]; editing the text must not lose them. */
-  const commit = (index: number, words: readonly string[]): void => {
-    const note = [draft.trim(), ...words.map((word) => `[${word}]`)].filter((part) => part.length > 0).join(' ')
-    notes.update(index, { note })
+  const commit = (index: number, phrase: NotePhrase, words: readonly string[], value: string): void => {
+    const note = [value.replace(/\r/g, '').trim(), ...words.map((word) => `[${word}]`)]
+      .filter((part) => part.length > 0)
+      .join(' ')
+    // A note left as it was is not written again.
+    if (note !== phrase.note) notes.update(index, { note })
     setEditing(null)
   }
 
@@ -178,6 +194,10 @@ export function NotesPanel({ t, notes, segments, switcher, currentIndex, onRepla
               const grade = gradeOf(phrase)
               const open = index === currentIndex
               const { words, text } = splitNote(phrase.note)
+              // The open card's chip plays and pauses the sentence on stage; any other card's chip
+              // brings its sentence to the stage and plays it.
+              const chipPlaying = open && playing
+              const chipLabel = open ? (playing ? t('notesPause') : t('notesPlay')) : t('notesReplay')
               return (
                 <div
                   key={`${phrase.segment ?? ''}-${phrase.at}-${index}`}
@@ -190,39 +210,34 @@ export function NotesPanel({ t, notes, segments, switcher, currentIndex, onRepla
                   <div className="dsh-lingualab-note-top">
                     <button
                       type="button"
-                      className="dsh-lingualab-note-at"
+                      className={`dsh-lingualab-note-at${chipPlaying ? ' is-playing' : ''}`}
                       onClick={(event) => {
                         event.stopPropagation()
-                        onReplay(phrase)
+                        if (open) useMediaPlayer.getState().toggle()
+                        else onReplay(phrase)
                       }}
-                      title={t('notesReplay')}
+                      aria-pressed={open ? playing : undefined}
+                      aria-label={chipLabel}
+                      title={chipLabel}
                     >
-                      <PlayIcon size={10} /> {formatClock(phrase.at)}
+                      {chipPlaying ? <PauseIcon size={10} /> : <PlayIcon size={10} />} {formatClock(phrase.at)}
                     </button>
                     <span className={`dsh-lingualab-grade is-${grade}`}>{t(GRADE_LABELS[grade])}</span>
                     <span className="dsh-lingualab-spacer" />
                     {open ? (
-                      <>
-                        <button
-                          type="button"
-                          className="dsh-lingualab-icon-btn is-small"
-                          title={t('notesEdit')}
-                          onClick={() => {
-                            setEditing(index)
-                            setDraft(text)
-                          }}
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="dsh-lingualab-icon-btn is-small is-danger"
-                          title={t('notesDelete')}
-                          onClick={() => remove(phrase, index)}
-                        >
-                          <TrashIcon />
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        className="dsh-lingualab-icon-btn is-small is-danger"
+                        title={t('notesDelete')}
+                        aria-label={t('notesDelete')}
+                        onClick={() => remove(phrase, index)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    ) : text.length > 0 ? (
+                      <span className="dsh-lingualab-note-has" role="img" aria-label={t('notesHasNote')} title={t('notesHasNote')}>
+                        <LinesIcon size={13} />
+                      </span>
                     ) : null}
                   </div>
 
@@ -231,43 +246,45 @@ export function NotesPanel({ t, notes, segments, switcher, currentIndex, onRepla
                   {open ? (
                     <>
                       {phrase.zh.length > 0 ? <div className="dsh-lingualab-note-zh">{phrase.zh}</div> : null}
-                      {editing === index ? (
-                        <input
-                          className="dsh-lingualab-input"
-                          value={draft}
-                          autoFocus
-                          placeholder={t('notesEditorPlaceholder')}
-                          onChange={(event) => setDraft(event.target.value)}
-                          onBlur={() => commit(index, words)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') commit(index, words)
-                            if (event.key === 'Escape') setEditing(null)
-                            event.stopPropagation()
-                          }}
-                        />
-                      ) : words.length > 0 || text.length > 0 ? (
-                        <div className="dsh-lingualab-memo">
-                          {words.length > 0 ? (
-                            <div className="dsh-lingualab-memo-words">
-                              {words.map((word) => (
-                                <span className="dsh-lingualab-word-chip" key={word}>
-                                  {word}
-                                  <button
-                                    type="button"
-                                    className="dsh-lingualab-word-chip-x"
-                                    title={t('wordRemove', { word })}
-                                    aria-label={t('wordRemove', { word })}
-                                    onClick={() => notes.update(index, { note: removeWordFromNote(phrase.note, word) })}
-                                  >
-                                    <CloseIcon size={10} />
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                          {text.length > 0 ? <div className="dsh-lingualab-memo-text">{text}</div> : null}
+                      {words.length > 0 ? (
+                        <div className="dsh-lingualab-memo-words">
+                          {words.map((word) => (
+                            <span className="dsh-lingualab-word-chip" key={word}>
+                              {word}
+                              <button
+                                type="button"
+                                className="dsh-lingualab-word-chip-x"
+                                title={t('wordRemove', { word })}
+                                aria-label={t('wordRemove', { word })}
+                                onClick={() => notes.update(index, { note: removeWordFromNote(phrase.note, word) })}
+                              >
+                                <CloseIcon size={10} />
+                              </button>
+                            </span>
+                          ))}
                         </div>
                       ) : null}
+                      {editing === index ? (
+                        <NoteEditor
+                          t={t}
+                          initial={text}
+                          onSave={(value) => commit(index, phrase, words, value)}
+                          onCancel={() => setEditing(null)}
+                        />
+                      ) : text.length > 0 ? (
+                        <button
+                          type="button"
+                          className="dsh-lingualab-memo-text"
+                          title={t('notesEdit')}
+                          onClick={() => setEditing(index)}
+                        >
+                          {text}
+                        </button>
+                      ) : (
+                        <button type="button" className="dsh-lingualab-memo-add" onClick={() => setEditing(index)}>
+                          <PlusIcon size={13} /> {t('notesAddNote')}
+                        </button>
+                      )}
                       <div className="dsh-lingualab-grades" role="group" aria-label={t('keyGrade')}>
                         {GIVEN_GRADES.map((given) => (
                           <button

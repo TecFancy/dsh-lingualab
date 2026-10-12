@@ -243,3 +243,30 @@ export function BookIcon(props: IconProps) {
     </Svg>
   )
 }
+export function PlusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 3.2v9.6M3.2 8h9.6" />
+    </Svg>
+  )
+}
+
+/** Three lines of text, the second one longer than the third: a note. */
+export function LinesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.2 4.4h9.6M3.2 8h9.6M3.2 11.6h6" />
+    </Svg>
+  )
+}
+
+/** Two horizontal sliders, each with a knob: the settings. */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.5 5h6.4M12.1 5h1.4M2.5 11h1.4M7.1 11h6.4" />
+      <circle cx={10.5} cy={5} r={1.6} />
+      <circle cx={5.5} cy={11} r={1.6} />
+    </Svg>
+  )
+}

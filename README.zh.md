@@ -65,12 +65,17 @@ notes/learning/english/media/
 
 **收藏一句就是点星标**，运输条上有，每一行字幕上也有，或者按 `S`。再点一次就取消。收藏的句子是右栏的另一个视图
 「收藏」，和字幕并排（`N` 切换）：点一张卡片，那一句放上舞台循环播放；舞台上那一句的卡片展开，显示备注、
-单词和评级。每句收藏只有一个状态，按 `1`「记住了」、`2`「模糊」或 `3`「没记住」设定；评为「记住了」的句子
+单词和评级；备注可以写多行（`Ctrl+Enter` 保存），卡片上的时间按钮可以播放和暂停这一句。每句收藏只有一个状态，按 `1`「记住了」、`2`「模糊」或 `3`「没记住」设定；评为「记住了」的句子
 离开「还在练」视图但不会被删掉，所以工作集保持很短，靠的是你的选择，而不是一个上限。**复习**把还在练的句子
 逐句过一遍，英文先遮住，按 `R` 揭晓，每句循环到评级为止；可以从「收藏」栏为这一集开始，也可以从首页的卡片
-为整个库开始。文件夹剧集的笔记是 markdown，一条短语一个清单行，编辑器里读得下去，
+为整个库开始。文件夹剧集的笔记是 markdown，一条短语一个清单行（备注里的换行写成 `<br>`，一条短语始终占一行），编辑器里读得下去，
 Agent 也 grep 得到，次日复习就靠它；文件剧集的笔记存在插件自己的 profile 里，因为这个插件除了加进你交给它
 的文件之外，不往素材目录里写别的东西。
+
+**设置**是首页和练习页顶栏最右边的滑块图标，点开是一个抽屉，只改变这一页，不改 dsh 本身：主题（「默认」「墨蓝」
+「松绿」「纸张」「暮紫」「高对比」，各有浅色和深色两套配色）、明暗是跟随 dsh 还是固定一种、舞台上那一句的字号，
+以及提前起播。主题的做法是在页面根元素上设置宿主自己的颜色令牌，所以页面以外的东西都不受影响。这些选择存在这个浏览器里，
+换一台设备按默认来。
 
 ## 当前状态
 
@@ -90,7 +95,7 @@ client 那边是页面本身：首页、练习视图、「收藏」栏与复习�
 [LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY)。
 画板有 `Practice / Light` 与 `Practice / Dark`、`Home / Light` 与 `Home / Dark`、
 `Notes / Light` 和 `Five steps / Light`。这份稿是比例与层级的参照，不是取值的来源：稿里写死了十六进制色值和
-Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以会跟着主题走。
+Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以会跟着主题走。在设置里选的主题，只在页面根元素上覆盖这些同样的令牌，别处不动。
 
 ## 发版
 
@@ -141,7 +146,7 @@ src/host/                    library scan, places and path rules, browsing, open
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the slot-free features (library,
-                             import, notes, media player, resume)
+                             import, notes, media player, resume, settings)
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

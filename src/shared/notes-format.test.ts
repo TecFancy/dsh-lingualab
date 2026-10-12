@@ -113,6 +113,59 @@ describe('serializeNotes', () => {
   })
 })
 
+describe('a note with more than one line', () => {
+  const lines = 'prove it 连读成 /pruːvɪt/\n语气：安慰对方，不用较劲。'
+
+  it('is written on one line of the file, with each break as <br>', () => {
+    const text = serializeNotes('', [phrase({ note: lines, tags: [] })])
+    expect(text).toContain('prove it 连读成 /pruːvɪt/<br>语气：安慰对方，不用较劲。')
+    // One phrase, one line: a raw newline would end the phrase early.
+    expect(text.split('\n').filter((line) => line.startsWith('- ['))).toHaveLength(1)
+    expect(text.trimEnd().split('\n')).toHaveLength(1)
+  })
+
+  it('round-trips through parse', () => {
+    const phrases = [phrase({ note: lines }), phrase({ at: 727, text: 'Second.', note: 'one\n\ntwo\nthree', tags: [], done: true })]
+    expect(parseNotes(serializeNotes('', phrases)).phrases).toEqual(phrases)
+  })
+
+  it('round-trips with pipes and newlines in the same note', () => {
+    const note = 'a | b\nc|d\n[gonna] e'
+    const text = serializeNotes('', [phrase({ note })])
+    expect(text.trimEnd().split('\n')).toHaveLength(1)
+    const [parsed] = parseNotes(text).phrases
+    expect(parsed?.note).toBe(note)
+    expect(parsed?.tags).toEqual(['review'])
+  })
+
+  it('drops a carriage return, so a Windows line break is one break', () => {
+    const text = serializeNotes('', [phrase({ note: 'one\r\ntwo\rthree', tags: [] })])
+    expect(text).toContain('one<br>twothree')
+    expect(text).not.toContain('\r')
+  })
+
+  it('reads <br/>, <br /> and <BR> as line breaks, for a file edited by hand', () => {
+    const markdown = '- [ ] 00:12 | Text | 中文 | one<br/>two<br />three<BR>four | #review'
+    expect(parseNotes(markdown).phrases[0]?.note).toBe('one\ntwo\nthree\nfour')
+  })
+
+  it('leaves a file written before line breaks existed as it was', () => {
+    const markdown = '- [ ] 03:41 | I\'m not gonna lie... | 说实话…… | a < b, <b>bold</b>, break | #review'
+    const [parsed] = parseNotes(markdown).phrases
+    expect(parsed?.note).toBe('a < b, <b>bold</b>, break')
+    expect(serializeNotes('', [parsed ?? phrase()])).toContain('a < b, <b>bold</b>, break')
+  })
+
+  it('keeps the segment grouping when a note has line breaks', () => {
+    const phrases = [phrase({ note: 'x\ny', segment: '01_a' }), phrase({ at: 9, text: 'Other.', note: '', segment: '02_b' })]
+    const parsed = parseNotes(serializeNotes('', phrases, ['01_a', '02_b'])).phrases
+    expect(parsed.map((item) => [item.segment, item.note])).toEqual([
+      ['01_a', 'x\ny'],
+      ['02_b', ''],
+    ])
+  })
+})
+
 describe('summaries and capacity', () => {
   it('counts the tags the study method tracks', () => {
     const text = serializeNotes('', [

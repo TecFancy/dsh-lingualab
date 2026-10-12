@@ -88,16 +88,25 @@ the system's reduced-motion setting.
 **Keeping a sentence is a star** on the transport row and on each subtitle line, or `S`. The same
 star takes it back. The kept sentences are the right column's other view, 「收藏」, next to the
 subtitles (`N` switches): clicking a card puts its sentence on stage and loops it, and the card of
-the sentence on stage opens with its note, its words and its grade. Each kept sentence has one
+the sentence on stage opens with its note, its words and its grade; the note can run over several
+lines (`Ctrl+Enter` saves), and the card's time chip plays and pauses that sentence. Each kept sentence has one
 state, set with `1` 「记住了」, `2` 「模糊」 or `3` 「没记住」; one graded 「记住了」 leaves the
 「还在练」 view without being deleted, so the working set stays short by choice rather than by a
 ceiling. **Review** goes through the sentences still being practised one at a time, the English
 hidden until `R`, each looping until it is graded; it starts from the column for one episode, or
 from a card on the home for the whole library. A folder episode's notes are
-markdown with a checklist line per phrase, so they stay readable in an editor and greppable by
+markdown with a checklist line per phrase (a note's line breaks are written as `<br>`, so a phrase
+stays on one line), so they stay readable in an editor and greppable by
 the agent that runs the next-day review; a file episode's notes live in the plugin's profile,
 because the plugin does not write anywhere in the material folder except to add the files you
 hand it.
+
+**Settings** are the sliders icon at the right end of the top bar, on the home and in the practice
+view. They open a drawer that changes only this page and never dsh itself: a theme (「默认」, 「墨蓝」,
+「松绿」, 「纸张」, 「暮紫」 or 「高对比」, each with a light and a dark palette), whether light or dark
+follows dsh or is pinned, the size of the sentence on stage, and the lead-in. A theme sets the
+host's own colour tokens on the page's root element, so nothing outside the page changes. The
+choices are kept in this browser, and another device starts from the defaults.
 
 ## Status
 
@@ -122,7 +131,8 @@ drawers are drafted in Figma: [LinguaLab redesign](https://www.figma.com/design/
 The frames are `Practice / Light` and `Practice / Dark`, `Home / Light` and `Home / Dark`,
 `Notes / Light` and `Five steps / Light`. The file is the reference for proportions and hierarchy,
 not for values: it hardcodes hex colours and the Inter font, while the page itself reads the host's
-`--dsw-alias-*` tokens and font so it follows the theme.
+`--dsw-alias-*` tokens and font so it follows the theme. A theme chosen in the settings overrides those same tokens on the page's
+root element and nowhere else.
 
 ## Releasing
 
@@ -177,7 +187,7 @@ src/host/                    library scan, places and path rules, browsing, open
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the slot-free features (library,
-                             import, notes, media player, resume)
+                             import, notes, media player, resume, settings)
 lib/                         tsdown output, committed: what the shell fetches
 locale/                      the Plugins page display name and summary
 cordis.patch.yml             bundle patch (loader row `lingualab`)

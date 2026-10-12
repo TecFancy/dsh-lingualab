@@ -40,12 +40,16 @@ export function removeWordFromNote(note: string, word: string): string {
   if (word.trim().length === 0 || at < 0) return note
   const before = note.slice(0, at).replace(/ $/, '')
   const after = note.slice(at + target.length).replace(/^ /, '')
-  return before.length > 0 && after.length > 0 ? `${before} ${after}` : `${before}${after}`
+  // Next to a line break the marker leaves no space to close up: the lines stay as they were.
+  const joined = before.length > 0 && after.length > 0 && !before.endsWith('\n') && !after.startsWith('\n')
+  // A marker alone on a line takes the line with it, rather than leaving a blank one at the end.
+  return (joined ? `${before} ${after}` : `${before}${after}`).replace(/^\n+|\n+$/g, '')
 }
 
 /**
  * A note pulled apart for display: the [word] markers as a list, and what is left as text.
- * The stored note is never changed by this, only shown differently.
+ * The stored note is never changed by this, only shown differently. A note may run over several
+ * lines; the line breaks stay, and only runs of spaces and blank lines are tidied.
  */
 export function splitNote(note: string): { readonly words: readonly string[]; readonly text: string } {
   const words: string[] = []
@@ -54,7 +58,9 @@ export function splitNote(note: string): { readonly words: readonly string[]; re
       words.push(word.trim())
       return ' '
     })
-    .replace(/\s+/g, ' ')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
   return { words, text }
 }
