@@ -32,6 +32,9 @@ the plugin that was installed and used, not an artifact on a registry.
 
 - 「中文显示」 is remembered. It is kept with the other settings in this browser, so "English only" stays chosen after a
   reload instead of starting at 「变淡」 every time.
+- The host half is organised in FSD layers like the client: `src/host/` is `shared`, `entities` and `features`, each
+  route sits in its feature beside the rules it calls, and `npm run lint:fsd` runs Steiger on both halves. Nothing the
+  reader sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
 
 ### Fixed
 
