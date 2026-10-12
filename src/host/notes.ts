@@ -34,6 +34,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { MAX_PHRASES, parseNotes, serializeNotes, withSegmentDefault } from '../shared/notes-format.ts'
 import { NOTES_FILE, type NotePhrase, type NotesPayload } from '../shared/protocol.ts'
+import { isSafeEpisodeId } from './episode-id.ts'
 import { scanSegments } from './library.ts'
 import {
   EMPTY_STATE,
@@ -43,11 +44,6 @@ import {
   withNotes,
   type OpenState,
 } from './state.ts'
-
-/** Episode ids name a folder, so they may not contain separators or escapes. */
-export function isSafeEpisodeId(id: string): boolean {
-  return id.length > 0 && !id.includes('/') && !id.includes('\\') && id !== '.' && id !== '..'
-}
 
 /**
  * The preamble a fresh notes file opens with: what the grades are, and how a line carries them,

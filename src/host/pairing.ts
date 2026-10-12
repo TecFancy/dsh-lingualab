@@ -28,7 +28,7 @@ import {
   VIDEO_EXTENSIONS,
   type SubtitleHint,
 } from '../shared/protocol.ts'
-import { compareIds } from './library.ts'
+import { compareIds } from './compare.ts'
 import { owningStem, sameStem, stemOf, videoStemFor } from '../shared/stem.ts'
 
 /**

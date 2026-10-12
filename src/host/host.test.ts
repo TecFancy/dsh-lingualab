@@ -3,7 +3,7 @@ import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'nod
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHRASES } from '../shared/notes-format.ts'
-import { compareIds, scanLibrary } from './library.ts'
+import { scanLibrary } from './library.ts'
 import { resolveMediaPath, serveMedia } from './media.ts'
 import { readNotes, writeNotes } from './notes.ts'
 import {
@@ -36,12 +36,6 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
-})
-
-describe('compareIds', () => {
-  it('orders by number, not by character', () => {
-    expect(['S01E10', 'S01E2', 'S01E1'].sort(compareIds)).toEqual(['S01E1', 'S01E2', 'S01E10'])
-  })
 })
 
 describe('scanLibrary', () => {

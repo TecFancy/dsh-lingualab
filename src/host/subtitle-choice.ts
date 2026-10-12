@@ -24,7 +24,7 @@ import {
   type SubtitlePick,
   type SubtitleSlot,
 } from '../shared/protocol.ts'
-import { compareIds } from './library.ts'
+import { compareIds } from './compare.ts'
 
 /** Both slots left to the name rule: what an episode nobody chose for plays with. */
 export const AUTO_CHOICE: SubtitleChoice = { en: { kind: 'auto' }, zh: { kind: 'auto' } }

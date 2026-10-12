@@ -22,7 +22,8 @@ import {
   type BrowsePayload,
   type PlaceEntry,
 } from '../shared/protocol.ts'
-import { compareIds, episodeTitle } from './library.ts'
+import { compareIds } from './compare.ts'
+import { episodeTitle } from './library.ts'
 import { subtitleHint, stemOf } from './pairing.ts'
 import { isInside, parentOfRel, realPathOf, resolveInPlace } from './places.ts'
 
