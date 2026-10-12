@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- An English-marked subtitle next to one unmarked file now pairs as English and Chinese. `MDJT S01E01-EN.srt` beside a
+  bilingual `MDJT S01E01.srt` used to open with the English track only, while the episode list said "EN + ZH". The
+  unmarked file is now the Chinese track; when there are several, the first with Chinese characters in it.
+
 ## [0.8.1] - 2026-10-12
 
 ### Fixed

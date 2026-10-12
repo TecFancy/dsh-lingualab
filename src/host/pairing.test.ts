@@ -118,6 +118,25 @@ describe('pairSubtitles', () => {
     })
   })
 
+  it('pairs an English-marked file with the unmarked bilingual one beside it', () => {
+    const names = ['MDJT S01E01.mkv', 'MDJT S01E01.mp3', 'MDJT S01E01.srt', 'MDJT S01E01-EN.srt']
+    subtitle('MDJT S01E01.srt', '1\n00:00:02,920 --> 00:00:04,620\n孩子们  吃早饭了\nKids, breakfast!')
+    subtitle('MDJT S01E01-EN.srt')
+    const expected = { en: 'MDJT S01E01-EN.srt', zh: 'MDJT S01E01.srt', ambiguous: false }
+    expect(pairSubtitles(names, { stem: 'MDJT S01E01', directory: root })).toEqual(expected)
+    expect(pairSubtitles(names, { directory: root })).toEqual(expected)
+    // The hint, which reads nothing, names the same two files.
+    expect(subtitleHint(names, 'MDJT S01E01')).toEqual({ state: 'both', files: [expected.en, expected.zh] })
+  })
+
+  it('takes the unmarked file with CJK as the Chinese track when there are several', () => {
+    subtitle('lesson.en.srt')
+    subtitle('lesson.eng.srt')
+    subtitle('lesson.chs.srt', '1\n00:00:01,000 --> 00:00:02,000\n孩子们 吃早饭了')
+    const pair = pairSubtitles(['lesson.chs.srt', 'lesson.en.srt', 'lesson.eng.srt'], { directory: root })
+    expect(pair).toEqual({ en: 'lesson.en.srt', zh: 'lesson.chs.srt', ambiguous: true })
+  })
+
   it('falls back to order when content cannot tell them apart, and says it guessed', () => {
     subtitle('a.srt')
     subtitle('b.srt')

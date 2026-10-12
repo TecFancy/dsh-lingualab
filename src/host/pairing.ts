@@ -266,6 +266,15 @@ export function pairSubtitles(
     return { en: only, zh: bilingual ? only : null, ambiguous }
   }
 
+  if (en.length > 0 && zh.length === 0 && unmarked.length > 0) {
+    // The name settled the English track, so an unmarked file can only be the other one:
+    // `MDJT S01E01-EN.srt` beside a bilingual `MDJT S01E01.srt`. The first that carries CJK
+    // is it; without one, or without a directory to read, the first, which is what the
+    // picker's hint already says by name.
+    const withCjk = directory === undefined ? undefined : unmarked.find((file) => fileHasCjk(join(directory, file)))
+    return { en: en[0] ?? null, zh: withCjk ?? unmarked[0] ?? null, ambiguous }
+  }
+
   if (en.length > 0 || unmarked.length > 0) {
     const byContent =
       directory !== undefined && unmarked.length >= 2 ? splitByContent(directory, unmarked) : null
