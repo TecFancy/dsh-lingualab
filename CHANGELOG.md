@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- Saving kept sentences can no longer lose a `notes.md`. The file is written to a temporary sibling and renamed into place,
+  so a crash leaves the old notes or the new ones and never half a file. A save also carries the version of the file the
+  page read: if the file changed in between (another tab, a hand edit, the agent), the host answers `409` and writes
+  nothing, and the page reads the notes again and says so in the kept-sentences drawer. Requests for notes now go out one at
+  a time, so a page never conflicts with its own previous save.
+
 ## [0.8.0] - 2026-10-12
 
 ### Added

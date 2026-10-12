@@ -435,6 +435,41 @@ describe('moving one sentence in its subtitle file', () => {
   })
 })
 
+describe('saving notes', () => {
+  const save = async (body: object): Promise<{ status: number; payload: { ok: boolean; stale: boolean; version: string | null } }> => {
+    const response = await fetch(`${harness.base}/lingualab/notes`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return { status: response.status, payload: (await response.json()) as never }
+  }
+
+  it('saves against the version it read, then refuses a save from a page that read an older file', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    const read = (await (await fetch(`${harness.base}/lingualab/notes?episode=E1`)).json()) as { version: string }
+    const phrases = [{ at: 4, text: 'Hi.', zh: '', note: '', tags: [], done: false }]
+
+    const saved = await save({ episode: 'E1', phrases, expect: read.version })
+    expect(saved.status).toBe(200)
+    const written = readFileSync(join(harness.root, 'E1', 'notes.md'), 'utf8')
+    expect(saved.payload.version).toBe(createHash('sha256').update(written).digest('hex'))
+
+    const stale = await save({ episode: 'E1', phrases: [], expect: read.version })
+    expect(stale).toEqual({ status: 409, payload: expect.objectContaining({ ok: false, stale: true }) })
+    expect(readFileSync(join(harness.root, 'E1', 'notes.md'), 'utf8')).toBe(written)
+  })
+
+  it('refuses a save without a version for a folder episode', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    const missing = await save({ episode: 'E1', phrases: [] })
+    expect(missing.status).toBe(400)
+    expect(existsSync(join(harness.root, 'E1', 'notes.md'))).toBe(false)
+  })
+})
+
 describe('the review list', () => {
   it('answers what is left to review, and refuses a write', async () => {
     mkdirSync(join(harness.root, 'E1'), { recursive: true })

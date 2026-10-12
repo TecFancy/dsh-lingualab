@@ -228,21 +228,30 @@ export async function fetchNotes(episode: string): Promise<NotesPayload> {
     })
     return (await response.json()) as NotesPayload
   } catch (error) {
-    return { ok: false, episode, reason: String(error), phrases: [] }
+    return { ok: false, episode, reason: String(error), phrases: [], version: null, stale: false }
   }
 }
 
-/** Replace one episode's notes. */
-export async function saveNotes(episode: string, phrases: readonly NotePhrase[]): Promise<NotesPayload> {
+/**
+ * Replace one episode's notes, if the file is still the version the page read.
+ *
+ * `expect` is the `version` of the last read or save; a host that finds the file changed answers
+ * `stale` and writes nothing.
+ */
+export async function saveNotes(
+  episode: string,
+  phrases: readonly NotePhrase[],
+  expect: string | null,
+): Promise<NotesPayload> {
   try {
     const response = await fetch(NOTES_PATH, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ episode, phrases }),
+      body: JSON.stringify({ episode, phrases, expect }),
     })
     return (await response.json()) as NotesPayload
   } catch (error) {
-    return { ok: false, episode, reason: String(error), phrases: [] }
+    return { ok: false, episode, reason: String(error), phrases: [], version: null, stale: false }
   }
 }
 

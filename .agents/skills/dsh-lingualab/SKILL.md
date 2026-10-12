@@ -49,7 +49,7 @@ node scripts/verify.mjs --list   # 看检查表
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
-4. **写素材目录只有五处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
+4. **写素材目录只有五处，都很窄**：一是文件夹剧集里的 `notes.md`（先写临时文件再 `rename`；读时回内容哈希 `version`，存时带 `expect`，对不上回 409 不写，页面重读；路由不收没有 `expect` 的文件夹剧集保存）；二是媒体库根目录的隐藏文件
    `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
    `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
    不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，

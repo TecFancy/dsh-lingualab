@@ -321,6 +321,7 @@ export function NotesPanel({ t, notes, segments, switcher, currentIndex, onRepla
         {notes.status === 'saving' ? t('saving') : null}
         {notes.status === 'saved' ? t('saved') : null}
         {notes.status === 'error' ? <span className="dsh-lingualab-error">{t('saveFailed')}</span> : null}
+        {notes.status === 'reloaded' ? <span className="dsh-lingualab-error">{t('notesReloaded')}</span> : null}
         {notes.status === 'idle' ? t('notesFootnote') : null}
       </div>
     </aside>

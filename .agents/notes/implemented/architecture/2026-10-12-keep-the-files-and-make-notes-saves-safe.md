@@ -1,6 +1,6 @@
 # Agent Note: keep the files, and make notes saves safe
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -13,7 +13,7 @@ holds records, queries them and writes them often.
 
 The evaluation found that SQLite is not worth its cost here, but it also found two real weaknesses
 in how `notes.md` is written. Both verdicts were accepted the same day: the files stay, and the two
-fixes under Decision are planned, not built yet. This note keeps the SQLite evaluation so the
+fixes under Decision were built the same day. This note keeps the SQLite evaluation so the
 question does not have to be reopened from scratch.
 
 ## Assessment
