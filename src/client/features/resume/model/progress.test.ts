@@ -68,10 +68,17 @@ describe('progress', () => {
   })
 
   it('keeps only the newest thousand positions', () => {
-    for (let index = 0; index < 1020; index += 1) writeProgress(`E${String(index)}`, 10, 100, index + 1)
+    // Seeded rather than written one by one: every write reads and rewrites the whole table,
+    // so 1020 writes in a row cost a million entries and timed out under a loaded suite.
+    const seeded: Record<string, unknown> = {}
+    for (let index = 0; index < 1019; index += 1) seeded[`E${String(index)}`] = { at: 10, duration: 100, updatedAt: index + 1 }
+    data.set('dsh-lingualab:progress', JSON.stringify(seeded))
+    writeProgress('E1019', 10, 100, 1020)
     const all = readAllProgress()
     expect(Object.keys(all)).toHaveLength(1000)
     expect(all.E0).toBeUndefined()
+    expect(all.E19).toBeUndefined()
+    expect(all.E20).toBeDefined()
     expect(all.E1019).toBeDefined()
   })
 
