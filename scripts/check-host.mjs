@@ -17,7 +17,7 @@
  *
  * Usage: node scripts/check-host.mjs
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -42,7 +42,27 @@ function expect(condition, message) {
 const manifest = JSON.parse(read('package.json') || '{}')
 const naming = JSON.parse(read('dsh-plugin.naming.json') || '{}')
 const patch = read('cordis.patch.yml')
-const hostSource = read('src/index.ts')
+
+/**
+ * Every host module that can register a route: the entry and everything under `src/host/`
+ * except tests. A route is built next to the rules it calls, so the registrations are spread
+ * across the tree rather than kept in the entry.
+ */
+function hostSources() {
+  const files = ['src/index.ts']
+  const walk = (dir) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(rel)
+      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) files.push(rel)
+    }
+  }
+  if (existsSync(join(root, 'src/host'))) walk('src/host')
+  return files
+}
+const hostSource = hostSources()
+  .map((file) => read(file))
+  .join('\n')
 const clientBundle = read('lib/client.js')
 const hostBundle = read('lib/index.js')
 
@@ -85,15 +105,15 @@ const registered = [...hostSource.matchAll(/kind:\s*'(\w+)',\s*\n\s*path:\s*(\w+
   kind: match[1],
   path: pathConstants.get(match[2]),
 }))
-expect(registered.length > 0, 'src/index.ts 里没有找到 kind/path 成对的路由注册')
+expect(registered.length > 0, 'host 源码里没有找到 kind/path 成对的路由注册')
 for (const route of declaredRoutes) {
   expect(typeof route.kind === 'string' && typeof route.path === 'string', '命名清单里的路由缺少 kind 或 path')
   const hit = registered.some((entry) => entry.kind === route.kind && entry.path === route.path)
-  expect(hit, `命名清单里的路由 ${route.kind} ${route.path} 在 src/index.ts 里找不到`)
+  expect(hit, `命名清单里的路由 ${route.kind} ${route.path} 在 host 源码里找不到`)
 }
 expect(
   registered.length === declaredRoutes.length,
-  `src/index.ts 注册了 ${registered.length} 条路由，命名清单声明了 ${declaredRoutes.length} 条`,
+  `host 源码注册了 ${registered.length} 条路由，命名清单声明了 ${declaredRoutes.length} 条`,
 )
 
 // 4. The host bundle exports the plugin identity the composition expects.

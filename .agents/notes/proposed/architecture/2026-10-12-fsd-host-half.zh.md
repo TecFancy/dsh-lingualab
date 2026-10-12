@@ -50,7 +50,7 @@ Status: proposed
 | | `open` | 去掉 `resolveFileMedia` 之后的 `open.ts`，和它的路由 |
 | | `progress` | `progress.ts` 和它的路由 |
 | | `review` | `review.ts` 和它的路由 |
-| | `subtitle-choice` | `subtitle-choice-route.ts` 和它的路由 |
+| | `subtitle-choice` | `subtitle-choice-rules.ts`（第二步之前叫 `subtitle-choice-route.ts`）和它的路由 |
 | | `timing` | `timing.ts` 和它的路由 |
 | | `video` | `video.ts`、`video-jobs.ts`、`video-plan.ts` 和三条视频路由 |
 

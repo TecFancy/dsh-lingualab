@@ -223,3 +223,18 @@ export async function readJsonBody(req: IncomingMessage, limitBytes = 256 * 1024
   const text = Buffer.concat(chunks).toString('utf8')
   return text.trim().length === 0 ? null : JSON.parse(text)
 }
+
+/** Reject every method the route does not implement, so a typo is loud. */
+export function methodAllowed(req: IncomingMessage, res: ServerResponse, allowed: readonly string[]): boolean {
+  const method = req.method ?? 'GET'
+  if (allowed.includes(method)) return true
+  res.writeHead(405, { 'content-type': 'text/plain; charset=utf-8', allow: allowed.join(', ') })
+  res.end('方法不对\n')
+  return false
+}
+
+/** One plain-text refusal, for the routes that answer a body of their own shape. */
+export function refuseText(res: ServerResponse, status: number, text: string): void {
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' })
+  res.end(`${text}\n`)
+}

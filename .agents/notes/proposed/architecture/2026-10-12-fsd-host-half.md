@@ -53,7 +53,7 @@ routes the features export.
 | | `open` | `open.ts` without `resolveFileMedia`, and its route |
 | | `progress` | `progress.ts` and its route |
 | | `review` | `review.ts` and its route |
-| | `subtitle-choice` | `subtitle-choice-route.ts` and its route |
+| | `subtitle-choice` | `subtitle-choice-rules.ts` (`subtitle-choice-route.ts` before step 2) and its route |
 | | `timing` | `timing.ts` and its route |
 | | `video` | `video.ts`, `video-jobs.ts`, `video-plan.ts` and the three video routes |
 

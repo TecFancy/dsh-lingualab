@@ -19,10 +19,10 @@
 ## 目录
 
 ```text
-src/index.ts            host 半边：路由与配置
-src/host/               库扫描（一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干）、导入（不覆盖）、
+src/index.ts            host 半边：配置，并挂上各条路由
+src/host/               每条路由在 `<名字>.route.ts` 里，挨着它调用的规则；库扫描（一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干）、导入（不覆盖）、
                         媒体伺服（带 Range，含 `.lingualab/` 缓存里的 mp4 与 m4a）、笔记读写、跨集复习清单（只读）、进度文件、字幕时间、
-                        手选字幕（`subtitle-choice` 存取与覆盖规则、`subtitle-choice-route` 路由逻辑）、
+                        手选字幕（`subtitle-choice` 存取与覆盖规则、`subtitle-choice-rules` 路由逻辑）、
                         视频探测与准备（`video-plan` 纯规划、`ffmpeg` 查找与起进程、`video-jobs` 一次一个的任务、`video` 状态与路由逻辑、
                         `video-cache` 缓存路径；写素材目录只有导入、notes.md、进度文件、字幕时间、手选字幕文件与视频缓存）
 src/shared/             跨半边契约、笔记格式与文件名配对（最长词干归属），只有这一份

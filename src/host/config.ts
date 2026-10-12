@@ -10,9 +10,13 @@
  * the harness settings service, which writes it into this plugin's profile entry —
  * the same place the Plugins page edits, so there is one home for the value and no
  * second source of truth on disk.
+ *
+ * Every route also asks this module where the library is right now: the configured
+ * folder when there is one, otherwise the conventional folder in the first workspace.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join } from 'node:path'
+import type { HostContext, SettingsService, WorkspaceRef, WorkspaceRegistryService } from '../host-context.ts'
 import type { LibraryCandidate, LibraryConfigPayload } from '../shared/protocol.ts'
 
 /** The conventional place for material inside a workspace. */
@@ -125,4 +129,43 @@ export function configPayload(
     writable: description.writable,
     candidates: candidateRoots(workspaces, root),
   }
+}
+
+/**
+ * Every workspace this deployment knows, or none.
+ *
+ * Read through `ctx.get`, not through the context property: the property proxy is
+ * topology-sensitive, and touching an undeclared service through it throws — which
+ * turned every route into an empty `400` whenever the config was unset and the
+ * workspace guess had to run. Found by opening the panel with no `libraryRoot`.
+ */
+export function workspacesOf(ctx: HostContext): readonly WorkspaceRef[] {
+  try {
+    const service = ctx.get?.('workspaceRegistry') as WorkspaceRegistryService | undefined
+    return service?.list() ?? []
+  } catch {
+    return []
+  }
+}
+
+/** The settings service, when this deployment has one. */
+export function settingsOf(ctx: HostContext): SettingsService | null {
+  const service = ctx.get?.('settings')
+  return typeof service === 'object' && service !== null && 'update' in service
+    ? (service as SettingsService)
+    : null
+}
+
+/** Where the root came from, and what it is. */
+export interface ResolvedRoot {
+  readonly root: string
+  readonly source: 'config' | 'workspace' | 'none'
+}
+
+/** Config first, workspace guess second. */
+export function resolveRoot(ctx: HostContext, configured: string): ResolvedRoot {
+  if (configured.trim().length > 0) return { root: configured, source: 'config' }
+  const workspace = workspacesOf(ctx)[0]?.path
+  if (workspace === undefined) return { root: '', source: 'none' }
+  return { root: join(workspace, LIBRARY_SUBPATH), source: 'workspace' }
 }

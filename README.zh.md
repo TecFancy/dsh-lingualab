@@ -156,9 +156,10 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 ## 仓库结构
 
 ```text
-src/index.ts                 host half: the routes and the config
+src/index.ts                 host half: the config, and mounting the routes
 src/host-context.ts          the slice of the host plugin context we call
-src/host/                    library scan, places and path rules, browsing, opening,
+src/host/                    one <name>.route.ts per route, beside its rules; library
+                             scan, places and path rules, browsing, opening,
                              media serving, notes read/write, remembered state, and the
                              video planner, ffmpeg finder and preparing job
 src/shared/                  the wire contract and the notes markdown format

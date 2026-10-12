@@ -16,7 +16,7 @@ import { openEpisode } from './open.ts'
 import { listPlaces } from './places.ts'
 import { EMPTY_STATE, parseState, serializeState } from './state.ts'
 import { AUTO_CHOICE, applyChoice, readFolderChoices, sanitizeChoice, writeFolderChoice } from './subtitle-choice.ts'
-import { readSubtitleChoice, saveSubtitleChoice } from './subtitle-choice-route.ts'
+import { readSubtitleChoice, saveSubtitleChoice } from './subtitle-choice-rules.ts'
 import { makeTempDir } from './test-dir.ts'
 
 const ENGLISH = '1\n00:00:01,000 --> 00:00:02,000\nHello\n'

@@ -36,7 +36,7 @@ node scripts/verify.mjs --list   # 看检查表
 
 1. **路由路径只有一处定义**：`src/shared/protocol.ts` 的路径常量。它们同时写在
    `dsh-plugin.naming.json` 里，`check-host.mjs` 会把两边对上，改一边不改另一边会被拦下。
-   新增路由要同时改 `src/index.ts` 的注册、这份 naming 记录与 README 的路由表。
+   新增路由要写一个 `src/host/<名字>.route.ts`，在 `src/index.ts` 里挂上，同时改这份 naming 记录与 README 的路由表。
 2. **笔记格式只有一处解析**：`src/shared/notes-format.ts`。面板与 host 都走它，别在任一侧
    写第二份正则。文件剧集（`file.` 开头的 id）的笔记不走文件，存在插件 profile 的 `openState` 里。
    一条短语占文件的一行，所以备注字段里的换行写成 `<br>`、读回来再变成换行（`<br/>`、`<br />`、大小写都认，
