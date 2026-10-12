@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-12
+
 ### Added
 
 - Video episodes. `.mkv`, `.mp4`, `.webm` and `.mov` files in an episode folder are another source for the same
