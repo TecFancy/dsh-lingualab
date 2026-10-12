@@ -178,6 +178,9 @@ describe('the access check, in front of every route', () => {
     ['POST', '/lingualab/progress'],
     ['POST', '/lingualab/subtitle-timing'],
     ['GET', '/lingualab/review'],
+    ['GET', '/lingualab/video?episode=E1'],
+    ['POST', '/lingualab/video-prepare'],
+    ['POST', '/lingualab/video-cancel'],
   ]
 
   for (const verdict of [401, 403] as const) {
@@ -215,6 +218,70 @@ describe('the access check, in front of every route', () => {
     expect(read.status).toBe(403)
     expect(write.status).toBe(403)
     expect(existsSync(join(harness.root, 'E1'))).toBe(false)
+  })
+})
+
+describe('the video routes', () => {
+  const json = (path: string, body: unknown): Promise<Response> =>
+    fetch(`${harness.base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+
+  it('says there is no video for an episode without one, and for a name that is not a folder', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    for (const episode of ['E1', 'missing', '..', 'file.abcdef']) {
+      const answer = (await (await fetch(`${harness.base}/lingualab/video?episode=${encodeURIComponent(episode)}`)).json()) as { state: string }
+      expect(answer.state, episode).toBe('none')
+    }
+  })
+
+  it('answers an mp4 as playable at its own URL when there is no ffmpeg to say otherwise', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp4'), 'x')
+    const savedPath = process.env.PATH
+    process.env.PATH = ''
+    try {
+      const answer = (await (await fetch(`${harness.base}/lingualab/video?episode=E1`)).json()) as { state: string; url: string }
+      expect(answer).toMatchObject({ state: 'playable', url: '/lingualab/media/E1/a.mp4' })
+    } finally {
+      process.env.PATH = savedPath
+    }
+  })
+
+  it('serves the mp4 it pointed to, with Range, and refuses the mkv beside it', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp4'), '0123456789')
+    writeFileSync(join(harness.root, 'E1', 'a.mkv'), 'x')
+    const ranged = await fetch(`${harness.base}/lingualab/media/E1/a.mp4`, { headers: { range: 'bytes=2-4' } })
+    expect(ranged.status).toBe(206)
+    expect(ranged.headers.get('content-type')).toBe('video/mp4')
+    expect(await ranged.text()).toBe('234')
+    expect((await fetch(`${harness.base}/lingualab/media/E1/a.mkv`)).status).toBe(404)
+  })
+
+  it('serves a prepared file from the cache folder and nothing else in it', async () => {
+    mkdirSync(join(harness.root, 'E1', '.lingualab'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', '.lingualab', 'a.mp4'), 'prepared')
+    writeFileSync(join(harness.root, 'E1', '.lingualab', 'a.mp4.part'), 'half')
+    expect(await (await fetch(`${harness.base}/lingualab/media/E1/.lingualab/a.mp4`)).text()).toBe('prepared')
+    expect((await fetch(`${harness.base}/lingualab/media/E1/.lingualab/a.mp4.part`)).status).toBe(404)
+  })
+
+  it('refuses a prepare request that names no episode or a mode it does not know, and the wrong methods', async () => {
+    expect((await json('/lingualab/video-prepare', { mode: 'video' })).status).toBe(400)
+    expect((await json('/lingualab/video-prepare', { episode: 'E1', mode: 'everything' })).status).toBe(400)
+    expect((await json('/lingualab/video-prepare', { episode: 'E1', mode: 'video', segment: 7 })).status).toBe(400)
+    expect((await fetch(`${harness.base}/lingualab/video-prepare`)).status).toBe(405)
+    expect((await fetch(`${harness.base}/lingualab/video`, { method: 'POST' })).status).toBe(405)
+    expect((await fetch(`${harness.base}/lingualab/video-cancel`)).status).toBe(405)
+  })
+
+  it('says a prepare for an episode with no video did not start, and a cancel with nothing running cancelled nothing', async () => {
+    mkdirSync(join(harness.root, 'E1'), { recursive: true })
+    writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
+    const prepare = (await (await json('/lingualab/video-prepare', { episode: 'E1', mode: 'video' })).json()) as { ok: boolean; state: string }
+    expect(prepare).toMatchObject({ ok: false, state: 'none' })
+    const cancel = (await (await json('/lingualab/video-cancel', {})).json()) as { ok: boolean; cancelled: boolean }
+    expect(cancel).toMatchObject({ ok: true, cancelled: false })
   })
 })
 

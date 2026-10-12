@@ -33,10 +33,10 @@ notes/learning/english/media/
     notes.md
 ```
 
-The scan accepts `.mp3`, `.m4a`, `.wav`, `.ogg`, `.opus` and `.flac` audio, `.srt`, `.vtt`
-and `.lrc` subtitles, and treats a single subtitle file that carries CJK text as both
-tracks, because a bilingual subtitle is one file with two languages in it. A folder with no
-audio is listed but not playable, and an optional `manifest.json` at the root may set the
+The scan accepts `.mp3`, `.m4a`, `.wav`, `.ogg`, `.opus` and `.flac` audio, `.mkv`, `.mp4`, `.webm`
+and `.mov` video, `.srt`, `.vtt` and `.lrc` subtitles, and treats a single subtitle file that carries CJK text as both
+tracks, because a bilingual subtitle is one file with two languages in it. A folder with
+neither audio nor video is listed but not playable, and an optional `manifest.json` at the root may set the
 play order, rename episodes and name the episode to open first.
 
 A folder with **two or more audio files** is still one episode, made of segments: one scene per audio
@@ -47,6 +47,28 @@ both languages: its Chinese lines are the Chinese track, and the English track i
 file, else the single unmarked one, else the same file. The page plays one segment at a time, lists
 them under a button in the top bar, offers the next one when a segment ends, and keeps one `notes.md`
 per episode with a `## <segment>` heading per segment.
+
+**Video is another source for the same segment.** A video pairs with its audio file by the subtitle rule
+(`MDJT S01E01.mkv` goes with `MDJT S01E01.mp3`, the longest audio name wins), a video no audio file owns is a segment
+of its own whose sound is taken from the video, and a folder of one stem is still one episode of one segment. Cards on
+the home and rows in the segment list carry a small video mark, 「视频 · 未准备」 while the video has still to be
+prepared. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP9 or AV1 and AAC, Opus or MP3) plays
+directly. Anything else is **prepared once, when the reader asks** (「准备视频」): `ffmpeg` copies the picture untouched and
+converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its index first, which
+takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit H.264) is not
+re-encoded; only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still be studied by
+ear. The prepared file lives in the hidden `<episode>/.lingualab/` folder, written as a `.part` and renamed into place;
+the source is never modified and deleting the folder only means preparing again. It is one host job at a time, with
+progress and a 「取消」, and it needs `ffmpeg` and `ffprobe` on `PATH` or in the optional `ffmpegPath` config field (a
+folder holding both, or the path of either; a volatile field, so the Plugins page can set it with no restart). Without
+them an `mp4` or `webm` still plays directly and anything else shows a card with the install command. Once a segment has
+a playable video it is the player's source, and its sound is the sound of the session; the subtitles, loop, kept
+sentences, timing edits and review all keep working on that one timeline. A picture on the stage has three states
+(shown, large and hidden), kept in this browser with the other settings: `V` and a button in the play card cycle them,
+and in the large state `R` shows the English of the current sentence on the picture until the next sentence starts. The
+five steps use it once: starting the blind-watch timer switches to large (with a 「撤销」 notice) and pausing it or
+marking the step done puts the previous state back. Videos only play inside the library: a video picked from elsewhere
+in the workspace plays only when it needs no preparing, the same boundary subtitle timing draws.
 
 Where the files live is one quiet line at the bottom of the home, with 「Change」. The folder is
 set without typing a path: the layer's primary way in is 「Browse existing files」 — walk to the
@@ -165,7 +187,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | Route | Kind | What it answers |
 |---|---|---|
 | `GET /lingualab/library` | exact | Every episode folder and loose audio file, the open episode, and how much has been noted |
-| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio and subtitle bytes of a folder episode, `206` for a range request |
+| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio, subtitle and `mp4` or `webm` video bytes of a folder episode, and the prepared video and sound under `<episode>/.lingualab/<file>` (`mp4` and `m4a` only), `206` for a range request |
 | `GET`, `HEAD /lingualab/file-media/<id>/<file>` | prefix | The same for a file episode, from the paths recorded when it was picked |
 | `GET`, `POST /lingualab/notes` | exact | One episode's phrases, read or replaced wholesale |
 | `GET /lingualab/review` | exact | Every kept sentence not graded 「记住了」 across the library, episode by episode in library order and in play order inside each; read only |
@@ -173,8 +195,11 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder (with an optional `segment` to open one of its segments, the first when omitted), or a single audio file with the subtitles beside it |
-| `POST /lingualab/import` | exact | Receive one dropped audio or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
+| `POST /lingualab/import` | exact | Receive one dropped audio, video or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
 | `POST /lingualab/subtitle-timing` | exact | Move one sentence's start and end in its subtitle file inside the library, with the shared edge of a neighbour it pushed: only those timecode lines change, `409` when the file is not the one the page read, a `.bak` of the original before the first write |
+| `GET /lingualab/video` | exact | What the host knows about one segment's video (`episode`, `segment` in the query): `playable` (with the URL), `prepare`, `preparing` (with progress), `sound-only`, `sound-ready`, `unplayable`, `no-ffmpeg` (with the install command), `failed` or `none`; the length difference from the audio when it is over a second |
+| `POST /lingualab/video-prepare` | exact | Start the one preparing job for a segment, `{ episode, segment?, mode: 'video' \| 'sound' }`, never a path; answers with the status after the start, or the reason (`busy`, no ffmpeg) |
+| `POST /lingualab/video-cancel` | exact | Stop the running preparing job and remove its `.part`; answers whether there was one |
 | `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 
 ## Repository layout
@@ -183,7 +208,8 @@ Every route, reads included, is answered only for a request the host admits (a l
 src/index.ts                 host half: the routes and the config
 src/host-context.ts          the slice of the host plugin context we call
 src/host/                    library scan, places and path rules, browsing, opening,
-                             media serving, notes read/write, remembered state
+                             media serving, notes read/write, remembered state, and the
+                             video planner, ffmpeg finder and preparing job
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the slot-free features (library,

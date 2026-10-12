@@ -28,9 +28,9 @@ notes/learning/english/media/
     notes.md
 ```
 
-扫描接受 `.mp3`、`.m4a`、`.wav`、`.ogg`、`.opus`、`.flac` 六种音频，以及 `.srt`、`.vtt`、
-`.lrc` 三种字幕。只有一个字幕文件、内容里带中文时，它同时算英文和中文两份，因为双语字幕本来就是
-一个文件装两种语言。没有音频的文件夹照样列出来，只是放不了；根目录可以放一份 `manifest.json`，
+扫描接受 `.mp3`、`.m4a`、`.wav`、`.ogg`、`.opus`、`.flac` 六种音频，`.mkv`、`.mp4`、`.webm`、`.mov` 四种视频，
+以及 `.srt`、`.vtt`、`.lrc` 三种字幕。只有一个字幕文件、内容里带中文时，它同时算英文和中文两份，因为双语字幕本来就是
+一个文件装两种语言。既没有音频也没有视频的文件夹照样列出来，只是放不了；根目录可以放一份 `manifest.json`，
 用来指定播放顺序、改剧集标题，以及指定先打开哪一集。
 
 一个文件夹里有**两个及以上音频**时，它仍然是一集，由多个分段组成：一个音频一段，按自然顺序排（`02` 在
@@ -39,6 +39,20 @@ notes/learning/english/media/
 装两种语言：其中的中文行就是中文轨，英文轨取标了英文的那份，没有就取唯一一份没标语言的，再没有就还是这个
 文件。页面一次放一段，顶栏的按钮列出全部分段，一段听完会提议下一段；一集仍然只有一份 `notes.md`，每一段在
 里面有一个 `## <分段名>` 标题。
+
+**视频是同一段的另一个来源。** 视频按字幕的规则跟音频文件配对（`MDJT S01E01.mkv` 归 `MDJT S01E01.mp3`，音频名最长的说了算），
+没有音频文件认领的视频自成一段，声音取自视频，只有一个词干的文件夹仍然是一集一段。首页的卡片和分段列表上有一个小小的视频标记，
+视频还没准备好时写成「视频 · 未准备」。浏览器本来就能放的视频（`mp4` 或 `webm`，画面是 H.264、VP9 或 AV1，声音是 AAC、Opus
+或 MP3）直接放。其余的**在读者要的时候准备一次**（「准备视频」）：`ffmpeg` 原样复制画面，把声音转成立体声 AAC（取第一条英文音轨，
+没有就取第一条），放进索引在最前面的 `mp4`，耗时跟读一遍文件差不多。浏览器解不了的画面（HEVC、MPEG-4 Part 2、10 位 H.264）不重新编码，
+只把声音取成 `m4a`，所以没有音频文件的那一段照样能精听。准备好的文件放在隐藏的 `<剧集>/.lingualab/` 文件夹里，先写成 `.part` 再改名；
+源文件从不被改动，删掉这个文件夹只意味着再准备一次。准备是 host 上一次一个的任务，有进度，也能「取消」，需要 `PATH` 里有 `ffmpeg`
+和 `ffprobe`，或者在可选的 `ffmpegPath` 配置里指出来（放着两者的文件夹，或其中任一个的路径；它是 volatile 字段，插件页改了不用重启）。
+没有它们时，`mp4` 和 `webm` 仍然直接放，其余的显示一张带安装命令的卡片。一段有了能放的视频，它就是播放器的来源，声音就是这次练习的声音；
+字幕、循环、收藏的句子、调整时间和复习都在这同一条时间线上照常工作。舞台上的画面有三个状态（显示、大画面、隐藏），和其他设置一起存在这个浏览器里：
+`V` 和播放卡片里的按钮在三者之间循环，大画面里按 `R` 把当前句的英文盖在画面上，直到下一句开始。五步法只用它一次：开始盲看的计时会切到大画面
+（带一条「撤销」提示），暂停计时或把这一步标记完成，画面回到之前的状态。视频只在媒体库里播放：从工作区别处选来的视频，只有不需要准备时才播放，
+跟调整字幕时间划的是同一条界线。
 
 文件放在哪，是首页底部安静的一行，旁边有「更改」。目录不用手打路径：这一层的主入口是「浏览已有的文件」——
 走进目标目录点「用作媒体库」，路径由 host 自己解析。绝对路径输入框留着，给工作区之外、没有地方可以
@@ -124,7 +138,7 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 | 路由 | 类型 | 回答什么 |
 |---|---|---|
 | `GET /lingualab/library` | exact | 每个剧集文件夹与根目录里的散装音频、当前打开的那一集、笔记记了多少 |
-| `GET`、`HEAD /lingualab/media/<剧集>/<文件>` | prefix | 文件夹剧集的音频与字幕字节，带 Range 时回 `206` |
+| `GET`、`HEAD /lingualab/media/<剧集>/<文件>` | prefix | 文件夹剧集的音频、字幕和 `mp4`、`webm` 视频字节，以及 `<剧集>/.lingualab/<文件>` 下准备好的视频和声音（只有 `mp4` 和 `m4a`），带 Range 时回 `206` |
 | `GET`、`HEAD /lingualab/file-media/<id>/<文件>` | prefix | 文件剧集的同类字节，来自打开时记下的路径 |
 | `GET`、`POST /lingualab/notes` | exact | 某一集的短语，整体读出来或整体换掉 |
 | `GET /lingualab/review` | exact | 整个库里还没评为「记住了」的收藏，按库的顺序一集一集列出，集内按播放顺序；只读 |
@@ -132,8 +146,11 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 | `GET /lingualab/places` | exact | 选择层可以浏览的根：每个工作区，加上媒体库自己 |
 | `GET /lingualab/browse` | exact | 某个位置下的一个目录：子目录、音频、字幕，以及每个音频配到了哪些字幕 |
 | `POST /lingualab/open` | exact | 把某一集设为当前：扫描到的文件夹剧集（可以带 `segment` 打开其中一段，不带就是第一段），或一个音频文件加旁边的字幕 |
-| `POST /lingualab/import` | exact | 把拖进来的一个音频或字幕文件收进某集的文件夹，从不覆盖；要带 `x-lingualab-import: 1` 请求头，并且会话被宿主放行 |
+| `POST /lingualab/import` | exact | 把拖进来的一个音频、视频或字幕文件收进某集的文件夹，从不覆盖；要带 `x-lingualab-import: 1` 请求头，并且会话被宿主放行 |
 | `POST /lingualab/subtitle-timing` | exact | 把一句的开头和结尾写回媒体库里的字幕文件，连同被它推动的相邻句的那一端：只改这几句的时间行，文件和页面读到的不一样时回 `409`，第一次写之前留一份原文件的 `.bak` |
+| `GET /lingualab/video` | exact | host 对某一段的视频知道什么（查询里带 `episode`、`segment`）：`playable`（带 URL）、`prepare`、`preparing`（带进度）、`sound-only`、`sound-ready`、`unplayable`、`no-ffmpeg`（带安装命令）、`failed` 或 `none`；视频和音频长度差超过一秒时带上差值 |
+| `POST /lingualab/video-prepare` | exact | 为某一段开始那唯一的准备任务，`{ episode, segment?, mode: 'video' \| 'sound' }`，从不收路径；回开始之后的状态，或者没开始的原因（`busy`、没有 ffmpeg） |
+| `POST /lingualab/video-cancel` | exact | 停掉正在跑的准备任务并删掉它的 `.part`；回答是否真有一个在跑 |
 | `GET`、`POST /lingualab/progress` | exact | 听到哪里和五步法勾选，存在媒体库根目录的 `.lingualab-progress.json`；`POST` 把浏览器那份合并进来（每一集取最近的），并回整张合并后的表 |
 
 ## 仓库结构
@@ -142,7 +159,8 @@ git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
 src/index.ts                 host half: the routes and the config
 src/host-context.ts          the slice of the host plugin context we call
 src/host/                    library scan, places and path rules, browsing, opening,
-                             media serving, notes read/write, remembered state
+                             media serving, notes read/write, remembered state, and the
+                             video planner, ffmpeg finder and preparing job
 src/shared/                  the wire contract and the notes markdown format
 src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
 src/client/                  the page, its widgets, and the slot-free features (library,

@@ -565,7 +565,7 @@ export const STYLES = `
   .dsh-lingualab-spinner{animation-duration:2.4s}
   .dsh-lingualab-stage-now,.dsh-lingualab-word-pop,.dsh-lingualab-finish,.dsh-lingualab-finish-card,
   .dsh-lingualab-finish-badge,.dsh-lingualab-popover,.dsh-lingualab-scrim,.dsh-lingualab-step-panel,
-  .dsh-lingualab-editor,.dsh-lingualab-timing-status::before{animation:none}
+  .dsh-lingualab-editor,.dsh-lingualab-timing-status::before,.dsh-lingualab-notice{animation:none}
   .dsh-lingualab-page,.dsh-lingualab-page *{transition-duration:0s !important;transition-delay:0s !important}
 }
 
@@ -917,6 +917,90 @@ export const STYLES = `
 label.dsh-lingualab-btn{position:relative}
 label.dsh-lingualab-btn:focus-within{outline:2px solid var(--dsw-alias-brand-primary,#0f1115);outline-offset:1px}
 label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:none}
+
+/* ── video: the picture on the stage, the cards that stand in for it, the notices ──────────── */
+/* One media element plays everything and lives in the picture box; with no picture the box is not displayed
+   and the audio plays on. The stage keeps the shapes it had: shown puts the picture above the sentence,
+   large gives it the whole stage (the sentence is hidden then), hidden leaves a chip. The screen colour is the
+   picture's own black, not a theme colour: a video has no theme. */
+.dsh-lingualab-videostage{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.dsh-lingualab-videostage.is-empty{display:none}
+.dsh-lingualab-videostage.is-shown{padding:20px 12px 0}
+.dsh-lingualab-videostage.is-hidden{padding:14px 12px 0}
+.dsh-lingualab-videostage.is-large{flex:1;min-height:0;padding:16px 0 8px}
+.dsh-lingualab-picture{position:relative;flex:none;box-sizing:border-box;width:min(64%,720px);min-width:min(100%,300px);
+  aspect-ratio:16/9;max-height:42vh;border-radius:12px;overflow:hidden;background:#0e100f}
+.dsh-lingualab-picture.is-off{display:none}
+.dsh-lingualab-videostage.is-large .dsh-lingualab-picture{flex:1;min-height:0;width:min(100%,1100px);max-height:none;aspect-ratio:auto}
+.dsh-lingualab-video{display:block;width:100%;height:100%;object-fit:contain;background:#0e100f}
+.dsh-lingualab-picture-time{position:absolute;left:12px;bottom:10px;font-size:11px;color:rgba(255,255,255,0.55);
+  font-variant-numeric:tabular-nums;pointer-events:none}
+.dsh-lingualab-picture-badge{position:absolute;left:14px;top:12px;display:inline-flex;align-items:center;height:24px;
+  padding:0 10px;border-radius:999px;font-size:11.5px;color:rgba(255,255,255,0.86);background:rgba(0,0,0,0.5);pointer-events:none}
+.dsh-lingualab-picture-peek{position:absolute;right:14px;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:28px;
+  padding:0 10px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:12px;color:rgba(255,255,255,0.86);
+  background:rgba(0,0,0,0.5);transition:background var(--ll-fade)}
+.dsh-lingualab-picture-peek:hover{background:rgba(0,0,0,0.7)}
+.dsh-lingualab-page .dsh-lingualab-picture-peek kbd{height:18px;min-width:18px;padding:0 5px;font-size:11px;font-weight:500;
+  color:inherit;background:none;border:0.5px solid rgba(255,255,255,0.4);border-bottom-width:0.5px}
+.dsh-lingualab-picture-caption{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);box-sizing:border-box;
+  max-width:min(760px,90%);padding:8px 16px;border-radius:8px;font-size:calc(22px * var(--ll-stage-scale));font-weight:600;
+  line-height:1.35;text-align:center;color:#fff;background:rgba(0,0,0,0.62);pointer-events:none}
+.dsh-lingualab-videochip{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border-radius:999px;
+  font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);background:none;
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-videochip.is-button{cursor:pointer;transition:background var(--ll-fade),color var(--ll-fade)}
+.dsh-lingualab-videochip.is-button:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-videocard{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;width:min(64%,720px);
+  min-width:min(100%,300px);min-height:min(342px,42vh);padding:18px;border-radius:12px;text-align:left;
+  background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-videocard-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:none;
+  border-radius:10px;color:var(--dsw-alias-brand-primary,#0f1115);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 12%,transparent)}
+.dsh-lingualab-videocard-icon.is-quiet{color:var(--dsw-alias-label-secondary,#61666b);
+  background:color-mix(in srgb,var(--dsw-alias-label-primary,#0f1115) 7%,transparent)}
+.dsh-lingualab-videocard-icon.is-warn{color:var(--dsw-alias-state-warn-primary,#f59e0b);
+  background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 14%,transparent)}
+.dsh-lingualab-videocard-title{font-size:15px;font-weight:700}
+.dsh-lingualab-videocard-sub{font-size:12px;line-height:1.6;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-videocard-sub.is-mono,.dsh-lingualab-videocard-body.is-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  word-break:break-all}
+.dsh-lingualab-videocard-body{margin:0;font-size:12.5px;line-height:1.6;
+  color:color-mix(in srgb,var(--dsw-alias-label-primary,#0f1115) 82%,transparent)}
+.dsh-lingualab-videocard-note{font-size:11.5px;text-align:center;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-videocard-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;
+  color:var(--dsw-alias-label-secondary,#61666b);font-variant-numeric:tabular-nums}
+.dsh-lingualab-videocard-code{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-radius:8px;
+  background:var(--ll-wash);border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
+.dsh-lingualab-videocard-code code{flex:1;min-width:0;font-size:12px;word-break:break-all;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.dsh-lingualab-videocard>.dsh-lingualab-btn:not(.is-small){height:36px;justify-content:center;border-radius:10px;font-size:13.5px}
+.dsh-lingualab-videocard>.dsh-lingualab-btn.is-primary{font-weight:600}
+.dsh-lingualab-bar.is-thick{height:6px;margin-top:6px}
+.dsh-lingualab-bar.is-thick .dsh-lingualab-bar-fill{transition:width .4s ease}
+.dsh-lingualab-notice{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;
+  gap:10px;box-sizing:border-box;min-height:44px;max-width:min(560px,calc(100% - 32px));padding:6px 8px 6px 14px;
+  border-radius:12px;font-size:13px;background:var(--ll-surface);animation:ll-notice-in .16s ease-out;
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));box-shadow:0 6px 20px rgba(0,0,0,0.12)}
+@keyframes ll-notice-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
+.dsh-lingualab-notice>svg{flex:none;color:var(--dsw-alias-brand-primary,#0f1115)}
+.dsh-lingualab-notice.is-mismatch{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 12%,var(--ll-surface));
+  border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 35%,transparent)}
+.dsh-lingualab-notice.is-mismatch>svg{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.dsh-lingualab-notice-text{flex:1;min-width:0}
+.dsh-lingualab-notice-action{flex:none;height:28px;padding:0 10px;border:0;border-radius:8px;cursor:pointer;font:inherit;
+  font-size:12.5px;font-weight:600;color:var(--dsw-alias-brand-primary,#0f1115);background:none;
+  transition:background var(--ll-fade)}
+.dsh-lingualab-notice-action:hover{background:var(--ll-hover)}
+.dsh-lingualab-notice.is-mismatch .dsh-lingualab-notice-action{color:inherit}
+.dsh-lingualab-episode-badges{display:inline-flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;min-width:0}
+.dsh-lingualab-videomark{display:inline-flex;align-items:center;gap:4px;flex:none;height:20px;padding:0 7px;border-radius:999px;
+  font-size:11px;white-space:nowrap;color:var(--dsw-alias-label-secondary,#61666b);
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-videomark.is-ready{border-color:transparent;color:var(--dsw-alias-brand-primary,#0f1115);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 10%,transparent)}
+.dsh-lingualab-segopt-sub{display:block;font-size:11px;font-weight:400;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-segopt-video{flex:none;display:inline-flex;color:var(--dsw-alias-brand-primary,#0f1115)}
 
 /* ── shared bits ─────────────────────────────────────────────── */
 .dsh-lingualab-hint{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b)}

@@ -36,6 +36,7 @@ import { configPayload, describeConfig, validateRoot } from './host/config.ts'
 import { scanLibrary } from './host/library.ts'
 import { guarded } from './host/guard.ts'
 import { importFile } from './host/import.ts'
+import { findBinaries, realSpawn } from './host/ffmpeg.ts'
 import { readJsonBody, sendJson, serveFile, serveMedia } from './host/media.ts'
 import { readNotes, writeNotes } from './host/notes.ts'
 import { openEpisode, resolveFileMedia } from './host/open.ts'
@@ -44,6 +45,8 @@ import { readProgressFile, writeProgressFile, type ProgressRead } from './host/p
 import { readReview } from './host/review.ts'
 import { parseState, serializeState, type OpenState } from './host/state.ts'
 import { writeTiming } from './host/timing.ts'
+import { createVideoJobs, type VideoJobs } from './host/video-jobs.ts'
+import { prepareVideo, videoStatus, type VideoDeps } from './host/video.ts'
 import {
   BROWSE_PATH,
   CONFIG_PATH,
@@ -58,11 +61,16 @@ import {
   PROGRESS_PATH,
   REVIEW_PATH,
   SUBTITLE_TIMING_PATH,
+  VIDEO_CANCEL_PATH,
+  VIDEO_PATH,
+  VIDEO_PREPARE_PATH,
   type LibraryConfigWriteRequest,
   type NotesWriteRequest,
   type OpenPayload,
   type OpenRequest,
   type ProgressPayload,
+  type VideoCancelPayload,
+  type VideoPrepareRequest,
 } from './shared/protocol.ts'
 
 /** Stable plugin name (the composition row id is `lingualab`). */
@@ -110,6 +118,15 @@ export interface Config {
    * reason as `libraryRoot` — the panel writes it, and the write has to be allowed.
    */
   openState: VolatileField<string>
+  /**
+   * Where `ffmpeg` and `ffprobe` are, when they are not on `PATH`: a folder holding both, or the
+   * path of either binary.
+   *
+   * Optional. Without the two, an `mp4` or `webm` video that plays as it is still plays, and one
+   * that needs preparing says so with the command that installs them. Volatile, so it can be set
+   * from the Plugins page and takes effect on the next request without a restart.
+   */
+  ffmpegPath: VolatileField<string>
 }
 
 // No `z<Config>` annotation: `.volatile()` widens the schema's meta type, and the
@@ -118,6 +135,7 @@ export interface Config {
 export const Config = z.object({
   libraryRoot: z.string().default('').volatile(),
   openState: z.string().default('').volatile(),
+  ffmpegPath: z.string().default('').volatile(),
 })
 
 /** Where the library sits when the config does not say. */
@@ -590,6 +608,88 @@ function timingRoute(ctx: HostContext, configured: () => string, readState: () =
   }
 }
 
+/** The video questions every video route asks, built from what is true now. */
+function videoDeps(ctx: HostContext, configured: () => string, ffmpegPath: () => string, jobs: VideoJobs): VideoDeps {
+  return {
+    root: resolveRoot(ctx, configured()).root,
+    binaries: () => findBinaries(ffmpegPath()),
+    spawn: realSpawn,
+    jobs,
+    platform: process.platform,
+  }
+}
+
+/** `GET /lingualab/video`: what the host knows about one segment's video. */
+function videoRoute(ctx: HostContext, configured: () => string, ffmpegPath: () => string, jobs: VideoJobs): WebRoute {
+  return {
+    kind: 'exact',
+    path: VIDEO_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['GET'])) return
+      const url = new URL(req.url ?? VIDEO_PATH, 'http://lingualab.invalid')
+      const segment = url.searchParams.get('segment')
+      sendJson(
+        res,
+        200,
+        await videoStatus(url.searchParams.get('episode') ?? '', segment === null || segment.length === 0 ? undefined : segment, videoDeps(ctx, configured, ffmpegPath, jobs)),
+      )
+    },
+  }
+}
+
+/**
+ * `POST /lingualab/video-prepare`: start preparing one segment's video.
+ *
+ * The third route that writes into the media folder, after the import and the subtitle timing, and it
+ * writes the narrowest thing: files in the plugin's own hidden `.lingualab` folder, made by a process
+ * the host starts itself. Admitted by `guarded` like every route; the body names a segment and a mode,
+ * never a path, and the host works out the rest from its own scan.
+ */
+function videoPrepareRoute(ctx: HostContext, configured: () => string, ffmpegPath: () => string, jobs: VideoJobs): WebRoute {
+  return {
+    kind: 'exact',
+    path: VIDEO_PREPARE_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['POST'])) return
+      let body: unknown
+      try {
+        body = await readJsonBody(req)
+      } catch (error) {
+        sendJson(res, 400, { ok: false, reason: `请求体读不了：${String(error)}` })
+        return
+      }
+      const request = (typeof body === 'object' && body !== null ? body : {}) as Partial<VideoPrepareRequest>
+      if (typeof request.episode !== 'string' || (request.mode !== 'video' && request.mode !== 'sound')) {
+        sendJson(res, 400, { ok: false, reason: '缺 episode，或者 mode 不是 video 或 sound' })
+        return
+      }
+      if (request.segment !== undefined && typeof request.segment !== 'string') {
+        sendJson(res, 400, { ok: false, reason: 'segment 必须是字符串' })
+        return
+      }
+      const payload = await prepareVideo(
+        { episode: request.episode, segment: request.segment, mode: request.mode },
+        videoDeps(ctx, configured, ffmpegPath, jobs),
+      )
+      sendJson(res, 200, payload)
+    },
+  }
+}
+
+/** `POST /lingualab/video-cancel`: stop the running preparing job; its partial file is removed. */
+function videoCancelRoute(jobs: VideoJobs): WebRoute {
+  return {
+    kind: 'exact',
+    path: VIDEO_CANCEL_PATH,
+    handler: (req, res) => {
+      if (!methodAllowed(req, res, ['POST'])) return
+      const cancelled = jobs.cancel()
+      const payload: VideoCancelPayload = { ok: true, cancelled, reason: cancelled ? null : '没有在准备的视频' }
+      sendJson(res, 200, payload)
+    },
+  }
+}
+
 /** Mount every route. The config is read per request, so edits need no reload. */
 export function apply(ctx: HostContext, config: Config): void {
   // Through the box: a volatile field holds the value, and the settings service can
@@ -636,6 +736,18 @@ export function apply(ctx: HostContext, config: Config): void {
     }
   }
 
+  // The same box rule for `ffmpegPath`; a config without the field (an older profile, a test) reads as empty.
+  const ffmpegPath = (): string => {
+    try {
+      return config.ffmpegPath?.get() ?? ''
+    } catch {
+      return ''
+    }
+  }
+  const jobs = createVideoJobs(realSpawn)
+  // A job still running when the plugin goes away is stopped, so its process and its `.part` do not outlive it.
+  ctx.effect(() => () => void jobs.cancel(), 'lingualab: stop the preparing job')
+
   // Every route goes through the host's request trust, reads included; see `guard.ts`.
   const routes = [
     configRoute(ctx, configured),
@@ -650,6 +762,9 @@ export function apply(ctx: HostContext, config: Config): void {
     reviewRoute(ctx, configured, readState),
     progressRoute(ctx, configured),
     timingRoute(ctx, configured, readState),
+    videoRoute(ctx, configured, ffmpegPath, jobs),
+    videoPrepareRoute(ctx, configured, ffmpegPath, jobs),
+    videoCancelRoute(jobs),
   ].map((route) => guarded(ctx, route))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)

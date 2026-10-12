@@ -9,6 +9,7 @@ const entry = (patch: Partial<EpisodeEntry> = {}): EpisodeEntry => ({
   audioBytes: 1024,
   subtitleEn: '02.en.srt',
   subtitleZh: null,
+  video: null,
   segments: [],
   notes: { exists: false, count: 0, review: 0, hard: 0 },
   kind: 'file',
@@ -24,6 +25,7 @@ const segment = (id: string, patch: Partial<EpisodeSegment> = {}): EpisodeSegmen
   audioBytes: 1,
   subtitleEn: id + '.srt',
   subtitleZh: null,
+  video: null,
   ...patch,
 })
 

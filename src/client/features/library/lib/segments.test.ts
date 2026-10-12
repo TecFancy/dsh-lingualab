@@ -10,6 +10,7 @@ const segment = (id: string, index: number, title: string): EpisodeSegment => ({
   audioBytes: 1,
   subtitleEn: null,
   subtitleZh: null,
+  video: null,
 })
 
 const SEGMENTS = [

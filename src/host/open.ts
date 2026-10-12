@@ -202,7 +202,8 @@ function openFolder(id: string, segment: string | undefined, deps: OpenDeps): Op
   if (!listing.ok) return refuse(deps.state, listing.reason ?? '媒体目录读不了')
   const entry = listing.episodes.find((candidate) => candidate.id === id)
   if (entry === undefined) return refuse(deps.state, '找不到这一集')
-  if (entry.audio === null) return refuse(deps.state, '这一集没有音频文件')
+  // A video alone is enough to open an episode: its sound is taken from it when it is prepared.
+  if (entry.audio === null && entry.video === null) return refuse(deps.state, '这一集没有音频文件')
 
   let chosen: EpisodeSegment | null = null
   if (entry.segments.length > 0) {

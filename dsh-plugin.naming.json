@@ -71,6 +71,18 @@
       {
         "kind": "exact",
         "path": "/lingualab/review"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/video"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/video-prepare"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/video-cancel"
       }
     ]
   }

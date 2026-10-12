@@ -13,16 +13,24 @@
  * `path.relative`. A prefix comparison would be wrong the moment the filesystem
  * normalises differently than the base string, and an allow-list of extensions
  * means a request can only ever name a file this plugin is willing to serve.
+ *
+ * Besides `<episode>/<file>` there is exactly one three-part shape,
+ * `<episode>/.lingualab/<file>`, which serves the prepared video and sound (see `video-cache.ts`)
+ * and nothing else in that folder: only `mp4` and `m4a`, never a `.part`. A source video is
+ * served by its own name when a browser can play it as it is; `mkv` and `mov` are never served, they
+ * are prepared first.
  */
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, isAbsolute, join, relative } from 'node:path'
+import { VIDEO_CACHE_DIR } from '../shared/protocol.ts'
 
 /** Extensions the media route will serve, with the type each is sent as. */
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
-  mp4: 'audio/mp4',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
   wav: 'audio/wav',
   ogg: 'audio/ogg',
   opus: 'audio/ogg',
@@ -48,14 +56,19 @@ export function resolveMediaPath(root: string, requestPath: string): string | nu
   if (decoded.includes('\0')) return null
 
   const segments = decoded.split('/').filter((segment) => segment.length > 0 && segment !== '.')
-  if (segments.length !== 2) return null
-  const [episode, file] = segments
+  if (segments.length !== 2 && segments.length !== 3) return null
+  const episode = segments[0]
+  const file = segments[segments.length - 1]
   if (episode === undefined || file === undefined || episode === '..' || file === '..') return null
 
   const extension = extname(file).slice(1).toLowerCase()
   if (!(extension in CONTENT_TYPES)) return null
+  if (segments.length === 3) {
+    // The one deeper place: the plugin's own cache folder, and only what it prepares.
+    if (segments[1] !== VIDEO_CACHE_DIR || (extension !== 'mp4' && extension !== 'm4a')) return null
+  }
 
-  const target = join(root, episode, file)
+  const target = segments.length === 3 ? join(root, episode, VIDEO_CACHE_DIR, file) : join(root, episode, file)
   const within = relative(root, target)
   if (within.length === 0 || within.startsWith('..') || isAbsolute(within)) return null
   return target

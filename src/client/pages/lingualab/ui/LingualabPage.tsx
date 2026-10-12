@@ -18,6 +18,10 @@
  * sentence's episode (and segment) through the same path the home uses, so the page is where the
  * queue, the player, the open episode and its notes meet.
  *
+ * A segment with a video plays it in the one media element, so its sound is the video's: the picture sits on
+ * the stage in three states the reader cycles with `V` (shown, large, hidden), the five steps switch it to
+ * large for the blind watch and put it back, and the video is prepared on the host the first time it is asked for.
+ *
  * An episode cut into segments (one scene per audio file) plays one segment at a time. The
  * page is where the pieces meet: it knows the reader's positions (so it decides which segment
  * 「继续」 opens), the library feature opens a segment, the notes feature keeps the sentences,
@@ -34,8 +38,8 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } fr
 import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
-import { findSegment, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
-import { useAudioBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
+import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
+import { useMediaBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
 import {
   continueSegment,
@@ -63,6 +67,8 @@ import {
   type ReviewSession,
 } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
+import { cardOf, isInformational, playSource, segmentKey, useFirstTimeCard, useVideo } from '../../../features/video/index.ts'
+import { formatClock } from '../../../shared/lib/format.ts'
 import { gradeForKey } from '../../../shared/lib/grades.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
@@ -71,7 +77,7 @@ import { STYLES } from '../../../shared/lib/styles.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
 import { Segmented } from '../../../shared/ui/Segmented.tsx'
-import { ControlBar, nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
+import { ControlBar, nextZhMode, type ControlBarHandle, type PictureControl } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
@@ -83,6 +89,7 @@ import { SETTINGS_EXIT_MS, SettingsPanel } from '../../../widgets/settings-panel
 import { STEPS_EXIT_MS, StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
+import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 
 /** Which view the page shows. */
@@ -106,6 +113,9 @@ const BOOKMARK_MS = 5000
 
 /** How long a key cap stays lit after the page handles its key. */
 const FLASH_MS = 260
+
+/** How long the 「视频准备好了」 and 「盲看开始计时」 notices stay; the length warning stays until it is dismissed. */
+const NOTICE_MS = 7000
 
 /**
  * Where a kept sentence starts in the cue list on screen.
@@ -186,7 +196,35 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const finished = useMediaPlayer((state) => state.finished)
   const finishCount = useMediaPlayer((state) => state.finishCount)
   const cues = library.cues
-  const audioRef = useAudioBinding(library.media?.audioUrl ?? null)
+
+  const episode = library.episode
+  const episodeId = episode?.id ?? null
+  const segments = library.segments
+  const segment = library.segment
+  const segmentId = segment?.id ?? null
+  /** The video the scan found for what is open: the segment's, or the folder's when it has no segments. */
+  const scannedVideo = segment === null ? (episode?.video ?? null) : segment.video
+  const hasVideoFile = scannedVideo !== null
+  /** The audio file of what is open, null for a video-only segment. */
+  const audioFile = segment === null ? (episode?.audio ?? null) : segment.audio
+  const picture = useSettings((state) => state.picture)
+  const pictureRestore = useSettings((state) => state.pictureRestore)
+  const [notice, setNotice] = useState<VideoNoticeData | null>(null)
+  /** The segments whose length warning was dismissed, for this visit. */
+  const [dismissedMismatch, setDismissedMismatch] = useState<ReadonlySet<string>>(() => new Set())
+  const refreshListing = library.refreshListing
+  /** A preparing job just finished: say so, and let the listing's marks catch up. */
+  const onVideoReady = useCallback((): void => {
+    const at = useMediaPlayer.getState().currentTime
+    setNotice({ kind: 'ready', text: t('noticeReady', { time: formatClock(at) }), action: null })
+    refreshListing()
+  }, [t, refreshListing])
+  const video = useVideo(episodeId, segmentId, hasVideoFile, onVideoReady)
+  /** What plays: the video once it plays, else the audio file (or nothing, for a video that is not prepared). */
+  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl)
+  // The one media element. A new source for the same segment (the audio, then the video that was just
+  // prepared) keeps the position; the `session` is what says it is the same segment.
+  const binding = useMediaBinding(source.url, segmentKey(episodeId, segmentId), video.markUndecodable)
 
   // Feature-to-feature wiring is the page's job: the library feature may not reach into
   // the player, so loading a new cue list resets the player here.
@@ -219,7 +257,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const cuesReady = cues.length > 0 || (media !== null && !subtitled)
   useEffect(() => {
     const target = resumeAt.current
-    const audio = audioRef.current
+    const audio = binding.element
     if (target === null || audio === null || !cuesReady) return
     const apply = (): void => {
       if (resumeAt.current === null) return
@@ -245,7 +283,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     }
     audio.addEventListener('loadedmetadata', apply, { once: true })
     return () => audio.removeEventListener('loadedmetadata', apply)
-  }, [audioRef, cues, cuesReady, media])
+  }, [binding.element, cues, cuesReady, media, source.url])
 
   // The segment list takes the keyboard when it opens. When it closes the focused list is gone, and
   // focus that falls to the document would switch the page's shortcuts off, so it comes back here.
@@ -262,11 +300,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     containerRef.current?.focus({ preventScroll: true })
   }, [library.loading, view])
 
-  const episode = library.episode
-  const episodeId = episode?.id ?? null
-  const segments = library.segments
-  const segment = library.segment
-  const segmentId = segment?.id ?? null
   /** What the position is stored under: the episode's id, or its segment's key. */
   const positionKey = episodeId === null ? null : progressKeyOf(episodeId, segmentId)
 
@@ -443,7 +476,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
   /** The episodes that can be played, in library order; "next" is the one after the open one. */
   const playable = useMemo(
-    () => [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].filter((entry) => entry.audio !== null),
+    () => [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].filter(hasMedia),
     [library.payload],
   )
   const nextEpisode = useMemo(() => {
@@ -729,6 +762,63 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [importer],
   )
 
+  // A notice that is not the length warning goes away on its own.
+  useEffect(() => {
+    if (notice === null) return
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  /**
+   * The blind-watch step's timer started or stopped (the step tracker says so; opening its drawer says nothing).
+   *
+   * Starting switches the picture to large, once, and shows the notice with 「撤销」; pausing or ticking the
+   * step off puts the previous state back. Without a picture playing there is nothing to switch.
+   */
+  const onBlindRunning = useCallback(
+    (running: boolean): void => {
+      const settings = useSettings.getState()
+      if (!running) {
+        settings.blindEnded()
+        setNotice((current) => (current?.kind === 'blind' ? null : current))
+        return
+      }
+      if (!source.picture) return
+      if (settings.blindStarted()) setNotice({ kind: 'blind', text: t('noticeBlind'), action: t('noticeUndo') })
+    },
+    [source.picture, t],
+  )
+
+  // What the card in the video's place needs, and the memory of whether it was shown in full already.
+  const card = cardOf(video.status, video.failedUrl)
+  const firstTimeCard = useFirstTimeCard(card !== null && isInformational(card) ? JSON.stringify([segmentKey(episodeId, segmentId), card]) : null)
+
+  // The length warning: a video that is longer or shorter than the audio the subtitles were timed against.
+  const mismatchKey = segmentKey(episodeId, segmentId)
+  const mismatch = source.picture ? (video.status?.mismatch ?? null) : null
+  const mismatchNotice: VideoNoticeData | null =
+    mismatch === null || mismatchKey === null || dismissedMismatch.has(mismatchKey)
+      ? null
+      : {
+          kind: 'mismatch',
+          text: t(mismatch > 0 ? 'noticeMismatch' : 'noticeMismatchShorter', { seconds: String(Math.abs(mismatch)) }),
+          action: t('cardGotIt'),
+        }
+  // The blind-watch notice goes when the reader changes the picture by hand: there is nothing left to undo.
+  const liveNotice = notice !== null && notice.kind === 'blind' && pictureRestore === null ? null : notice
+  const shownNotice = liveNotice ?? mismatchNotice
+  const onNoticeAction = (): void => {
+    if (shownNotice === null) return
+    if (shownNotice.kind === 'blind') {
+      useSettings.getState().setPicture(pictureRestore ?? 'shown')
+      setNotice(null)
+    } else if (shownNotice.kind === 'mismatch' && mismatchKey !== null) {
+      setDismissedMismatch(new Set(dismissedMismatch).add(mismatchKey))
+    } else {
+      setNotice(null)
+    }
+  }
+
   // The end of a segment that is not the last offers the next segment; only the last segment (or
   // an episode without segments) says the episode is done, and offers the next episode.
   const followingSegment = nextSegment(segments, segmentId)
@@ -888,6 +978,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           flash('r')
           store().reveal(store().activeIndex)
           return
+        case 'v':
+        case 'V':
+          // Only a segment with a video has a picture to cycle; the key is the page's own, never the host's.
+          if (!hasVideoFile) return
+          handled()
+          flash('v')
+          useSettings.getState().cyclePicture()
+          return
         case 'a':
         case 'A':
           handled()
@@ -924,6 +1022,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       finishOpen,
       flash,
       gradeStage,
+      hasVideoFile,
       keep,
       layer,
       openTiming,
@@ -938,7 +1037,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     ],
   )
 
+  // Something to play or to read: a video-only segment that is not prepared has its subtitles and no sound yet.
   const hasAudio = library.media !== null
+  const canPlay = source.url !== null
+  /** Large hides the sentence, because the picture is what is being watched; it only applies while a picture plays. */
+  const stageHidden = picture === 'large' && source.picture
+  const pictureControl: PictureControl | null = hasVideoFile
+    ? { mode: picture, onCycle: () => useSettings.getState().cyclePicture() }
+    : null
   // The selection is an index into the cue list, and the list changes under it when
   // the episode does; clamping here is cheaper than resetting it from an effect.
   const selectedIndex =
@@ -1011,7 +1117,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       }}
     >
       <style>{STYLES}</style>
-      <audio ref={audioRef} preload="metadata" style={{ display: 'none' }} />
 
       {view === 'home' ? (
         <>
@@ -1106,6 +1211,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   setSettingsOpen(false)
                   setStepsOpen(!stepsOpen)
                 }}
+                onBlindRunning={onBlindRunning}
               />
             ) : null}
             {settingsButton}
@@ -1113,6 +1219,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
           <div className="dsh-lingualab-body">
             <div className="dsh-lingualab-practice">
+              {shownNotice === null ? null : <VideoNotice notice={shownNotice} onAction={onNoticeAction} />}
               {review !== null && reviewOn && reviewItem !== null ? (
                 <ReviewStrip
                   t={t}
@@ -1126,20 +1233,41 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   onExit={endReview}
                 />
               ) : null}
-              <Stage
+              <VideoStage
                 t={t}
-                cues={cues}
-                activeIndex={activeIndex}
-                zhMode={zhMode}
-                masked={masked}
-                onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                onToggleWord={toggleWord}
-                hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
-                loading={library.cuesLoading}
-                hasAudio={hasAudio}
-                onRetime={() => (timing.session === null ? openTiming() : timing.close())}
-                retiming={timing.session !== null}
+                mediaRef={binding.attach}
+                picture={picture}
+                playing={source.picture}
+                status={video.status}
+                card={card}
+                cardOpen={firstTimeCard.open}
+                hasAudioFile={audioFile !== null}
+                busy={video.busy}
+                eta={video.eta}
+                caption={picture === 'large' && source.picture && revealed === activeIndex && stageLines !== null ? stageLines.english : null}
+                onPeek={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
+                onPrepare={video.prepare}
+                onCancel={video.cancel}
+                onCardShow={firstTimeCard.show}
+                onCardHide={firstTimeCard.hide}
+                onShowPicture={() => useSettings.getState().setPicture('shown')}
               />
+              {stageHidden ? null : (
+                <Stage
+                  t={t}
+                  cues={cues}
+                  activeIndex={activeIndex}
+                  zhMode={zhMode}
+                  masked={masked}
+                  onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
+                  onToggleWord={toggleWord}
+                  hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
+                  loading={library.cuesLoading}
+                  hasAudio={hasAudio}
+                  onRetime={() => (timing.session === null ? openTiming() : timing.close())}
+                  retiming={timing.session !== null}
+                />
+              )}
               <TimingStrip
                 t={t}
                 editor={timing}
@@ -1159,9 +1287,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   kept={keptNow}
                   onToggleKeep={() => keep()}
                   onRetime={openTiming}
-                  disabled={!hasAudio || cues.length === 0}
+                  picture={pictureControl}
+                  disabled={!canPlay || cues.length === 0}
                 />
-                <KeyHints t={t} flash={flashed} active={focused} />
+                <KeyHints t={t} flash={flashed} active={focused} video={hasVideoFile} />
               </div>
               {library.error !== null && cues.length === 0 && hasAudio ? (
                 <div className="dsh-lingualab-error" style={{ textAlign: 'center' }}>

@@ -19,6 +19,49 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-12
+
+### Added
+
+- Video episodes. `.mkv`, `.mp4`, `.webm` and `.mov` files in an episode folder are another source for the same
+  segment: a video pairs with its audio file by the subtitle rule (`MDJT S01E01.mkv` goes with `MDJT S01E01.mp3`), a
+  video no audio file owns is a segment of its own (its sound is taken from the video), and a folder of one stem stays
+  one episode of one segment. Import takes video with the same rules as audio (never overwrites, 2 GB, a `.part` first).
+  The home's cards and the segment list carry a small video mark, 「视频 · 未准备」 while it still has to be prepared.
+- The video plays in the page. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP9 or AV1 and
+  AAC, Opus or MP3) plays directly. Anything else is prepared once, when the reader asks (「准备视频」): `ffmpeg` copies the
+  picture untouched and converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its
+  index first, which takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit
+  H.264) is not re-encoded: only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still
+  be studied by ear. The prepared file lives in the hidden `<episode>/.lingualab/` folder, written as a `.part` and
+  renamed into place; the source video is never touched, and deleting the folder only means preparing again.
+- One media element plays the audio file or the video, so subtitles, the loop, kept sentences, timing edits and review keep
+  working on one timeline. When a job finishes the player swaps to the video at the same position and says so (「视频准备好了，
+  从 MM:SS 接着放」). If the video is more than a second longer or shorter than the audio, the page says the subtitles may be
+  out of step.
+- A picture on the stage with three states, kept per device with the other settings: shown (above the sentence), large (the
+  picture takes the stage and the sentence text is hidden) and hidden (the stage as it was, the sound still from the video).
+  `V` and a 「画面」 button in the play card cycle them. In the large state `R` shows the English of the current sentence as
+  a caption on the picture, and it folds away when the next sentence starts.
+- Starting the blind-watch step's timer in the five steps switches the picture to large once, with a notice that has
+  「撤销」; pausing that timer or marking the step done puts the previous state back. Opening the page or the drawer never
+  switches it, and a choice made by hand always wins.
+- Preparing is one host job at a time with progress (from `ffmpeg -progress` against the probed length), a 「取消」 button
+  that removes the partial file, and a `.part` left by a crash or restart cleared the next time. Without `ffmpeg` and
+  `ffprobe` (on `PATH`, or in the new optional `ffmpegPath` config field: a folder holding both, or either binary) a video that
+  plays directly still plays, and one that needs preparing shows a card with the install command.
+- A video that cannot be played says so once: the first time a segment is opened in a page session the stage shows a card
+  with the reason, and after that a small 「视频放不了 · 详情」 label that opens it again.
+- Routes: `GET /lingualab/video`, `POST /lingualab/video-prepare` and `POST /lingualab/video-cancel`. The media route also
+  serves the prepared files from `<episode>/.lingualab/` (`mp4` and `m4a` only) and a source `mp4` or `webm`, with `Range`.
+
+### Changed
+
+- The page's one media element is a `<video>` that also plays audio files (it replaces the hidden `<audio>`), and the
+  media binding keeps the position when the source changes inside one segment.
+- The writes the plugin makes into the media folder are now five: `notes.md`, the progress file, imports, subtitle timing
+  and the video cache.
+
 ## [0.7.0] - 2026-10-12
 
 ### Added

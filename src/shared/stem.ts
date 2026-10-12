@@ -80,3 +80,18 @@ export function splitSegmentStem(stem: string): SegmentStem {
   if (match === null || title.length === 0) return { number: null, title: stem }
   return { number: match[1] ?? null, title }
 }
+
+/**
+ * The segment stem a video file belongs to.
+ *
+ * A video pairs with its audio file the way a subtitle does: the longest audio stem that
+ * {@link sameStem} accepts owns it, so `MDJT S01E01.mkv` belongs to `MDJT S01E01.mp3` and
+ * `04_Dunphy家-Luke射击.mkv` to the longer of two sibling stems. A video no audio stem owns is a
+ * segment of its own, named by its own stem.
+ * @param fileName - the video file name, extension included.
+ * @param audioStems - the audio stems in the same folder.
+ * @returns the stem of the segment the video belongs to.
+ */
+export function videoStemFor(fileName: string, audioStems: readonly string[]): string {
+  return owningStem(fileName, audioStems) ?? stemOf(fileName)
+}

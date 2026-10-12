@@ -20,11 +20,11 @@
  * It is a setting touched twice a month, and a page that leads with it reads as a
  * settings page.
  */
-import { findSegment, segmentLabel } from '../../../features/library/index.ts'
+import { findSegment, hasMedia, segmentLabel, videoMarkOf } from '../../../features/library/index.ts'
 import { episodeProgress, type EpisodeProgress, type Progress } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
-import { AudioIcon, FolderIcon, PlayIcon, StarIcon, UploadIcon } from '../../../shared/ui/icons.tsx'
+import { AudioIcon, FolderIcon, PlayIcon, StarIcon, UploadIcon, VideoIcon } from '../../../shared/ui/icons.tsx'
 import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { EpisodeEntry, LibraryPayload, ReviewPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
@@ -72,7 +72,7 @@ function allEpisodes(library: LibraryPayload | null, current: EpisodeEntry | nul
 
 /** What an episode's subtitles amount to, in one short word. */
 function subtitleWord(t: Translate, entry: EpisodeEntry): string {
-  if (entry.audio === null) return t('pickerNoAudio')
+  if (!hasMedia(entry)) return t('pickerNoAudio')
   if (entry.subtitleEn !== null && entry.subtitleZh !== null) return t('subtitleBadgeBoth')
   if (entry.subtitleEn !== null) return t('subtitleBadgeEn')
   if (entry.subtitleZh !== null) return t('subtitleBadgeZh')
@@ -102,10 +102,29 @@ function stoppedWord(t: Translate, entry: EpisodeEntry, summary: EpisodeProgress
 
 /** The badge tone for an episode: a full pair is good news, a bare file a warning, the rest neutral. */
 function subtitleTone(entry: EpisodeEntry): 'ok' | 'warn' | 'plain' {
-  if (entry.audio === null) return 'plain'
+  if (!hasMedia(entry)) return 'plain'
   if (entry.subtitleEn !== null && entry.subtitleZh !== null) return 'ok'
   if (entry.subtitleEn === null && entry.subtitleZh === null) return 'warn'
   return 'plain'
+}
+
+/**
+ * The small mark on a card for an episode that has video: 「视频」, or 「视频 · 未准备」 while a video still
+ * has to be prepared. An episode with no video has none, and nothing else about the card changes.
+ */
+function VideoMark({ t, entry }: { readonly t: Translate; readonly entry: EpisodeEntry }) {
+  const mark = videoMarkOf(entry)
+  if (mark === 'none') return null
+  return (
+    <span className={`dsh-lingualab-videomark${mark === 'ready' ? ' is-ready' : ''}`}>
+      <VideoIcon size={11} /> {mark === 'ready' ? t('videoMark') : t('videoMarkUnprepared')}
+    </span>
+  )
+}
+
+/** The size an episode card shows: the audio's, or the video's for an episode that is only a video. */
+function sizeOf(entry: EpisodeEntry): number | null {
+  return entry.audioBytes ?? entry.video?.bytes ?? null
 }
 
 /** The home page of the panel. */
@@ -127,7 +146,7 @@ export function LibraryHome({
   onReview,
 }: LibraryHomeProps) {
   const episodes = allEpisodes(library, current)
-  const playable = episodes.filter((entry) => entry.audio !== null)
+  const playable = episodes.filter(hasMedia)
   // When an episode was last listened to: its own bookmark, or its newest segment's.
   const lastHeard = (entry: EpisodeEntry): number => episodeProgress(progress, entry).entry?.updatedAt ?? 0
   const resume =
@@ -274,7 +293,8 @@ function ResumeCard({
       <h1 className="dsh-lingualab-resume-title">{cardTitle(t, entry, summary)}</h1>
       <div className="dsh-lingualab-resume-meta">
         <span>{subtitleWord(t, entry)}</span>
-        <span>{formatBytes(entry.audioBytes)}</span>
+        <span>{formatBytes(sizeOf(entry))}</span>
+        <VideoMark t={t} entry={entry} />
         {entry.notes.count > 0 ? (
           <span>
             {t('notesKept')} {entry.notes.count}
@@ -323,13 +343,16 @@ function EpisodeRow({
     <button type="button" className="dsh-lingualab-episode-card" onClick={() => onOpen(entry.id)} disabled={disabled}>
       <span className="dsh-lingualab-episode-head">
         <span className="dsh-lingualab-episode-icon">{entry.kind === 'folder' ? <FolderIcon /> : <AudioIcon />}</span>
-        <span className={`dsh-lingualab-badge is-${subtitleTone(entry)}`}>{subtitleWord(t, entry)}</span>
+        <span className="dsh-lingualab-episode-badges">
+          <VideoMark t={t} entry={entry} />
+          <span className={`dsh-lingualab-badge is-${subtitleTone(entry)}`}>{subtitleWord(t, entry)}</span>
+        </span>
       </span>
       <span className="dsh-lingualab-episode-title" title={title}>
         {title}
       </span>
       <span className="dsh-lingualab-pick-sub">
-        {formatBytes(entry.audioBytes)}
+        {formatBytes(sizeOf(entry))}
         {entry.notes.count > 0 ? ` · ${t('notesKept')} ${String(entry.notes.count)}` : ''}
         {stopped !== null ? ` · ${stopped}` : ''}
       </span>

@@ -66,6 +66,9 @@ function fillOf(step: StepDefinition, record: StepRecord): number {
   return Math.min(100, (record.seconds / (step.minutes * 60)) * 100)
 }
 
+/** The step whose timer the picture follows: the blind watch, which is the first one. */
+export const BLIND_STEP = 'blind'
+
 export interface StepTrackerProps {
   readonly t: Translate
   /** Also the component's key where it is used, which is how a new episode resets it. */
@@ -73,10 +76,16 @@ export interface StepTrackerProps {
   /** The drawer's open state, owned by the page so Escape can close it. */
   readonly open: boolean
   readonly onToggle: () => void
+  /**
+   * Told when the blind-watch step's timer starts (`true`) and when it stops (`false`: paused, the step
+   * marked done, or the tracker leaving). It is the page's way to switch the picture to large and put it
+   * back; opening the drawer says nothing. Also called with `false` when the tracker appears.
+   */
+  readonly onBlindRunning?: (running: boolean) => void
 }
 
 /** The chip plus, when open, the drawer. */
-export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
+export function StepTracker({ t, episode, open, onToggle, onBlindRunning }: StepTrackerProps) {
   const [records, setRecords] = useState<StepRecords>(() => readSteps(episode))
   const [running, setRunning] = useState<string | null>(null)
   /** The step the reader clicked, which is the open one unless a clock is running. */
@@ -106,6 +115,23 @@ export function StepTracker({ t, episode, open, onToggle }: StepTrackerProps) {
     }, 1000)
     return () => clearInterval(timer)
   }, [running, episode])
+
+  // The blind-watch timer is the one thing the rest of the page listens to. The latest callback is read from a
+  // ref so a new function each render does not look like the timer starting again.
+  const blindRunning = running === BLIND_STEP
+  const report = useRef(onBlindRunning)
+  useEffect(() => {
+    report.current = onBlindRunning
+  }, [onBlindRunning])
+  useEffect(() => {
+    report.current?.(blindRunning)
+  }, [blindRunning])
+  useEffect(
+    () => () => {
+      report.current?.(false)
+    },
+    [],
+  )
 
   // Closing with a button of the drawer focused would drop focus to the document, and the page's
   // shortcuts with it; it goes back to the page, which is where the keys are read.

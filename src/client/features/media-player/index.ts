@@ -1,4 +1,4 @@
-/** Public API of the media-player feature: the store and the audio binding. */
+/** Public API of the media-player feature: the store and the media binding. */
 export {
   DEFAULT_SPEED_INDEX,
   LEAD_IN_CHOICES,
@@ -8,5 +8,5 @@ export {
   type EditWindow,
   type MediaPlayerState,
 } from './model/store.ts'
-export { useAudioBinding, type AudioRef } from './lib/useAudioBinding.ts'
+export { useMediaBinding, type MediaBinding } from './lib/useMediaBinding.ts'
 export { loopWindow, planLoop, stepCueIndex, type LoopDecision, type LoopMode } from './lib/loop.ts'

@@ -57,6 +57,11 @@ export interface LibraryState {
   readonly openFile: (place: string, rel: string) => Promise<boolean>
   /** Re-read the library listing; used after the folder setting changes. */
   readonly reload: () => void
+  /**
+   * Re-read the listing and nothing else: the open episode, its cues and the player are left exactly as they
+   * are. For something that changes what the home shows (a video was just prepared) and nothing on the stage.
+   */
+  readonly refreshListing: () => void
   /** Read the open episode's subtitles again, even though their names have not changed: after a timing edit. */
   readonly reloadCues: () => void
 }
@@ -260,6 +265,10 @@ export function useLibrary(): LibraryState {
     setReloadToken((token) => token + 1)
   }, [])
 
+  const refreshListing = useCallback(() => {
+    void fetchLibrary().then((next) => setPayload(next))
+  }, [])
+
   const reloadCues = useCallback(() => {
     parsedKey.current = null
     setCuesToken((token) => token + 1)
@@ -286,6 +295,7 @@ export function useLibrary(): LibraryState {
     openEpisode,
     openFile,
     reload,
+    refreshListing,
     reloadCues,
   }
 }
