@@ -13,6 +13,16 @@
  * bad field does not throw away the others.
  */
 import { create } from 'zustand'
+import {
+  DEFAULT_PICTURE,
+  PICTURES,
+  choose,
+  endBlind,
+  nextPicture,
+  startBlind,
+  type Picture,
+  type PictureState,
+} from '../lib/picture.ts'
 import { APPEARANCES, DEFAULT_THEME, THEME_IDS, type Appearance, type ThemeId } from '../lib/themes.ts'
 
 /** How big the English and Chinese lines on stage are: small, medium (the page's own size) and large. */
@@ -29,10 +39,17 @@ export interface Settings {
   readonly theme: ThemeId
   readonly appearance: Appearance
   readonly stageSize: StageSize
+  /** How the video's picture is shown; it only matters for a segment that has a playable video. */
+  readonly picture: Picture
 }
 
-/** What a browser that has chosen nothing gets: the host's own look, at the page's own size. */
-export const DEFAULT_SETTINGS: Settings = { theme: DEFAULT_THEME, appearance: 'auto', stageSize: 'm' }
+/** What a browser that has chosen nothing gets: the host's own look, at the page's own size, the picture above the sentence. */
+export const DEFAULT_SETTINGS: Settings = {
+  theme: DEFAULT_THEME,
+  appearance: 'auto',
+  stageSize: 'm',
+  picture: DEFAULT_PICTURE,
+}
 
 /** The choice among `choices` that equals `value`, or `fallback` when none does. */
 function pick<T extends string>(choices: readonly T[], value: unknown, fallback: T): T {
@@ -53,6 +70,7 @@ export function parseSettings(raw: string | null): Settings {
     theme: pick(THEME_IDS, record.theme, DEFAULT_SETTINGS.theme),
     appearance: pick(APPEARANCES, record.appearance, DEFAULT_SETTINGS.appearance),
     stageSize: pick(STAGE_SIZES, record.stageSize, DEFAULT_SETTINGS.stageSize),
+    picture: pick(PICTURES, record.picture, DEFAULT_SETTINGS.picture),
   }
 }
 
@@ -70,7 +88,12 @@ function writeSettings(settings: Settings): void {
   try {
     globalThis.localStorage.setItem(
       SETTINGS_KEY,
-      JSON.stringify({ theme: settings.theme, appearance: settings.appearance, stageSize: settings.stageSize }),
+      JSON.stringify({
+        theme: settings.theme,
+        appearance: settings.appearance,
+        stageSize: settings.stageSize,
+        picture: settings.picture,
+      }),
     )
   } catch {
     // Not remembered, still applied.
@@ -78,9 +101,22 @@ function writeSettings(settings: Settings): void {
 }
 
 export interface SettingsState extends Settings {
+  /**
+   * What the five steps will put back when the blind-watch timer stops, or `null`. Not a setting: it lives
+   * for this visit only and is not remembered (see `lib/picture.ts`).
+   */
+  readonly pictureRestore: Picture | null
   setTheme: (theme: ThemeId) => void
   setAppearance: (appearance: Appearance) => void
   setStageSize: (size: StageSize) => void
+  /** The reader chose a picture state (the button, the notice's 「撤销」): it is kept, and wins over the steps. */
+  setPicture: (picture: Picture) => void
+  /** `V`: the next state. */
+  cyclePicture: () => void
+  /** The blind-watch timer started. Returns whether the picture was switched, which is when the notice is shown. */
+  blindStarted: () => boolean
+  /** The blind-watch timer stopped, or its step was marked done. */
+  blindEnded: () => void
 }
 
 export const useSettings = create<SettingsState>((set, get) => {
@@ -89,10 +125,30 @@ export const useSettings = create<SettingsState>((set, get) => {
     set(patch)
     writeSettings(get())
   }
+  /** The picture state as the pure rules see it. */
+  const pictureOf = (): PictureState => ({ picture: get().picture, restore: get().pictureRestore })
+  /** Apply a picture state: the picture is remembered, the restore is not. */
+  const applyPicture = (state: PictureState): void => {
+    set({ picture: state.picture, pictureRestore: state.restore })
+    writeSettings(get())
+  }
   return {
     ...readSettings(),
+    pictureRestore: null,
     setTheme: (theme) => change({ theme: pick(THEME_IDS, theme, get().theme) }),
     setAppearance: (appearance) => change({ appearance: pick(APPEARANCES, appearance, get().appearance) }),
     setStageSize: (size) => change({ stageSize: pick(STAGE_SIZES, size, get().stageSize) }),
+    setPicture: (picture) => applyPicture(choose(pick(PICTURES, picture, get().picture))),
+    cyclePicture: () => applyPicture(choose(nextPicture(get().picture))),
+    blindStarted: () => {
+      const started = startBlind(pictureOf())
+      if (started.switched) applyPicture(started.state)
+      return started.switched
+    },
+    blindEnded: () => {
+      const before = pictureOf()
+      const after = endBlind(before)
+      if (after !== before) applyPicture(after)
+    },
   }
 })

@@ -92,6 +92,25 @@ export const MIN_CUE_MS = 200
  */
 export const REVIEW_PATH = '/lingualab/review'
 
+/**
+ * What a segment's video amounts to, and how far preparing it has got.
+ *
+ * `GET` answers for one segment (`episode` and `segment` in the query): whether its video plays as
+ * it is, needs preparing, is being prepared, or cannot be played, and the URL to play when it can.
+ * Probing the file with `ffprobe` is what decides, so this route is asynchronous and cached per
+ * file. Only folder episodes in the library have a video; anything else answers `none`.
+ */
+export const VIDEO_PATH = '/lingualab/video'
+
+/**
+ * Starting the one preparing job: `POST` with `episode`, `segment` and a `mode` (`video` or
+ * `sound`). One job runs at a time; asking for another while one runs is answered `busy`.
+ */
+export const VIDEO_PREPARE_PATH = '/lingualab/video-prepare'
+
+/** Cancelling the running preparing job, if there is one; its partial file is removed. */
+export const VIDEO_CANCEL_PATH = '/lingualab/video-cancel'
+
 /** The hidden file at the library root that holds the progress, next to the episodes' `notes.md`. */
 export const PROGRESS_FILE = '.lingualab-progress.json'
 
@@ -107,11 +126,42 @@ export const IMPORT_HEADER = 'x-lingualab-import'
 /** Audio extensions the library scan accepts, in the order it prefers them. */
 export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac'] as const
 
+/**
+ * Video extensions the scan accepts, in the order it prefers them when one stem has several.
+ *
+ * A video is another source for the same segment, never an episode of its own kind. `mp4` and
+ * `webm` can play as they are; `mkv` and `mov` are prepared first (see `host/video.ts`).
+ */
+export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mkv', 'mov'] as const
+
+/**
+ * The hidden folder inside an episode folder where prepared video and sound are kept.
+ *
+ * The scan skips names starting with a dot, so the cache never shows up as a file. It is the
+ * plugin's own: deleting it only means preparing again, and the source video is never touched.
+ */
+export const VIDEO_CACHE_DIR = '.lingualab'
+
 /** Subtitle extensions the scan accepts. `srt` and `vtt` parse; `lrc` is text-only. */
 export const SUBTITLE_EXTENSIONS = ['srt', 'vtt', 'lrc'] as const
 
 /** The note file every episode folder may carry. */
 export const NOTES_FILE = 'notes.md'
+
+/**
+ * The video beside one segment (or one episode without segments), as the scan sees it.
+ *
+ * The scan does not probe, so `state` is what the files on disk say: `ready` when a prepared
+ * `.mp4` is in the cache (or the file is already known to play as it is), `sound` when only the
+ * sound was kept (`.m4a`), `unprepared` otherwise. The exact verdict, with the reason, comes from
+ * {@link VideoStatusPayload}.
+ */
+export interface VideoRef {
+  /** The source video's file name in the episode folder. */
+  readonly file: string
+  readonly bytes: number | null
+  readonly state: 'ready' | 'sound' | 'unprepared'
+}
 
 /**
  * One scene of a folder episode: a single audio file and the subtitles that belong to it.
@@ -128,10 +178,13 @@ export interface EpisodeSegment {
   readonly index: number
   /** Display title: the stem without a leading number and separator, `Dunphy家的早晨`. */
   readonly title: string
-  readonly audio: string
+  /** The audio file, or `null` for a segment that is only a video (its sound is taken from the video). */
+  readonly audio: string | null
   readonly audioBytes: number | null
   readonly subtitleEn: string | null
   readonly subtitleZh: string | null
+  /** The video that goes with this segment, or `null`. */
+  readonly video: VideoRef | null
 }
 
 /**
@@ -149,7 +202,7 @@ export interface EpisodeEntry {
   readonly id: string
   /** Human title: the folder name unless `manifest.json` renames it; the file stem otherwise. */
   readonly title: string
-  /** Audio file name inside the folder, or `null` when the folder has none. */
+  /** Audio file name inside the folder, or `null` when the folder has none (a video alone is enough to open it). */
   readonly audio: string | null
   /** Audio size in bytes, so the panel can show it before playing. */
   readonly audioBytes: number | null
@@ -157,6 +210,8 @@ export interface EpisodeEntry {
   readonly subtitleEn: string | null
   /** Chinese subtitle file name, if one was found. */
   readonly subtitleZh: string | null
+  /** The video of the folder (or of its first segment, when it has segments); `null` for a file episode. */
+  readonly video: VideoRef | null
   /**
    * The segments in order; empty unless the folder holds two or more audio files.
    *
@@ -463,6 +518,79 @@ export interface OpenPayload {
   readonly segment: string | null
   /** Things that are true but not fatal: `no-subtitle` is the only one today. */
   readonly warnings: readonly string[]
+}
+
+/** What a video needs, from the point of view of the stage that has to draw it. */
+export type VideoState =
+  /** Plays now: `url` is set, and `via` says whether it is the source itself or a prepared copy. */
+  | 'playable'
+  /** Needs preparing before it plays (the picture is kept, the sound converted). */
+  | 'prepare'
+  /** A preparing job is running for this segment; `progress` says how far. */
+  | 'preparing'
+  /** The picture cannot be played here; only the sound can be taken from it. */
+  | 'sound-only'
+  /** The sound was taken out earlier and plays from the cache: `url` is set, there is no picture. */
+  | 'sound-ready'
+  /** The video cannot be used at all (no usable stream, or nothing that can be played). */
+  | 'unplayable'
+  /** It needs preparing and the host has no `ffmpeg`. */
+  | 'no-ffmpeg'
+  /** The last job for this segment failed; `reason` says why. */
+  | 'failed'
+  /** There is no video for this segment. */
+  | 'none'
+
+/** How far a preparing job has got. */
+export interface VideoProgress {
+  /** 0 to 1. */
+  readonly fraction: number
+  /** Seconds of the video done so far, and its length. */
+  readonly seconds: number
+  readonly total: number
+}
+
+/** `GET /lingualab/video`, and the answer of `POST /lingualab/video-prepare`. */
+export interface VideoStatusPayload {
+  readonly ok: boolean
+  readonly reason: string | null
+  readonly state: VideoState
+  /** The source video's file name. */
+  readonly file: string | null
+  readonly bytes: number | null
+  /** What to play, for `playable` and `sound-ready`. */
+  readonly url: string | null
+  readonly via: 'direct' | 'prepared' | null
+  readonly videoCodec: string | null
+  readonly audioCodec: string | null
+  /** The video's length in seconds, when probed. */
+  readonly duration: number | null
+  /**
+   * How much longer the video is than the segment's audio file, in seconds, when the two differ by
+   * more than a second (negative when the video is shorter). The subtitles were timed against the audio.
+   */
+  readonly mismatch: number | null
+  /** What the prepared file will weigh, roughly, in bytes. */
+  readonly estimateBytes: number | null
+  readonly progress: VideoProgress | null
+  /** The command that installs `ffmpeg` on this host, when `state` is `no-ffmpeg`. */
+  readonly installCommand: string | null
+}
+
+/** `POST /lingualab/video-prepare` request body. */
+export interface VideoPrepareRequest {
+  readonly episode: string
+  readonly segment?: string
+  /** `video` keeps the picture and converts the sound; `sound` keeps only the sound. */
+  readonly mode: 'video' | 'sound'
+}
+
+/** `POST /lingualab/video-cancel`. */
+export interface VideoCancelPayload {
+  readonly ok: boolean
+  /** True when a job was running and has been stopped. */
+  readonly cancelled: boolean
+  readonly reason: string | null
 }
 
 /** `POST /lingualab/import`. */

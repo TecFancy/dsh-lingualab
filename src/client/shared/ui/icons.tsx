@@ -270,3 +270,34 @@ export function SettingsIcon(props: IconProps) {
     </Svg>
   )
 }
+
+/** A camera: the mark for a video; `off` draws it struck through, for a picture that is hidden or cannot play. */
+export function VideoIcon({ off = false, ...props }: IconProps & { readonly off?: boolean }) {
+  return (
+    <Svg {...props}>
+      <rect x={1.5} y={3.5} width={9} height={9} rx={1.5} />
+      <path d="m10.5 7 4-2.5v7l-4-2.5z" />
+      {off ? <path d="M2 2l12 12" /> : null}
+    </Svg>
+  )
+}
+
+/** A warning triangle, for the card that says something is missing. */
+export function WarnIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 2.5 14 13H2z" />
+      <path d="M8 6.5v3M8 11.5v.01" />
+    </Svg>
+  )
+}
+
+/** A stopwatch, for the notice that the blind watch has started. */
+export function TimerIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx={8} cy={8.5} r={5.5} />
+      <path d="M8 5.5v3l2 1.5M6.5 1.5h3" />
+    </Svg>
+  )
+}

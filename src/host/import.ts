@@ -10,8 +10,8 @@
  *   · **Nothing is overwritten.** A name that exists is reported as `exists` and the
  *     existing file is left exactly as it was. Replacing someone's audio because a
  *     drag landed twice is the failure this whole module is arranged to make impossible.
- *   · **Only media goes in.** The extension must be one the scan would accept, so the
- *     route cannot be used to put an arbitrary file on somebody's disk.
+ *   · **Only media goes in.** The extension must be one the scan would accept (audio, video or
+ *     subtitles), so the route cannot be used to put an arbitrary file on somebody's disk.
  *   · **Names are cleaned, never trusted.** The folder and the file name come from the
  *     browser. Separators, `..`, control characters and the names Windows reserves are
  *     removed or refused, and the final path is checked to be inside the root after the
@@ -44,6 +44,7 @@ import {
   AUDIO_EXTENSIONS,
   MAX_IMPORT_BYTES,
   SUBTITLE_EXTENSIONS,
+  VIDEO_EXTENSIONS,
   type ImportPayload,
 } from '../shared/protocol.ts'
 import { stemOf } from '../shared/stem.ts'
@@ -79,9 +80,10 @@ export function cleanName(raw: string): string | null {
 }
 
 /** What kind of file an extension is, or `null` for one this route will not take. */
-export function importKind(fileName: string): 'audio' | 'subtitle' | null {
+export function importKind(fileName: string): 'audio' | 'video' | 'subtitle' | null {
   const extension = extname(fileName).slice(1).toLowerCase()
   if ((AUDIO_EXTENSIONS as readonly string[]).includes(extension)) return 'audio'
+  if ((VIDEO_EXTENSIONS as readonly string[]).includes(extension)) return 'video'
   if ((SUBTITLE_EXTENSIONS as readonly string[]).includes(extension)) return 'subtitle'
   return null
 }
@@ -252,7 +254,7 @@ export async function importFile(request: ImportRequest, body: IncomingMessage):
 
   const file = cleanName(request.file)
   if (file === null) return refusal('文件名不能用')
-  if (importKind(file) === null) return refusal('只收音频和字幕（srt、vtt、lrc）')
+  if (importKind(file) === null) return refusal('只收音频、视频和字幕（srt、vtt、lrc）')
 
   const folder = cleanName(request.episode.length > 0 ? request.episode : stemOf(file))
   if (folder === null) return refusal('剧集名不能用')

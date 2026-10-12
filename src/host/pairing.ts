@@ -25,10 +25,11 @@ import { extname, join } from 'node:path'
 import {
   AUDIO_EXTENSIONS,
   SUBTITLE_EXTENSIONS,
+  VIDEO_EXTENSIONS,
   type SubtitleHint,
 } from '../shared/protocol.ts'
 import { compareIds } from './library.ts'
-import { owningStem, sameStem, stemOf } from '../shared/stem.ts'
+import { owningStem, sameStem, stemOf, videoStemFor } from '../shared/stem.ts'
 
 /**
  * Language marks this module recognises, and only these.
@@ -111,6 +112,49 @@ export function audioStemsOf(names: readonly string[]): string[] {
   return [...stems]
 }
 
+/** Whether a file name is a video the scan accepts. */
+export function isVideoName(name: string): boolean {
+  return (VIDEO_EXTENSIONS as readonly string[]).includes(extname(name).slice(1).toLowerCase())
+}
+
+/** The video files among some names, in the order given. */
+export function videoNamesOf(names: readonly string[]): string[] {
+  return names.filter(isVideoName)
+}
+
+/**
+ * Every stem that makes a segment: the audio stems, plus the stem of each video no audio stem owns.
+ *
+ * A video pairs with an audio file by the subtitle rule (see {@link videoStemFor}); one that pairs
+ * with none is a segment of its own, so a folder of only videos is still a folder of segments.
+ * The subtitle ownership below asks this list too, so a video-only scene owns its subtitles the same
+ * way an audio scene does.
+ * @param names - the visible file names of one folder.
+ * @returns the distinct stems, in the order first seen.
+ */
+export function mediaStemsOf(names: readonly string[]): string[] {
+  const audio = audioStemsOf(names)
+  const stems = new Set<string>(audio)
+  for (const name of videoNamesOf(names)) stems.add(videoStemFor(name, audio))
+  return [...stems]
+}
+
+/**
+ * The video of one stem: the one file of that stem's videos whose extension is preferred.
+ * @param names - the visible file names of one folder.
+ * @param stem - the segment stem, as {@link mediaStemsOf} lists it.
+ * @returns the file name, or `null` when the stem has no video.
+ */
+export function pickVideoFile(names: readonly string[], stem: string): string | null {
+  const audio = audioStemsOf(names)
+  const own = videoNamesOf(names).filter((name) => videoStemFor(name, audio) === stem)
+  for (const extension of VIDEO_EXTENSIONS) {
+    const hit = own.find((name) => extname(name).slice(1).toLowerCase() === extension)
+    if (hit !== undefined) return hit
+  }
+  return null
+}
+
 /**
  * Split a directory's names into the four groups, in natural order.
  *
@@ -129,7 +173,7 @@ export function audioStemsOf(names: readonly string[]): string[] {
  */
 export function classifySubtitles(names: readonly string[], stem?: string): Classification {
   // The candidates for ownership: this stem and every audio stem beside it.
-  const rivals = stem === undefined ? [] : [stem, ...audioStemsOf(names)]
+  const rivals = stem === undefined ? [] : [stem, ...mediaStemsOf(names)]
   const files = names
     .filter((name) => SUBTITLE_SET.has(extname(name).slice(1).toLowerCase()))
     .filter((name) => stem === undefined || owningStem(name, rivals) === stem)

@@ -25,19 +25,25 @@ const HINTS: readonly Hint[] = [
   { id: 'r', caps: ['R'], label: 'hintReveal' },
 ]
 
+/** The picture key, shown only while the segment has a video, and placed before the reveal the way the design has it. */
+const PICTURE_HINT: Hint = { id: 'v', caps: ['V'], label: 'hintPicture' }
+
 export interface KeyHintsProps {
   readonly t: Translate
   /** The hint id to light up right now, or `null`. */
   readonly flash: string | null
   /** False when the page does not own the keyboard, so the caps read as inactive. */
   readonly active: boolean
+  /** Whether the segment has a video, which adds the 「V 画面」 cap. */
+  readonly video?: boolean
 }
 
 /** The caps row. */
-export function KeyHints({ t, flash, active }: KeyHintsProps) {
+export function KeyHints({ t, flash, active, video = false }: KeyHintsProps) {
+  const hints = video ? [...HINTS.slice(0, 5), PICTURE_HINT, ...HINTS.slice(5)] : HINTS
   return (
     <div className={`dsh-lingualab-keyhints${active ? '' : ' is-idle'}`}>
-      {HINTS.map((hint) => (
+      {hints.map((hint) => (
         <span key={hint.id} className={`dsh-lingualab-keyhint${flash === hint.id ? ' is-hit' : ''}`}>
           {hint.caps.map((cap) => (
             <kbd key={cap}>{cap}</kbd>

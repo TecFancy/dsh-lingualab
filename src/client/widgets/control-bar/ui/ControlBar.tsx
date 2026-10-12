@@ -16,6 +16,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { LEAD_IN_CHOICES, SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import type { Picture } from '../../../features/settings/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { Scrubber } from './Scrubber.tsx'
 import {
@@ -27,6 +28,7 @@ import {
   PlayIcon,
   PrevIcon,
   StarIcon,
+  VideoIcon,
 } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 
@@ -44,6 +46,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['N', 'keyColumn'],
   ['C', 'keyChinese'],
   ['R', 'keyReveal'],
+  ['V', 'keyPicture'],
   ['[  ]', 'keySpeed'],
   ['A  B', 'keyMarks'],
   ['T', 'keyTiming'],
@@ -57,6 +60,19 @@ const ZH_MODE_KEYS: Readonly<Record<SubtitleZhMode, string>> = {
   hidden: 'zhHidden',
 }
 
+/** The dictionary key of each picture state's name. */
+const PICTURE_KEYS: Readonly<Record<Picture, string>> = {
+  shown: 'pictureShown',
+  large: 'pictureLarge',
+  hidden: 'pictureHidden',
+}
+
+/** What the picture button needs: the state it shows, and what pressing it does. */
+export interface PictureControl {
+  readonly mode: Picture
+  readonly onCycle: () => void
+}
+
 export interface ControlBarProps {
   readonly t: Translate
   readonly zhMode: SubtitleZhMode
@@ -67,6 +83,8 @@ export interface ControlBarProps {
   readonly onToggleKeep: () => void
   /** Open the strip that moves the sentence's start and end. */
   readonly onRetime: () => void
+  /** The picture button, present only when the segment has a video to show. */
+  readonly picture?: PictureControl | null
   readonly disabled?: boolean
 }
 
@@ -82,7 +100,7 @@ export interface ControlBarHandle {
 
 /** The row under the sentence. */
 export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function ControlBar(
-  { t, zhMode, onZhMode, kept, onToggleKeep, onRetime, disabled = false },
+  { t, zhMode, onZhMode, kept, onToggleKeep, onRetime, picture = null, disabled = false },
   handle,
 ) {
   const isPlaying = useMediaPlayer((state) => state.isPlaying)
@@ -189,6 +207,16 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
         </div>
 
         <div className="dsh-lingualab-transport-side is-end">
+          {picture === null ? null : (
+            <button
+              type="button"
+              className="dsh-lingualab-bar-btn is-on"
+              onClick={picture.onCycle}
+              title={t('pictureHint')}
+            >
+              <VideoIcon size={14} off={picture.mode === 'hidden'} /> {t('pictureLabel', { state: t(PICTURE_KEYS[picture.mode]) })}
+            </button>
+          )}
           <button
             type="button"
             className="dsh-lingualab-bar-btn"

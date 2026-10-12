@@ -37,8 +37,9 @@ import {
 } from '../shared/protocol.ts'
 import { summarizeNotes } from '../shared/notes-format.ts'
 import { splitSegmentStem } from '../shared/stem.ts'
-import { audioStemsOf, pairSubtitles, pickAudioFile, stemOf } from './pairing.ts'
+import { mediaStemsOf, pairSubtitles, pickAudioFile, pickVideoFile, stemOf } from './pairing.ts'
 import { realPathOf } from './places.ts'
+import { videoRefOf } from './video-cache.ts'
 import {
   EMPTY_STATE,
   fileEpisodeIdFor,
@@ -116,11 +117,13 @@ function sizeOf(path: string): number | null {
 }
 
 /**
- * The segments of one episode folder: one per audio stem, in natural order.
+ * The segments of one episode folder: one per stem, in natural order.
  *
- * A folder with a single audio stem has none, and is one episode of one file as it always
- * was; `lesson.mp3` next to `lesson.wav` is one stem, and the extension preference of
- * {@link pickAudioFile} picks between them. Each segment pairs its own subtitles by name,
+ * A stem is an audio file's, or a video's when no audio file owns that video (see
+ * {@link mediaStemsOf}); a video beside an audio file of the same stem is that segment's video, not
+ * a segment of its own. A folder with a single stem has no segments, and is one episode of one
+ * file as it always was; `lesson.mp3` next to `lesson.wav` is one stem, and the extension
+ * preference of {@link pickAudioFile} picks between them. Each segment pairs its own subtitles by name,
  * and the longest stem owns a subtitle (see `classifySubtitles`), so the scan, the
  * picker and the open all agree about which file belongs to which scene.
  *
@@ -130,28 +133,30 @@ function sizeOf(path: string): number | null {
  * @returns the segments, or an empty list unless there are two or more.
  */
 export function scanSegments(folder: string, names: readonly string[]): EpisodeSegment[] {
-  const stems = audioStemsOf(names).sort(compareIds)
+  const stems = mediaStemsOf(names).sort(compareIds)
   if (stems.length < 2) return []
   const segments: EpisodeSegment[] = []
   for (const stem of stems) {
     const audio = pickAudioFile(names.filter((name) => stemOf(name) === stem))
-    if (audio === null) continue
+    const videoFile = pickVideoFile(names, stem)
+    if (audio === null && videoFile === null) continue
     const { en, zh } = pairSubtitles(names, { directory: folder, stem })
     segments.push({
       id: stem,
       index: segments.length + 1,
       title: splitSegmentStem(stem).title,
       audio,
-      audioBytes: sizeOf(join(folder, audio)),
+      audioBytes: audio === null ? null : sizeOf(join(folder, audio)),
       subtitleEn: en,
       subtitleZh: zh,
+      video: videoFile === null ? null : videoRefOf(folder, videoFile, stem),
     })
   }
   return segments
 }
 
-/** Scan one episode folder. A folder with no audio is listed but not playable. */
-function scanEpisode(root: string, id: string, title: string): EpisodeEntry {
+/** Scan one episode folder. A folder with neither audio nor video is listed but not playable. */
+export function scanEpisode(root: string, id: string, title: string): EpisodeEntry {
   const folder = join(root, id)
   const names = readdirSync(folder).filter((name) => !name.startsWith('.'))
   const segments = scanSegments(folder, names)
@@ -164,13 +169,17 @@ function scanEpisode(root: string, id: string, title: string): EpisodeEntry {
       ? pairSubtitles(names, { directory: folder })
       : { en: first.subtitleEn, zh: first.subtitleZh }
   const audioBytes = first === undefined ? (audio === null ? null : sizeOf(join(folder, audio))) : first.audioBytes
+  // A folder of one stem has its video under that stem, which is the audio file's when there is one.
+  const stem = audio === null ? (mediaStemsOf(names)[0] ?? null) : stemOf(audio)
+  const videoFile = first !== undefined || stem === null ? null : pickVideoFile(names, stem)
+  const video = first === undefined ? (videoFile === null || stem === null ? null : videoRefOf(folder, videoFile, stem)) : first.video
 
   const notesPath = join(folder, NOTES_FILE)
   const notes = existsSync(notesPath)
     ? summarizeNotes(readFileSync(notesPath, 'utf8'))
     : summarizeNotes(null)
 
-  return { id, title, audio, audioBytes, subtitleEn: en, subtitleZh: zh, segments, notes, kind: 'folder', source: folder }
+  return { id, title, audio, audioBytes, subtitleEn: en, subtitleZh: zh, video, segments, notes, kind: 'folder', source: folder }
 }
 
 /** Everything one audio file turned out to be, before it is dressed as an episode. */
@@ -235,6 +244,7 @@ export function audioEntry(description: AudioDescription, state: OpenState): Epi
     audioBytes: description.bytes,
     subtitleEn: description.subtitleEn,
     subtitleZh: description.subtitleZh,
+    video: null,
     segments: [],
     notes: summarizePhrases(notesFor(state, description.id)),
     kind: 'file',

@@ -18,6 +18,9 @@ import {
   PROGRESS_PATH,
   REVIEW_PATH,
   SUBTITLE_TIMING_PATH,
+  VIDEO_CANCEL_PATH,
+  VIDEO_PATH,
+  VIDEO_PREPARE_PATH,
   type BrowsePayload,
   type ImportPayload,
   type LibraryConfigPayload,
@@ -31,6 +34,9 @@ import {
   type ReviewPayload,
   type TimingEdit,
   type TimingWritePayload,
+  type VideoCancelPayload,
+  type VideoPrepareRequest,
+  type VideoStatusPayload,
 } from '../protocol.ts'
 
 /** One empty payload per failure shape, so callers never see `undefined`. */
@@ -289,6 +295,63 @@ export async function saveSubtitleTiming(episode: string, edits: readonly Timing
     return typeof payload.ok === 'boolean' ? payload : { ok: false, code: 'refused', reason: '主机没有回答', files: [] }
   } catch (error) {
     return { ok: false, code: 'refused', reason: String(error), files: [] }
+  }
+}
+
+/** A status that says nothing, for a host that did not answer. */
+const NO_VIDEO = (reason: string | null): VideoStatusPayload => ({
+  ok: false,
+  reason,
+  state: 'none',
+  file: null,
+  bytes: null,
+  url: null,
+  via: null,
+  videoCodec: null,
+  audioCodec: null,
+  duration: null,
+  mismatch: null,
+  estimateBytes: null,
+  progress: null,
+  installCommand: null,
+})
+
+/** What the host knows about one segment's video; a host that does not answer is "no video", with the reason. */
+export async function fetchVideoStatus(episode: string, segment: string | null): Promise<VideoStatusPayload> {
+  const params = new URLSearchParams({ episode })
+  if (segment !== null) params.set('segment', segment)
+  try {
+    const response = await fetch(`${VIDEO_PATH}?${params.toString()}`, { headers: { accept: 'application/json' } })
+    const payload = (await response.json()) as VideoStatusPayload
+    return typeof payload.state === 'string' ? payload : NO_VIDEO('主机没有回答')
+  } catch (error) {
+    return NO_VIDEO(String(error))
+  }
+}
+
+/** Ask the host to start preparing one segment's video (or only its sound); the answer is the status after the start. */
+export async function startVideoPrepare(request: VideoPrepareRequest): Promise<VideoStatusPayload> {
+  try {
+    const response = await fetch(VIDEO_PREPARE_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    const payload = (await response.json()) as VideoStatusPayload
+    return typeof payload.state === 'string' ? payload : NO_VIDEO('主机没有回答')
+  } catch (error) {
+    return NO_VIDEO(String(error))
+  }
+}
+
+/** Stop the running preparing job. */
+export async function cancelVideoPrepare(): Promise<VideoCancelPayload> {
+  try {
+    const response = await fetch(VIDEO_CANCEL_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    const payload = (await response.json()) as VideoCancelPayload
+    return typeof payload.ok === 'boolean' ? payload : { ok: false, cancelled: false, reason: '主机没有回答' }
+  } catch (error) {
+    return { ok: false, cancelled: false, reason: String(error) }
   }
 }
 

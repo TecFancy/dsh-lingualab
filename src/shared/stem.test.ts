@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { owningStem, sameStem, splitSegmentStem, stemOf } from './stem.ts'
+import { owningStem, sameStem, splitSegmentStem, stemOf, videoStemFor } from './stem.ts'
 
 describe('stemOf', () => {
   it('drops the last extension only', () => {
@@ -87,5 +87,22 @@ describe('splitSegmentStem', () => {
   it('does not take digits that are part of the name', () => {
     expect(splitSegmentStem('1984')).toEqual({ number: null, title: '1984' })
     expect(splitSegmentStem('S01E01')).toEqual({ number: null, title: 'S01E01' })
+  })
+})
+
+describe('videoStemFor', () => {
+  it('gives a video to the audio stem with the same name', () => {
+    expect(videoStemFor('MDJT S01E01.mkv', ['MDJT S01E01'])).toBe('MDJT S01E01')
+  })
+
+  it('gives a video to the longest audio stem that accepts it', () => {
+    const stems = ['04_Dunphy家', '04_Dunphy家-Luke射击']
+    expect(videoStemFor('04_Dunphy家-Luke射击.mp4', stems)).toBe('04_Dunphy家-Luke射击')
+    expect(videoStemFor('04_Dunphy家_hd.mp4', stems)).toBe('04_Dunphy家')
+  })
+
+  it('makes a video no audio stem owns a stem of its own', () => {
+    expect(videoStemFor('lesson2.mkv', ['lesson'])).toBe('lesson2')
+    expect(videoStemFor('only.webm', [])).toBe('only')
   })
 })

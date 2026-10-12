@@ -49,7 +49,7 @@ node scripts/verify.mjs --list   # 看检查表
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
-4. **写素材目录只有四处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
+4. **写素材目录只有五处，都很窄**：一是文件夹剧集里的 `notes.md`；二是媒体库根目录的隐藏文件
    `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
    `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
    不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
@@ -66,6 +66,11 @@ node scripts/verify.mjs --list   # 看检查表
    复制一份 `<名>.bak`，只复制一次；两个文件都检查通过才写；媒体库以外的文件剧集一律 `403`。页面的出处记在 `Cue.origin` /
    `zhOrigin`，客户端的计数规则必须和 host 一致（没有文本的块也要计数）。
    见 `.agents/notes/implemented/feature/2026-10-11-edit-subtitle-timing.md`。
+   五是视频缓存，`src/host/video-jobs.ts`：只写每集文件夹里自己的隐藏文件夹 `.lingualab/`（`<词干>.mp4` 是画面复制加声音转成立体声 AAC，
+   `<词干>.m4a` 只是声音），先写 `<名>.part` 再 `rename`，一次只跑一个任务，失败或取消删掉 `.part`，崩溃或重启留下的在下次起任务时清掉；
+   源视频从不被改。路由只收「哪一集哪一段、要画面还是只要声音」，路径、命令行全由 host 自己的扫描算出来，ffmpeg 用参数数组起，不过 shell。
+   缓存文件比源文件旧就不算数。只有媒体库里的文件夹剧集有视频，文件剧集没有。
+   见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
    「短的工作集」靠评级：一条收藏只有一个状态（`gradeOf` / `withGrade`），从勾和两个标签读出来，勾优先，
    `#hard` 压过 `#review`；评级先清掉勾和这两个标签再设自己的，读者手写的其他标签保留。行格式没有新字段，
@@ -101,8 +106,18 @@ node scripts/verify.mjs --list   # 看检查表
   四条路由全中。
 - **volatile 的配置字段是盒子**：`z.string().default('').volatile()` 解析出来不是字符串，要 `config.x.get()`
   才是值；写错的话路由同样全炸。它的好处是 settings 服务能在线改，改完下次读就是新值，不用重启。
-- **视频不做内嵌**，留在 NAS 上用外部播放器看，理由见
-  `.agents/notes/implemented/simplification/2026-10-08-v1-without-waveform.md`。
+- **视频在页面里播（2026-10-12 起）**，决定与取舍见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
+  第一版留在外部播放器看的理由还在
+  `.agents/notes/implemented/simplification/2026-10-08-v1-without-waveform.md`，那是当时的决定，不要改它。几处别拆：
+  整页只有**一个媒体元素**，一个 `<video>`（`useMediaBinding`），音频文件也走它，这样视频的声音和字幕、循环、跟读在一条时间线上，
+  不用管两个元素漂不漂；它画在练习页的 `VideoStage` 里，所以元素既在 ref 里（effect 里改它）也在 state 里（出现时让 effect 重跑），
+  光放 state 会被 `react-hooks/immutability` 拦。同一段里换来源（先放音频，视频准备好了换成视频）靠 `session` 保持位置，换集不保持。
+  放什么由 `features/video/lib/source.ts` 的 `playSource` 一处决定，浏览器报解不了的 URL 记进 `failedUrl`，退回音频文件。
+  ffmpeg 与 ffprobe 在 `PATH` 里或可选的 `ffmpegPath`（volatile 字段，同样 `.get()`，配了就只认它）；没有 ffprobe 时 mp4 与 webm 当直接放、
+  mkv 与 mov 报需要 ffmpeg。规划（`video-plan.ts`）只认 H.264、VP9、AV1，H.264 还要 yuv420p：10 位的一律「只取声音」，这是拿真 ffmpeg 测出来的
+  （`video.ffmpeg.test.ts`，没装 ffmpeg 的机器自动跳过）。**不转码**是定死的，别为一个 HEVC 加转码。探测结果按「路径、大小、修改时间」记住，
+  不然轮询进度时每秒探一次。取消靠杀进程，等进程关了再删 `.part`（Windows 删不了打开着的文件）。五步法的盲看只通过计时器碰画面状态
+  （`features/settings/lib/picture.ts` 的纯函数），手动的选择清掉要恢复的状态，所以不会盖过读者自己选的。
 - **改了源码要重启隔离实例并强刷安装副本**：宿主半边要重启才生效；而 profile 用 `file:` 装 tar 包时，
   版本号没变是不会换新文件的，得 `rm -rf node_modules/<包名> && npx pnpm@11.22.0 install --force`，
   否则你在浏览器里验的还是上一版。

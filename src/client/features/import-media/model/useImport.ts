@@ -1,7 +1,7 @@
 /**
  * Dropping files on the page, and what the page is told about it.
  *
- * Uploads run one file at a time, audio before its subtitles. Parallel uploads would
+ * Uploads run one file at a time, audio before its subtitles, and a video last (it is the big one). Parallel uploads would
  * finish sooner on paper and be worse in use: two gigabyte files competing for one
  * local connection both take longer to show anything, while a sequence gives the page
  * a true "2 of 5" and lets the first episode become playable as soon as it is whole.
@@ -13,9 +13,9 @@
  *
  * Two rules about a group of files that belong together:
  *
- *   · **Subtitles follow their audio.** If the audio is refused, its subtitles are not
- *     sent. They would create a folder with subtitles and nothing to play, which the home
- *     hides and which cannot be opened.
+ *   · **Everything follows the first file.** That is the audio, or the video of an episode that is only a
+ *     video. If it is refused, the subtitles and the other videos are not sent. They would create a folder
+ *     with subtitles and nothing to play, which the home hides and which cannot be opened.
  *   · **A subtitle with no audio in the drop** joins the episode folder it names, when
  *     one exists. Adding a translation the next day is a normal thing to do, and "no audio
  *     found" would be the wrong answer to it.
@@ -103,12 +103,13 @@ export function useImport(onFinished: () => void, existingFolders: readonly stri
         else adopted.push({ file, episode: folder })
       }
 
-      const groups = plan.groups.map((group) => ({
-        episode: group.episode,
-        audio: group.audio,
-        subtitles: group.subtitles,
-      }))
-      const total = groups.reduce((sum, group) => sum + 1 + group.subtitles.length, 0) + adopted.length
+      const groups = plan.groups.map((group) => {
+        // The first file is the audio, or the first video of an episode that has no audio.
+        const first = group.audio ?? group.videos[0]
+        const rest = group.audio === null ? group.videos.slice(1) : group.videos
+        return { episode: group.episode, first, followers: [...group.subtitles, ...rest] }
+      })
+      const total = groups.reduce((sum, group) => sum + (group.first === undefined ? 0 : 1) + group.followers.length, 0) + adopted.length
 
       setBusy(true)
       setDone(0)
@@ -140,18 +141,19 @@ export function useImport(onFinished: () => void, existingFolders: readonly stri
 
       try {
         for (const group of groups) {
-          const audioOk = await send(group.audio, group.episode)
-          for (const subtitle of group.subtitles) {
-            if (audioOk) {
-              await send(subtitle, group.episode)
+          if (group.first === undefined) continue
+          const firstOk = await send(group.first, group.episode)
+          for (const follower of group.followers) {
+            if (firstOk) {
+              await send(follower, group.episode)
               continue
             }
-            // Not attempted: the audio did not land, so these would only make an empty episode.
+            // Not attempted: the first file did not land, so these would only make an empty episode.
             results.push({
-              name: subtitle.name,
+              name: follower.name,
               episode: group.episode,
               status: 'skipped',
-              reason: `没有导入，因为 ${group.audio.name} 没有导入成功`,
+              reason: `没有导入，因为 ${group.first.name} 没有导入成功`,
             })
             setOutcomes([...results])
             setDone(results.length)
