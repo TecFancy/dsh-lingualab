@@ -86,6 +86,8 @@ export function SubtitlePanel({
   const listRef = useRef<HTMLDivElement | null>(null)
   const activeRef = useRef<HTMLDivElement | null>(null)
   const selectedRef = useRef<HTMLDivElement | null>(null)
+  // The row's loop button shows the same state as the control bar's: on for the sentence that is looping.
+  const loopingSentence = useMediaPlayer((state) => state.loopMode === 'sentence')
 
   // Follow playback, but never fight the reader: nothing moves while the active row is
   // already in the middle band, and nothing moves at all once follow is switched off.
@@ -130,6 +132,7 @@ export function SubtitlePanel({
             const isSelected = index === selectedIndex
             const kept = notedIndexes.has(index)
             const lines = visibleCueLines(cue.text, zhMode, isActive)
+            const looping = loopingSentence && isActive
             return (
               <div
                 key={`${cue.start}-${index}`}
@@ -151,14 +154,15 @@ export function SubtitlePanel({
                 <span className={`dsh-lingualab-row-actions${kept ? ' is-kept' : ''}`}>
                   <button
                     type="button"
-                    className="dsh-lingualab-icon-btn is-small"
+                    className={`dsh-lingualab-icon-btn is-small${looping ? ' is-on' : ''}`}
                     title={t('loopSentence')}
+                    aria-pressed={looping}
                     onClick={(event) => {
                       // The row itself plays; the loop button must not also seek, or the
                       // click would land twice and the second one would win.
                       event.stopPropagation()
                       onSelect(index)
-                      useMediaPlayer.getState().loopSentence(index)
+                      useMediaPlayer.getState().toggleSentenceLoop(index)
                     }}
                   >
                     <LoopIcon />

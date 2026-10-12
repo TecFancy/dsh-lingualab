@@ -57,6 +57,25 @@ describe('a finished repeat count', () => {
   })
 })
 
+describe("a row's loop button", () => {
+  it('loops its sentence, stops on a second press, and keeps playing', () => {
+    const store = useMediaPlayer.getState()
+    store.toggleSentenceLoop(1)
+    expect(useMediaPlayer.getState()).toMatchObject({ loopMode: 'sentence', activeIndex: 1, isPlaying: true })
+    useMediaPlayer.getState().toggleSentenceLoop(1)
+    expect(useMediaPlayer.getState()).toMatchObject({ loopMode: 'none', activeIndex: 1, isPlaying: true })
+  })
+
+  it('moves the loop when another sentence is looping, and ends an A-B loop', () => {
+    useMediaPlayer.getState().loopSentence(0)
+    useMediaPlayer.getState().toggleSentenceLoop(1)
+    expect(useMediaPlayer.getState()).toMatchObject({ loopMode: 'sentence', activeIndex: 1 })
+    useMediaPlayer.getState().setLoopMode('ab')
+    useMediaPlayer.getState().toggleSentenceLoop(1)
+    expect(useMediaPlayer.getState().loopMode).toBe('sentence')
+  })
+})
+
 describe('the speed button', () => {
   it('wraps from the fastest preset back to the slowest instead of sticking', () => {
     const last = SPEED_PRESETS.length - 1
