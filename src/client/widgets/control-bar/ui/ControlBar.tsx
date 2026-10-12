@@ -3,8 +3,8 @@
  *
  * It sits under the sentence rather than in a bar of its own, because "play this
  * sentence again" and "which sentence" are one thought. Only the controls used every
- * minute stay on the row: sentence steps, play, speed, loop-this-sentence, and the
- * Chinese display. Everything that is a setup step rather than a gesture (the A and
+ * minute stay on the row: sentence steps, play, speed, loop-this-sentence, the
+ * Chinese display, and the 「字幕」 popover that picks the files. Everything that is a setup step rather than a gesture (the A and
  * B marks, how many times an A-B loop repeats, the lead-in) lives in the 「更多」 menu, because a
  * row of thirteen controls was the reason a first-time reader did not know which one
  * to press.
@@ -18,7 +18,9 @@ import { LEAD_IN_CHOICES, SPEED_PRESETS, useMediaPlayer } from '../../../feature
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import type { Picture } from '../../../features/settings/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
+import { isHandPicked } from '../../../features/subtitle-choice/index.ts'
 import { Scrubber } from './Scrubber.tsx'
+import { SubtitleMenu, type SubtitleControl } from './SubtitleMenu.tsx'
 import {
   LoopIcon,
   MicIcon,
@@ -85,13 +87,15 @@ export interface ControlBarProps {
   readonly onRetime: () => void
   /** The picture button, present only when the segment has a video to show. */
   readonly picture?: PictureControl | null
+  /** The 「字幕」 button, present while an episode is open. */
+  readonly subtitles?: SubtitleControl | null
   readonly disabled?: boolean
 }
 
 /** What the page can ask of the bar from its own key handler. */
 export interface ControlBarHandle {
   /**
-   * Close the 「更多」 menu if it is open, and put focus back on its button.
+   * Close the 「更多」 menu or the 「字幕」 popover if one is open, and put focus back on its button.
    *
    * @returns Whether a menu was closed, so the page knows the Escape was spent on it.
    */
@@ -100,7 +104,7 @@ export interface ControlBarHandle {
 
 /** The row under the sentence. */
 export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function ControlBar(
-  { t, zhMode, onZhMode, kept, onToggleKeep, onRetime, picture = null, disabled = false },
+  { t, zhMode, onZhMode, kept, onToggleKeep, onRetime, picture = null, subtitles = null, disabled = false },
   handle,
 ) {
   const isPlaying = useMediaPlayer((state) => state.isPlaying)
@@ -115,12 +119,25 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
   const moreButton = useRef<HTMLButtonElement>(null)
+  // The popover remembers which episode and segment it was opened for: another one is another
+  // choice, so the popover closes by itself rather than edit the wrong one.
+  const subsTarget = subtitles === null ? null : JSON.stringify([subtitles.episode, subtitles.segment])
+  const [subsOpenFor, setSubsOpenFor] = useState<string | null>(null)
+  const subsOpen = subsOpenFor !== null && subsOpenFor === subsTarget
+  const setSubsOpen = (open: boolean): void => setSubsOpenFor(open ? subsTarget : null)
+  const subsHolder = useRef<HTMLSpanElement>(null)
+  const subsButton = useRef<HTMLButtonElement>(null)
   const store = useMediaPlayer.getState
 
   // Escape belongs to the menu first: the page asks here before it spends the key on
   // anything else, so one press closes one thing. Focus goes back to the button that
   // opened it, which is where a keyboard reader expects to be.
   const closeMenu = (): boolean => {
+    if (subsOpen) {
+      setSubsOpen(false)
+      subsButton.current?.focus({ preventScroll: true })
+      return true
+    }
     if (!menu) return false
     setMenu(false)
     moreButton.current?.focus({ preventScroll: true })
@@ -137,6 +154,14 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
     window.addEventListener('mousedown', onDown)
     return () => window.removeEventListener('mousedown', onDown)
   }, [menu])
+  useEffect(() => {
+    if (!subsOpen) return
+    const onDown = (event: MouseEvent): void => {
+      if (subsHolder.current !== null && !subsHolder.current.contains(event.target as Node)) setSubsOpenFor(null)
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [subsOpen])
 
   const abOn = pointA !== null || pointB !== null
 
@@ -225,6 +250,33 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           >
             {t(ZH_MODE_KEYS[zhMode])}
           </button>
+          {subtitles === null ? null : (
+            <span
+              className="dsh-lingualab-menu-holder"
+              ref={subsHolder}
+              onKeyDown={(event: ReactKeyboardEvent<HTMLSpanElement>) => {
+                if (event.key !== 'Escape' || !closeMenu()) return
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <button
+                ref={subsButton}
+                type="button"
+                className={`dsh-lingualab-bar-btn${subsOpen || isHandPicked(subtitles.state?.choice) ? ' is-on' : ''}${(subtitles.state?.missing.length ?? 0) > 0 ? ' is-warn' : ''}`}
+                onClick={() => {
+                  setMenu(false)
+                  setSubsOpen(!subsOpen)
+                }}
+                title={(subtitles.state?.missing.length ?? 0) > 0 ? t('subtitleMissing') : t('subtitleChooseHint')}
+                aria-expanded={subsOpen}
+                aria-haspopup="dialog"
+              >
+                {t('subtitleChoose')}
+              </button>
+              {subsOpen ? <SubtitleMenu t={t} control={subtitles} onClose={() => setSubsOpen(false)} /> : null}
+            </span>
+          )}
 
           <button
             type="button"
@@ -252,7 +304,10 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           ref={moreButton}
           type="button"
           className={`dsh-lingualab-bar-btn${menu || abOn ? ' is-on' : ''}`}
-          onClick={() => setMenu(!menu)}
+          onClick={() => {
+            setSubsOpen(false)
+            setMenu(!menu)
+          }}
           disabled={disabled}
           title={t('more')}
           aria-expanded={menu}

@@ -70,6 +70,10 @@
       },
       {
         "kind": "exact",
+        "path": "/lingualab/subtitle-choice"
+      },
+      {
+        "kind": "exact",
         "path": "/lingualab/review"
       },
       {

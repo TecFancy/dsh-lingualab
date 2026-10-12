@@ -177,6 +177,8 @@ describe('the access check, in front of every route', () => {
     ['GET', '/lingualab/progress'],
     ['POST', '/lingualab/progress'],
     ['POST', '/lingualab/subtitle-timing'],
+    ['GET', '/lingualab/subtitle-choice?episode=E1'],
+    ['POST', '/lingualab/subtitle-choice'],
     ['GET', '/lingualab/review'],
     ['GET', '/lingualab/video?episode=E1'],
     ['POST', '/lingualab/video-prepare'],

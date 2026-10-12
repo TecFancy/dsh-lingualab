@@ -395,6 +395,12 @@ export const STYLES = `
   font-variant-numeric:tabular-nums}
 .dsh-lingualab-menu-keys dd{margin:0}
 .dsh-lingualab-menu-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+/* The 「字幕」 popover: a slot per row, the file lists as wide as the popover lets them be. */
+.dsh-lingualab-menu.is-subs{width:340px;max-width:calc(100vw - 32px)}
+.dsh-lingualab-subs-select{flex:1;min-width:0;max-width:240px;justify-content:flex-start;text-overflow:ellipsis}
+.dsh-lingualab-subs-note{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-actions.is-end{justify-content:flex-end}
+.dsh-lingualab-bar-btn.is-warn{border-color:var(--dsw-alias-state-warn-primary,#f59e0b);color:var(--dsw-alias-state-warn-primary,#f59e0b)}
 
 /* The scrubber. The hit area is 22px tall and the rail 6px, so it is easy to land on. */
 .dsh-lingualab-scrub{display:flex;align-items:center;gap:12px;width:100%}

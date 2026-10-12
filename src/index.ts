@@ -44,6 +44,7 @@ import { findPlace, listPlaces, placesPayload, resolveInPlace } from './host/pla
 import { readProgressFile, writeProgressFile, type ProgressRead } from './host/progress.ts'
 import { readReview } from './host/review.ts'
 import { parseState, serializeState, type OpenState } from './host/state.ts'
+import { readSubtitleChoice, refuse as refuseChoice, saveSubtitleChoice } from './host/subtitle-choice-route.ts'
 import { writeTiming } from './host/timing.ts'
 import { createVideoJobs, type VideoJobs } from './host/video-jobs.ts'
 import { prepareVideo, videoStatus, type VideoDeps } from './host/video.ts'
@@ -60,6 +61,7 @@ import {
   PLACES_PATH,
   PROGRESS_PATH,
   REVIEW_PATH,
+  SUBTITLE_CHOICE_PATH,
   SUBTITLE_TIMING_PATH,
   VIDEO_CANCEL_PATH,
   VIDEO_PATH,
@@ -616,6 +618,48 @@ function timingRoute(ctx: HostContext, configured: () => string, readState: () =
   }
 }
 
+/**
+ * `GET` and `POST /lingualab/subtitle-choice`: which subtitle files one episode or segment plays with.
+ *
+ * A `POST` for a folder episode writes one hidden file into the episode folder, and for a file episode
+ * changes its record in the plugin state; `host/subtitle-choice-route.ts` holds the rules. Admitted by
+ * `guarded` like every route.
+ */
+function subtitleChoiceRoute(
+  ctx: HostContext,
+  configured: () => string,
+  readState: () => OpenState,
+  writeState: (next: OpenState) => Promise<void>,
+): WebRoute {
+  return {
+    kind: 'exact',
+    path: SUBTITLE_CHOICE_PATH,
+    handler: async (req, res) => {
+      if (!methodAllowed(req, res, ['GET', 'POST'])) return
+      const root = resolveRoot(ctx, configured()).root
+      const state = readState()
+      if ((req.method ?? 'GET') === 'GET') {
+        const url = new URL(req.url ?? SUBTITLE_CHOICE_PATH, 'http://lingualab.invalid')
+        const segment = url.searchParams.get('segment')
+        const result = readSubtitleChoice(root, state, url.searchParams.get('episode') ?? '', segment === null || segment.length === 0 ? undefined : segment)
+        sendJson(res, result.status, result.payload)
+        return
+      }
+      let body: unknown
+      try {
+        body = await readJsonBody(req)
+      } catch (error) {
+        const refused = refuseChoice(state, 400, `请求体读不了：${String(error)}`)
+        sendJson(res, refused.status, refused.payload)
+        return
+      }
+      const result = saveSubtitleChoice(root, state, body)
+      if (result.state !== state) await writeState(result.state)
+      sendJson(res, result.status, result.payload)
+    },
+  }
+}
+
 /** The video questions every video route asks, built from what is true now. */
 function videoDeps(ctx: HostContext, configured: () => string, ffmpegPath: () => string, jobs: VideoJobs): VideoDeps {
   return {
@@ -770,6 +814,7 @@ export function apply(ctx: HostContext, config: Config): void {
     reviewRoute(ctx, configured, readState),
     progressRoute(ctx, configured),
     timingRoute(ctx, configured, readState),
+    subtitleChoiceRoute(ctx, configured, readState, writeState),
     videoRoute(ctx, configured, ffmpegPath, jobs),
     videoPrepareRoute(ctx, configured, ffmpegPath, jobs),
     videoCancelRoute(jobs),

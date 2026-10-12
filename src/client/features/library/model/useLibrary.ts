@@ -78,11 +78,13 @@ const NO_TRACKS: SubtitleTracks = { english: null, chinese: null }
 interface LoadedCues {
   /** `cuesOwner` of what the cues were parsed from. */
   readonly owner: string | null
+  /** `subtitleKey` of the files they were parsed from, so a new choice of files hands out nothing until they are read. */
+  readonly key: string | null
   readonly cues: readonly Cue[]
   readonly tracks: SubtitleTracks
 }
 
-const NOTHING_LOADED: LoadedCues = { owner: null, cues: [], tracks: NO_TRACKS }
+const NOTHING_LOADED: LoadedCues = { owner: null, key: null, cues: [], tracks: NO_TRACKS }
 
 /** What an episode without segments hands out for its segment list: one list, not a new one per render. */
 const NO_SEGMENTS: readonly EpisodeSegment[] = []
@@ -196,14 +198,19 @@ export function useLibrary(): LibraryState {
     void (async () => {
       setCuesLoading(true)
       try {
-        const enName = track.subtitleEn ?? ''
+        // A Chinese track with no English one (the reader chose 「不用」 for English) is the list itself:
+        // the merge only folds Chinese into English cues, and would otherwise hand out nothing.
+        const alone = enUrl === null
+        const enName = (alone ? track.subtitleZh : track.subtitleEn) ?? ''
         const zhName = track.subtitleZh ?? ''
-        const english = enUrl === null ? null : await fetchSubtitle(enUrl, enName)
-        const chinese = zhUrl === null || zhUrl === enUrl ? null : await fetchSubtitle(zhUrl, zhName)
+        const firstUrl = enUrl ?? zhUrl
+        const english = firstUrl === null ? null : await fetchSubtitle(firstUrl, enName)
+        const chinese = alone || zhUrl === null || zhUrl === enUrl ? null : await fetchSubtitle(zhUrl, zhName)
         if (cancelled) return
         parsedKey.current = key
         setLoaded({
           owner,
+          key,
           cues: mergeBilingual(english?.cues ?? [], chinese?.cues ?? []),
           tracks: {
             english: english === null ? null : { file: enName, hash: english.hash },
@@ -215,7 +222,7 @@ export function useLibrary(): LibraryState {
         if (cancelled) return
         // `loaded` no longer holds what the key names, so the next open must parse again.
         parsedKey.current = null
-        setLoaded({ owner, cues: [], tracks: NO_TRACKS })
+        setLoaded({ owner, key, cues: [], tracks: NO_TRACKS })
         setError(String(cause))
       } finally {
         if (!cancelled) setCuesLoading(false)
@@ -274,8 +281,12 @@ export function useLibrary(): LibraryState {
     setCuesToken((token) => token + 1)
   }, [])
 
-  // Only the cues that belong to the episode and segment on screen are ever handed out.
-  const current = episode !== null && loaded.owner === owner
+  // Only the cues that belong to the episode and segment on screen, and to the files it plays now, are
+  // ever handed out. The files change under the same segment when the reader picks other subtitles; the
+  // old sentences handed out while the new ones are read would let the page resume on them and then
+  // lose the position when the new list resets the player.
+  const filesKey = episode === null || media === null ? null : subtitleKey(episode, media, segment)
+  const current = episode !== null && loaded.owner === owner && loaded.key === filesKey
   const cues = current ? loaded.cues : NO_CUES
   const tracks = current ? loaded.tracks : NO_TRACKS
 

@@ -83,6 +83,19 @@ export const PROGRESS_PATH = '/lingualab/progress'
  */
 export const SUBTITLE_TIMING_PATH = '/lingualab/subtitle-timing'
 
+/**
+ * Which subtitle files one episode (or one of its segments) plays with, chosen by hand.
+ *
+ * `GET` answers for one episode and segment (`episode` and `segment` in the query) with the choice,
+ * what the name rule would pick, and the subtitle files there are to choose from. `POST` saves a choice
+ * and answers the same way. A folder episode keeps its choices in {@link SUBTITLE_CHOICE_FILE} inside
+ * the folder; a file episode keeps its choice in its record in the plugin state.
+ */
+export const SUBTITLE_CHOICE_PATH = '/lingualab/subtitle-choice'
+
+/** The hidden file in an episode folder that holds the subtitle choices of its segments. */
+export const SUBTITLE_CHOICE_FILE = '.lingualab-subtitles.json'
+
 /** The shortest a cue may be made, in milliseconds: shorter, a sentence loop is a click. */
 export const MIN_CUE_MS = 200
 
@@ -163,6 +176,36 @@ export interface VideoRef {
   readonly state: 'ready' | 'sound' | 'unprepared'
 }
 
+/** One of the two subtitle slots an episode plays with. */
+export type SubtitleSlot = 'en' | 'zh'
+
+/**
+ * What one slot holds: left to the name rule (`auto`, the default), one subtitle file, or no track.
+ *
+ * Picking the same bilingual file for both slots is the bilingual case, as when the rule finds one.
+ */
+export type SubtitlePick =
+  | { readonly kind: 'auto' }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'file'; readonly file: string }
+
+/** A hand-made choice for both slots. */
+export interface SubtitleChoice {
+  readonly en: SubtitlePick
+  readonly zh: SubtitlePick
+}
+
+/**
+ * A choice that is in force, as the scan reports it next to the files it resolved to.
+ *
+ * `missing` names the slots whose picked file is not there any more: they play what the name
+ * rule picks, and the choice is kept for when the file comes back.
+ */
+export interface SubtitleChoiceState {
+  readonly choice: SubtitleChoice
+  readonly missing: readonly SubtitleSlot[]
+}
+
 /**
  * One scene of a folder episode: a single audio file and the subtitles that belong to it.
  *
@@ -183,6 +226,8 @@ export interface EpisodeSegment {
   readonly audioBytes: number | null
   readonly subtitleEn: string | null
   readonly subtitleZh: string | null
+  /** The hand-made subtitle choice behind the two names above; absent while both slots are automatic. */
+  readonly subtitleChoice?: SubtitleChoiceState
   /** The video that goes with this segment, or `null`. */
   readonly video: VideoRef | null
 }
@@ -210,6 +255,11 @@ export interface EpisodeEntry {
   readonly subtitleEn: string | null
   /** Chinese subtitle file name, if one was found. */
   readonly subtitleZh: string | null
+  /**
+   * The hand-made subtitle choice behind the two names above; absent while both slots are automatic.
+   * With segments it mirrors the first one's, as the names do.
+   */
+  readonly subtitleChoice?: SubtitleChoiceState
   /** The video of the folder (or of its first segment, when it has segments); `null` for a file episode. */
   readonly video: VideoRef | null
   /**
@@ -625,6 +675,37 @@ export interface ImportPayload {
    * file or the folder and will repeat.
    */
   readonly retryable?: boolean
+}
+
+/** One subtitle file the choice can offer, with what its first bytes say about it. */
+export interface SubtitleCandidate {
+  readonly file: string
+  /** Whether the first few kilobytes carry Chinese, the same check the name rule falls back on. */
+  readonly cjk: boolean
+}
+
+/** `GET` and `POST /lingualab/subtitle-choice`. */
+export interface SubtitleChoicePayload {
+  readonly ok: boolean
+  readonly reason: string | null
+  /** The choice as it is stored; both slots `auto` when nothing was ever chosen. */
+  readonly choice: SubtitleChoice
+  /** What the name rule picks for each slot, which is what `auto` plays. */
+  readonly auto: { readonly en: string | null; readonly zh: string | null }
+  /** What plays now: the choice, with `auto` (and a picked file that is gone) resolved. */
+  readonly resolved: { readonly en: string | null; readonly zh: string | null }
+  /** The slots whose picked file is not there any more. */
+  readonly missing: readonly SubtitleSlot[]
+  /** The subtitle files to choose from, in natural order. */
+  readonly candidates: readonly SubtitleCandidate[]
+}
+
+/** `POST /lingualab/subtitle-choice` request body. */
+export interface SubtitleChoiceRequest {
+  readonly episode: string
+  /** The segment of a folder episode; omitted for an episode without segments. */
+  readonly segment?: string
+  readonly choice: SubtitleChoice
 }
 
 /** One cue's timing as a subtitle file writes it, in whole milliseconds. */

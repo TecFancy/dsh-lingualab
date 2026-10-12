@@ -118,8 +118,10 @@ function describePicked(options: {
   readonly openedAt: number
   readonly state: OpenState
 }): Described | { readonly reason: string } {
-  const description = describeAudioFile(options.path)
+  const description = describeAudioFile(options.path, options.state)
   if (description === null) return { reason: '读不了这个目录' }
+  // A choice made by hand outlives the open that refreshes everything else in the record.
+  const subtitles = findFileEpisode(options.state, description.id)?.subtitles
   return {
     entry: audioEntry(description, options.state),
     media: {
@@ -136,6 +138,7 @@ function describePicked(options: {
       audio: description.audio,
       subtitleEn: description.subtitleEn,
       subtitleZh: description.subtitleZh,
+      ...(subtitles === undefined ? {} : { subtitles }),
       openedAt: options.openedAt,
     },
   }
@@ -256,15 +259,23 @@ function openPicked(request: OpenRequest, deps: OpenDeps): OpenResult {
   return accept(described.entry, described.media, withOpenedFile(deps.state, described.record))
 }
 
+/** Whether the reader picked this file by hand for one of the record's slots. */
+function pickedIn(record: FileEpisodeRecord, name: string): boolean {
+  const choice = record.subtitles
+  if (choice === undefined) return false
+  return [choice.en, choice.zh].some((pick) => pick.kind === 'file' && pick.file === name)
+}
+
 /**
  * Resolve `/file-media/<id>/<name>` into a file this episode may serve.
  *
- * The name is checked against the record first — the audio and the two subtitle
- * files it was opened with — and then against the directory, for the case the
- * record cannot know about: a translation added after the episode was opened. What
- * is never allowed is a name that is not the audio's own stem, which is what keeps
- * this route from serving the rest of the reader's disk through an id they happen
- * to hold.
+ * The name is checked against the record first (the audio, the two subtitle files
+ * it was opened with, and the files the reader picked by hand), and then against
+ * the directory, for the case the record cannot know about: a translation added
+ * after the episode was opened. What is never allowed, beyond what the reader
+ * picked, is a name that is not the audio's own stem, which is what keeps this
+ * route from serving the rest of the reader's disk through an id they happen to
+ * hold.
  * @param state - the plugin state, which owns the id-to-path mapping.
  * @param requestPath - the path after `/lingualab/file-media`.
  * @returns the absolute path to send, or `null` to refuse.
@@ -287,7 +298,7 @@ export function resolveFileMedia(state: OpenState, requestPath: string): string 
   const record = findFileEpisode(state, id)
   if (record === null) return null
   const directory = dirname(record.path)
-  if (record.audio === name || record.subtitleEn === name || record.subtitleZh === name) {
+  if (record.audio === name || record.subtitleEn === name || record.subtitleZh === name || pickedIn(record, name)) {
     return join(directory, name)
   }
 

@@ -18,7 +18,8 @@
  * down. The panel can always be used; it just opens on the library default.
  */
 import { createHash } from 'node:crypto'
-import type { NotePhrase, NotesSummary, OpenRef } from '../shared/protocol.ts'
+import type { NotePhrase, NotesSummary, OpenRef, SubtitleChoice } from '../shared/protocol.ts'
+import { isAutomatic, sanitizeChoice } from './subtitle-choice.ts'
 
 /** Prefix that marks an episode id as one audio file rather than one folder. */
 export const FILE_EPISODE_PREFIX = 'file.'
@@ -44,6 +45,11 @@ export interface FileEpisodeRecord {
   readonly audio: string
   readonly subtitleEn: string | null
   readonly subtitleZh: string | null
+  /**
+   * The subtitle files the reader picked by hand, absent while both slots are automatic. Kept across
+   * opens, and the names it picks are served like the two above.
+   */
+  readonly subtitles?: SubtitleChoice
   /** Milliseconds since the epoch, used only to order eviction. */
   readonly openedAt: number
 }
@@ -150,6 +156,12 @@ function isText(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
+/** A record's stored choice, spread into it: nothing when it is missing, broken or automatic. */
+function subtitlesOf(value: unknown): { readonly subtitles?: SubtitleChoice } {
+  const choice = sanitizeChoice(value)
+  return choice === null || isAutomatic(choice) ? {} : { subtitles: choice }
+}
+
 /** Read one persisted record, or `null` when it is not one. */
 function readRecord(value: unknown): FileEpisodeRecord | null {
   if (typeof value !== 'object' || value === null) return null
@@ -165,6 +177,7 @@ function readRecord(value: unknown): FileEpisodeRecord | null {
     audio: record.audio,
     subtitleEn: typeof record.subtitleEn === 'string' ? record.subtitleEn : null,
     subtitleZh: typeof record.subtitleZh === 'string' ? record.subtitleZh : null,
+    ...subtitlesOf(record.subtitles),
     openedAt: typeof record.openedAt === 'number' && Number.isFinite(record.openedAt) ? record.openedAt : 0,
   }
 }

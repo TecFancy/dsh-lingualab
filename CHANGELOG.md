@@ -19,6 +19,15 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- Subtitles can be chosen by hand. A 「字幕」 button next to 「中文显示」 opens a popover with an English and a Chinese
+  slot, each left to the file names (the default), set to none, or set to any subtitle file in the folder, which is
+  marked with whether it has Chinese in it. A folder episode keeps its choice per segment in a hidden
+  `.lingualab-subtitles.json` in the folder, removed again when everything is back to the file names; an audio file
+  opened from a workspace keeps it in the plugin state. A picked file that disappears plays by name until it is back,
+  and the button says so. Saving reads the subtitles again and keeps the position.
+
 ### Fixed
 
 - An English-marked subtitle next to one unmarked file now pairs as English and Chinese. `MDJT S01E01-EN.srt` beside a

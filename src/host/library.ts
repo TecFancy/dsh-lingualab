@@ -34,11 +34,13 @@ import {
   type EpisodeSegment,
   type LibraryPayload,
   type OpenRef,
+  type SubtitleChoiceState,
 } from '../shared/protocol.ts'
 import { summarizeNotes } from '../shared/notes-format.ts'
 import { splitSegmentStem } from '../shared/stem.ts'
 import { mediaStemsOf, pairSubtitles, pickAudioFile, pickVideoFile, stemOf } from './pairing.ts'
 import { realPathOf } from './places.ts'
+import { applyChoice, choiceFor, readFolderChoices } from './subtitle-choice.ts'
 import { videoRefOf } from './video-cache.ts'
 import {
   EMPTY_STATE,
@@ -125,7 +127,8 @@ function sizeOf(path: string): number | null {
  * file as it always was; `lesson.mp3` next to `lesson.wav` is one stem, and the extension
  * preference of {@link pickAudioFile} picks between them. Each segment pairs its own subtitles by name,
  * and the longest stem owns a subtitle (see `classifySubtitles`), so the scan, the
- * picker and the open all agree about which file belongs to which scene.
+ * picker and the open all agree about which file belongs to which scene. A segment's hand-made
+ * choice (see `subtitle-choice.ts`) is laid over that answer, so the listing shows what will play.
  *
  * Exported because the notes writer needs the same order for the headings of `notes.md`.
  * @param folder - the absolute path of the episode folder.
@@ -135,12 +138,13 @@ function sizeOf(path: string): number | null {
 export function scanSegments(folder: string, names: readonly string[]): EpisodeSegment[] {
   const stems = mediaStemsOf(names).sort(compareIds)
   if (stems.length < 2) return []
+  const choices = readFolderChoices(folder)
   const segments: EpisodeSegment[] = []
   for (const stem of stems) {
     const audio = pickAudioFile(names.filter((name) => stemOf(name) === stem))
     const videoFile = pickVideoFile(names, stem)
     if (audio === null && videoFile === null) continue
-    const { en, zh } = pairSubtitles(names, { directory: folder, stem })
+    const { en, zh, state } = applyChoice(pairSubtitles(names, { directory: folder, stem }), choiceFor(choices, stem), names)
     segments.push({
       id: stem,
       index: segments.length + 1,
@@ -149,6 +153,7 @@ export function scanSegments(folder: string, names: readonly string[]): EpisodeS
       audioBytes: audio === null ? null : sizeOf(join(folder, audio)),
       subtitleEn: en,
       subtitleZh: zh,
+      ...(state === undefined ? {} : { subtitleChoice: state }),
       video: videoFile === null ? null : videoRefOf(folder, videoFile, stem),
     })
   }
@@ -164,10 +169,10 @@ export function scanEpisode(root: string, id: string, title: string): EpisodeEnt
   // segments still sees an episode it can play; without segments they come from the folder.
   const first = segments[0]
   const audio = first === undefined ? pickAudioFile(names) : first.audio
-  const { en, zh } =
+  const { en, zh, state } =
     first === undefined
-      ? pairSubtitles(names, { directory: folder })
-      : { en: first.subtitleEn, zh: first.subtitleZh }
+      ? applyChoice(pairSubtitles(names, { directory: folder }), choiceFor(readFolderChoices(folder), null), names)
+      : { en: first.subtitleEn, zh: first.subtitleZh, state: first.subtitleChoice }
   const audioBytes = first === undefined ? (audio === null ? null : sizeOf(join(folder, audio))) : first.audioBytes
   // A folder of one stem has its video under that stem, which is the audio file's when there is one.
   const stem = audio === null ? (mediaStemsOf(names)[0] ?? null) : stemOf(audio)
@@ -179,7 +184,20 @@ export function scanEpisode(root: string, id: string, title: string): EpisodeEnt
     ? summarizeNotes(readFileSync(notesPath, 'utf8'))
     : summarizeNotes(null)
 
-  return { id, title, audio, audioBytes, subtitleEn: en, subtitleZh: zh, video, segments, notes, kind: 'folder', source: folder }
+  return {
+    id,
+    title,
+    audio,
+    audioBytes,
+    subtitleEn: en,
+    subtitleZh: zh,
+    ...(state === undefined ? {} : { subtitleChoice: state }),
+    video,
+    segments,
+    notes,
+    kind: 'folder',
+    source: folder,
+  }
 }
 
 /** Everything one audio file turned out to be, before it is dressed as an episode. */
@@ -194,6 +212,8 @@ export interface AudioDescription {
   readonly bytes: number | null
   readonly subtitleEn: string | null
   readonly subtitleZh: string | null
+  /** The hand-made choice in the file's record, when there is one. */
+  readonly subtitleChoice?: SubtitleChoiceState
 }
 
 /**
@@ -202,11 +222,13 @@ export interface AudioDescription {
  * One home for "what is beside this file", used both by the library listing for the
  * loose files in the root and by the picker when it opens one. The subtitles are
  * paired by name and content, never cached, so adding a translation and reopening
- * the episode is enough to see it.
+ * the episode is enough to see it. A choice the reader made is kept in the file's record, and laid
+ * over that pairing here.
  * @param path - absolute path of the audio file.
+ * @param state - the plugin state, for the record's subtitle choice.
  * @returns the description, or `null` when the directory cannot be read.
  */
-export function describeAudioFile(path: string): AudioDescription | null {
+export function describeAudioFile(path: string, state: OpenState = EMPTY_STATE): AudioDescription | null {
   let names: string[]
   try {
     names = readdirSync(dirname(path)).filter((name) => !name.startsWith('.'))
@@ -223,15 +245,21 @@ export function describeAudioFile(path: string): AudioDescription | null {
   } catch {
     return null
   }
-  const pair = pairSubtitles(names, { directory: dirname(path), stem: stemOf(audio) })
+  const id = fileEpisodeIdFor(path)
+  const pair = applyChoice(
+    pairSubtitles(names, { directory: dirname(path), stem: stemOf(audio) }),
+    findFileEpisode(state, id)?.subtitles,
+    names,
+  )
   return {
-    id: fileEpisodeIdFor(path),
+    id,
     path,
     audio,
     title: stemOf(audio),
     bytes,
     subtitleEn: pair.en,
     subtitleZh: pair.zh,
+    ...(pair.state === undefined ? {} : { subtitleChoice: pair.state }),
   }
 }
 
@@ -244,6 +272,7 @@ export function audioEntry(description: AudioDescription, state: OpenState): Epi
     audioBytes: description.bytes,
     subtitleEn: description.subtitleEn,
     subtitleZh: description.subtitleZh,
+    ...(description.subtitleChoice === undefined ? {} : { subtitleChoice: description.subtitleChoice }),
     video: null,
     segments: [],
     notes: summarizePhrases(notesFor(state, description.id)),
@@ -256,7 +285,7 @@ export function audioEntry(description: AudioDescription, state: OpenState): Epi
 function scanLooseFiles(root: string, names: readonly string[], state: OpenState): EpisodeEntry[] {
   const files: EpisodeEntry[] = []
   for (const name of names.filter(isAudioName).sort(compareIds)) {
-    const description = describeAudioFile(realPathOf(join(root, name)))
+    const description = describeAudioFile(realPathOf(join(root, name)), state)
     if (description === null) continue
     files.push(audioEntry(description, state))
   }
@@ -302,7 +331,7 @@ function describeCurrent(
   if (record === null || !existsSync(record.path)) {
     return { currentEpisode: null, currentUnavailable: remembered }
   }
-  const description = describeAudioFile(record.path)
+  const description = describeAudioFile(record.path, state)
   if (description === null) return { currentEpisode: null, currentUnavailable: remembered }
   return { currentEpisode: audioEntry(description, state), currentUnavailable: null }
 }
