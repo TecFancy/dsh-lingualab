@@ -17,6 +17,7 @@ import {
   PLACES_PATH,
   PROGRESS_PATH,
   REVIEW_PATH,
+  SUBTITLE_CHOICE_PATH,
   SUBTITLE_TIMING_PATH,
   VIDEO_CANCEL_PATH,
   VIDEO_PATH,
@@ -32,6 +33,8 @@ import {
   type ProgressPayload,
   type ProgressTable,
   type ReviewPayload,
+  type SubtitleChoice,
+  type SubtitleChoicePayload,
   type TimingEdit,
   type TimingWritePayload,
   type VideoCancelPayload,
@@ -304,6 +307,48 @@ export async function saveSubtitleTiming(episode: string, edits: readonly Timing
     return typeof payload.ok === 'boolean' ? payload : { ok: false, code: 'refused', reason: '主机没有回答', files: [] }
   } catch (error) {
     return { ok: false, code: 'refused', reason: String(error), files: [] }
+  }
+}
+
+/** A choice answer that offers nothing, for a host that did not answer. */
+const NO_CHOICE = (reason: string): SubtitleChoicePayload => ({
+  ok: false,
+  reason,
+  choice: { en: { kind: 'auto' }, zh: { kind: 'auto' } },
+  auto: { en: null, zh: null },
+  resolved: { en: null, zh: null },
+  missing: [],
+  candidates: [],
+})
+
+/** Read a choice answer, or the refusal a host that did not answer amounts to. */
+async function readChoice(response: Response): Promise<SubtitleChoicePayload> {
+  const payload = (await response.json()) as SubtitleChoicePayload
+  return typeof payload.ok === 'boolean' ? payload : NO_CHOICE('主机没有回答')
+}
+
+/** The subtitle choice of one episode, or of one of its segments, with the files to choose from. */
+export async function fetchSubtitleChoice(episode: string, segment: string | null): Promise<SubtitleChoicePayload> {
+  const params = new URLSearchParams({ episode })
+  if (segment !== null) params.set('segment', segment)
+  try {
+    return await readChoice(await fetch(`${SUBTITLE_CHOICE_PATH}?${params.toString()}`, { headers: { accept: 'application/json' } }))
+  } catch (error) {
+    return NO_CHOICE(String(error))
+  }
+}
+
+/** Save the subtitle choice of one episode or segment; the answer is the choice now in force. */
+export async function saveSubtitleChoice(episode: string, segment: string | null, choice: SubtitleChoice): Promise<SubtitleChoicePayload> {
+  try {
+    const response = await fetch(SUBTITLE_CHOICE_PATH, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ episode, ...(segment === null ? {} : { segment }), choice }),
+    })
+    return await readChoice(response)
+  } catch (error) {
+    return NO_CHOICE(String(error))
   }
 }
 

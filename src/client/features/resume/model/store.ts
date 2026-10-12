@@ -1,9 +1,10 @@
 /**
  * This browser's cache of the reader's progress.
  *
- * The host holds the shared copy (see `src/host/progress.ts`); this is what the page reads
- * and writes synchronously, so the home page never waits on a request and a closed tab
- * loses nothing the host had not yet seen. Two keys, both whole tables:
+ * The host holds the shared copy (see `src/host/features/progress/model/progress.ts`);
+ * this is what the page reads and writes synchronously, so the home page never waits on a
+ * request and a closed tab loses nothing the host had not yet seen. Two keys, both whole
+ * tables:
  *
  *   · `dsh-lingualab:progress` — listening position per episode, the shape this plugin has
  *     always stored, so an existing bookmark survives the upgrade;

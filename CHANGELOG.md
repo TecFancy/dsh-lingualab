@@ -19,6 +19,33 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-12
+
+### Added
+
+- Subtitles can be chosen by hand. A 「字幕」 button next to 「中文显示」 opens a popover with an English and a Chinese
+  slot, each left to the file names (the default), set to none, or set to any subtitle file in the folder, which is
+  marked with whether it has Chinese in it. A folder episode keeps its choice per segment in a hidden
+  `.lingualab-subtitles.json` in the folder, removed again when everything is back to the file names; an audio file
+  opened from a workspace keeps it in the plugin state. A picked file that disappears plays by name until it is back,
+  and the button says so. Saving reads the subtitles again and keeps the position.
+
+### Changed
+
+- 「中文显示」 is remembered. It is kept with the other settings in this browser, so "English only" stays chosen after a
+  reload instead of starting at 「变淡」 every time.
+- The host half is organised in FSD layers like the client: `src/host/` is `shared`, `entities` and `features`, each
+  route sits in its feature beside the rules it calls, and `npm run lint:fsd` runs Steiger on both halves. Nothing the
+  reader sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
+
+### Fixed
+
+- The loop button on a subtitle row now shows and toggles the same loop as 「循环本句」 in the control bar. It used to
+  stay unlit while that sentence looped, and a second press started the loop again instead of stopping it.
+- An English-marked subtitle next to one unmarked file now pairs as English and Chinese. `MDJT S01E01-EN.srt` beside a
+  bilingual `MDJT S01E01.srt` used to open with the English track only, while the episode list said "EN + ZH". The
+  unmarked file is now the Chinese track; when there are several, the first with Chinese characters in it.
+
 ## [0.8.1] - 2026-10-12
 
 ### Fixed

@@ -143,6 +143,11 @@ export interface MediaPlayerState {
   nextSpeedWrapping: () => void
   setLoopMode: (mode: LoopMode) => void
   loopSentence: (index?: number) => void
+  /**
+   * A row's loop button: stop when that sentence is the one looping, otherwise loop it (moving the loop
+   * over from another sentence, or out of an A-B loop).
+   */
+  toggleSentenceLoop: (index: number) => void
   setPoint: (which: 'a' | 'b') => void
   clearAB: () => void
   setRepeats: (repeats: number) => void
@@ -374,6 +379,12 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
     set({ activeIndex: target, loopMode: 'sentence', playsDone: 0, editWindow: null })
     get().seekCue(target)
     set({ isPlaying: true })
+  },
+
+  toggleSentenceLoop: (index) => {
+    const state = get()
+    if (state.loopMode === 'sentence' && state.activeIndex === index) state.setLoopMode('none')
+    else state.loopSentence(index)
   },
 
   setPoint: (which) => {

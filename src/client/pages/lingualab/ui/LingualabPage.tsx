@@ -35,7 +35,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
@@ -78,7 +78,13 @@ import { STYLES } from '../../../shared/lib/styles.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
 import { Segmented } from '../../../shared/ui/Segmented.tsx'
-import { ControlBar, nextZhMode, type ControlBarHandle, type PictureControl } from '../../../widgets/control-bar/index.ts'
+import {
+  ControlBar,
+  nextZhMode,
+  type ControlBarHandle,
+  type PictureControl,
+  type SubtitleControl,
+} from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
@@ -151,7 +157,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const folderNames = useMemo(() => (library.payload?.episodes ?? []).map((entry) => entry.id), [library.payload])
   const importer = useImport(library.reload, folderNames)
   const [view, setView] = useState<View>('home')
-  const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
+  // 「中文显示」 is a setting: it is remembered in this browser with the theme and the stage size.
+  const zhMode = useSettings((state) => state.zhMode)
+  const setZhMode = useSettings((state) => state.setZhMode)
   const [layer, setLayer] = useState<Layer>('none')
   const [column, setColumn] = useState<Column>('transcript')
   const [review, setReview] = useState<ReviewSession | null>(null)
@@ -615,6 +623,22 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     library.reloadCues()
   }, [library])
 
+  /**
+   * After the 「字幕」 popover saved a choice: open the same episode and segment again, so the host
+   * hands out the files the choice resolves to, and stay where the playhead is, as after a timing save.
+   * The listing is read again too, so the home's marks say what will play.
+   */
+  const onSubtitlesSaved = useCallback((): void => {
+    if (episodeId === null) return
+    resumeAt.current = useMediaPlayer.getState().currentTime
+    resumeLoop.current = false
+    resumeText.current = null
+    void library.openEpisode(episodeId, segmentId ?? undefined).then((opened) => {
+      if (!opened) resumeAt.current = null
+      library.refreshListing()
+    })
+  }, [episodeId, segmentId, library])
+
   const timing = useTimingEditor({
     cues,
     tracks: library.tracks,
@@ -1050,6 +1074,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const pictureControl: PictureControl | null = hasVideoFile
     ? { mode: picture, onCycle: () => useSettings.getState().cyclePicture() }
     : null
+  const subtitleControl: SubtitleControl | null =
+    episode === null
+      ? null
+      : { episode: episode.id, segment: segmentId, state: (segment ?? episode).subtitleChoice, onSaved: onSubtitlesSaved }
   // The selection is an index into the cue list, and the list changes under it when
   // the episode does; clamping here is cheaper than resetting it from an effect.
   const selectedIndex =
@@ -1300,6 +1328,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   onToggleKeep={() => keep()}
                   onRetime={openTiming}
                   picture={pictureControl}
+                  subtitles={subtitleControl}
                   disabled={!canPlay || cues.length === 0}
                 />
                 <KeyHints t={t} flash={flashed} active={focused} video={hasVideoFile} />

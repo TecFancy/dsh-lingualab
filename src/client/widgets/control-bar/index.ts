@@ -6,3 +6,4 @@ export {
   type ControlBarProps,
   type PictureControl,
 } from './ui/ControlBar.tsx'
+export type { SubtitleControl } from './ui/SubtitleMenu.tsx'
