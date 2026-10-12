@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-12
+
 ### Added
 
 - Subtitles can be chosen by hand. A 「字幕」 button next to 「中文显示」 opens a popover with an English and a Chinese
