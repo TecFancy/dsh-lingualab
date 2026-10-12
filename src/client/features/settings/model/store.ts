@@ -1,6 +1,6 @@
 /**
- * The page's settings: the colour theme, whether it follows the host's day and night, and the size
- * of the sentence on stage.
+ * The page's settings: the colour theme, whether it follows the host's day and night, the size of the
+ * sentence on stage, how the Chinese lines are shown and how the video's picture is.
  *
  * They are preferences of the reader about how the page looks, so they live in this browser and
  * nowhere else: `localStorage` under one JSON key, the same place the lead-in is remembered.
@@ -13,6 +13,7 @@
  * bad field does not throw away the others.
  */
 import { create } from 'zustand'
+import { DEFAULT_SUBTITLE_ZH_MODE, SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import {
   DEFAULT_PICTURE,
   PICTURES,
@@ -39,6 +40,8 @@ export interface Settings {
   readonly theme: ThemeId
   readonly appearance: Appearance
   readonly stageSize: StageSize
+  /** 「中文显示」: how the Chinese lines are shown, on stage and in the subtitle list. */
+  readonly zhMode: SubtitleZhMode
   /** How the video's picture is shown; it only matters for a segment that has a playable video. */
   readonly picture: Picture
 }
@@ -48,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   appearance: 'auto',
   stageSize: 'm',
+  zhMode: DEFAULT_SUBTITLE_ZH_MODE,
   picture: DEFAULT_PICTURE,
 }
 
@@ -70,6 +74,7 @@ export function parseSettings(raw: string | null): Settings {
     theme: pick(THEME_IDS, record.theme, DEFAULT_SETTINGS.theme),
     appearance: pick(APPEARANCES, record.appearance, DEFAULT_SETTINGS.appearance),
     stageSize: pick(STAGE_SIZES, record.stageSize, DEFAULT_SETTINGS.stageSize),
+    zhMode: pick(SUBTITLE_ZH_MODES, record.zhMode, DEFAULT_SETTINGS.zhMode),
     picture: pick(PICTURES, record.picture, DEFAULT_SETTINGS.picture),
   }
 }
@@ -92,6 +97,7 @@ function writeSettings(settings: Settings): void {
         theme: settings.theme,
         appearance: settings.appearance,
         stageSize: settings.stageSize,
+        zhMode: settings.zhMode,
         picture: settings.picture,
       }),
     )
@@ -109,6 +115,8 @@ export interface SettingsState extends Settings {
   setTheme: (theme: ThemeId) => void
   setAppearance: (appearance: Appearance) => void
   setStageSize: (size: StageSize) => void
+  /** 「中文显示」 and its shortcut. */
+  setZhMode: (mode: SubtitleZhMode) => void
   /** The reader chose a picture state (the button, the notice's 「撤销」): it is kept, and wins over the steps. */
   setPicture: (picture: Picture) => void
   /** `V`: the next state. */
@@ -138,6 +146,7 @@ export const useSettings = create<SettingsState>((set, get) => {
     setTheme: (theme) => change({ theme: pick(THEME_IDS, theme, get().theme) }),
     setAppearance: (appearance) => change({ appearance: pick(APPEARANCES, appearance, get().appearance) }),
     setStageSize: (size) => change({ stageSize: pick(STAGE_SIZES, size, get().stageSize) }),
+    setZhMode: (mode) => change({ zhMode: pick(SUBTITLE_ZH_MODES, mode, get().zhMode) }),
     setPicture: (picture) => applyPicture(choose(pick(PICTURES, picture, get().picture))),
     cyclePicture: () => applyPicture(choose(nextPicture(get().picture))),
     blindStarted: () => {

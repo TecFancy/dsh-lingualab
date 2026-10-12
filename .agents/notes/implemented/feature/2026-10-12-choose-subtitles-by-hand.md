@@ -1,6 +1,6 @@
 # Agent Note: choose an episode's subtitles by hand
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -19,9 +19,9 @@ asks. Two things follow from that.
   carries the rest, and it cannot tell two English files apart.
 
 The question raised on 2026-10-12 was whether the reader should pick the subtitles by hand instead.
-The evaluation below was accepted the same day: the feature is planned, not built yet.
+The evaluation below was accepted the same day, and all three parts were built that day too.
 
-## Proposal
+## Decision
 
 **A hand-picked choice overrides the automatic pairing; it does not replace it.** The rule still
 answers for every episode nobody has looked at: the home cards and their "EN + ZH" badges, the picker,
@@ -56,7 +56,7 @@ check: a naming it does not handle is solved by picking by hand, not by another 
   files that were picked) and notes (keyed by time) all work on `subtitleEn` and `subtitleZh` and do not
   care how those were decided.
 
-Two smaller changes go with this and are tracked here so they are not lost:
+Two smaller changes go with this and were tracked here so they were not lost:
 
 - **Fix the S01E01 branch first.** One English-marked file and one unmarked file should pair as English
   and Chinese, as the picker's hint already says. This is a bug fix with a test of its own and does not
@@ -96,6 +96,14 @@ The evaluation left two questions open; both were settled when the plan was acce
 - **No "apply to all segments" yet.** Each segment is chosen on its own. Scene folders are usually named
   consistently, so the rule rarely fails for one scene and not the rest; the action is added when a
   folder needs it.
+
+One more was settled while building it.
+
+- **Cues are handed out only for the files they were read from.** After a save the page opens the same
+  episode again and puts the position back. The first build put it back onto the previous cue list,
+  which was still on screen while the new files were read, and the new list then started the player
+  from 0. The library now keys the cues it has read by the files they came from and hands out nothing
+  until the key matches, so the position waits for the new subtitles.
 
 Related: [one episode, many segments](../../implemented/feature/2026-10-11-one-episode-many-segments.md),
 [edit a sentence's timing](../../implemented/feature/2026-10-11-edit-subtitle-timing.md),

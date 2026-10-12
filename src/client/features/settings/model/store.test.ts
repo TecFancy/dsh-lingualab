@@ -17,25 +17,28 @@ describe('parseSettings', () => {
   })
 
   it('reads a complete, valid record back', () => {
-    expect(parseSettings('{"theme":"paper","appearance":"dark","stageSize":"l","picture":"large"}')).toEqual({
+    expect(parseSettings('{"theme":"paper","appearance":"dark","stageSize":"l","zhMode":"hidden","picture":"large"}')).toEqual({
       theme: 'paper',
       appearance: 'dark',
       stageSize: 'l',
+      zhMode: 'hidden',
       picture: 'large',
     })
   })
 
   it('falls back field by field, keeping the valid ones', () => {
-    expect(parseSettings('{"theme":"neon","appearance":"light","stageSize":"xl","picture":"huge"}')).toEqual({
+    expect(parseSettings('{"theme":"neon","appearance":"light","stageSize":"xl","zhMode":"faint","picture":"huge"}')).toEqual({
       theme: 'dsh',
       appearance: 'light',
       stageSize: 'm',
+      zhMode: 'dim',
       picture: 'shown',
     })
     expect(parseSettings('{"theme":"dusk","appearance":3}')).toEqual({
       theme: 'dusk',
       appearance: 'auto',
       stageSize: 'm',
+      zhMode: 'dim',
       picture: 'shown',
     })
   })
@@ -76,9 +79,18 @@ describe('the store', () => {
       theme: 'ink',
       appearance: 'dark',
       stageSize: 's',
+      zhMode: 'dim',
       picture: 'shown',
     })
-    expect(readSettings()).toEqual({ theme: 'ink', appearance: 'dark', stageSize: 's', picture: 'shown' })
+    expect(readSettings()).toEqual({ theme: 'ink', appearance: 'dark', stageSize: 's', zhMode: 'dim', picture: 'shown' })
+  })
+
+  it('remembers 「中文显示」 across a reload, and refuses a mode that is not one', () => {
+    expect(useSettings.getState().zhMode).toBe('dim')
+    useSettings.getState().setZhMode('hidden')
+    useSettings.getState().setZhMode('faint' as never)
+    expect(useSettings.getState().zhMode).toBe('hidden')
+    expect(readSettings().zhMode).toBe('hidden')
   })
 
   it('refuses a value that is not a choice and keeps the current one', () => {
@@ -171,6 +183,6 @@ describe('the picture state', () => {
 
   it('does not remember what the steps will put back', () => {
     useSettings.getState().blindStarted()
-    expect(Object.keys(JSON.parse(data.get(SETTINGS_KEY) ?? '{}'))).toEqual(['theme', 'appearance', 'stageSize', 'picture'])
+    expect(Object.keys(JSON.parse(data.get(SETTINGS_KEY) ?? '{}'))).toEqual(['theme', 'appearance', 'stageSize', 'zhMode', 'picture'])
   })
 })

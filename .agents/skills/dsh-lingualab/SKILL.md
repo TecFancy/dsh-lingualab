@@ -70,12 +70,12 @@ node scripts/verify.mjs --list   # 看检查表
    `<词干>.m4a` 只是声音），先写 `<名>.part` 再 `rename`，一次只跑一个任务，失败或取消删掉 `.part`，崩溃或重启留下的在下次起任务时清掉；
    源视频从不被改。路由只收「哪一集哪一段、要画面还是只要声音」，路径、命令行全由 host 自己的扫描算出来，ffmpeg 用参数数组起，不过 shell。
    缓存文件比源文件旧就不算数。只有媒体库里的文件夹剧集有视频，文件剧集没有。
+   见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
    六是手选字幕，`src/host/subtitle-choice.ts`：文件夹剧集的选择写在剧集文件夹里隐藏的 `.lingualab-subtitles.json`（按段记，没有分段的记在 `folder`），
    先写临时文件再 `rename`，全部改回「按文件名」时删掉这个文件；文件剧集的选择记在 `openState` 里它那条记录的 `subtitles`，重新打开不会冲掉。
    选择只覆盖它点名的槽，其余照旧走 `pairing.ts`；选的文件不在了就按文件名配对，并在 `subtitleChoice.missing` 里报出来，选择本身保留。
    存的时候选的文件必须是那个文件夹里现有的字幕文件。配对规则不再加新标记，规则管不到的命名交给手选。
-   见 `.agents/notes/proposed/feature/2026-10-12-choose-subtitles-by-hand.md`。
-   见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
+   见 `.agents/notes/implemented/feature/2026-10-12-choose-subtitles-by-hand.md`。
 5. **笔记没有 7 条上限了**：`MAX_PHRASES` 是 500，只防失控的客户端，host 拒绝超长写入。
    「短的工作集」靠评级：一条收藏只有一个状态（`gradeOf` / `withGrade`），从勾和两个标签读出来，勾优先，
    `#hard` 压过 `#review`；评级先清掉勾和这两个标签再设自己的，读者手写的其他标签保留。行格式没有新字段，
@@ -169,7 +169,7 @@ node scripts/verify.mjs --list   # 看检查表
   否则返回要写到 `.dsh-lingualab-page` 根元素 inline style 上的变量和 `colorScheme`，`--ll-*` 派生值在同一个元素上跟着重算。
   宿主的明暗看 `<body>` 上有没有 `data-ds-dark-theme` 属性，`useHostDark` 用 MutationObserver 盯它。样式继续只读那十一个 token，
   不要写死色值；加一套主题就是改 `THEMES` 表，再补 locale 里的名字与描述。设置存在 `localStorage` 的 `dsh-lingualab:settings`，
-  只在这台设备上，不进 host，也不进进度文件。舞台字号靠根元素的 `data-ll-stage-size` 与 `--ll-stage-scale`。设置抽屉（`widgets/settings-panel`）
+  只在这台设备上，不进 host，也不进进度文件。舞台字号靠根元素的 `data-ll-stage-size` 与 `--ll-stage-scale`。「中文显示」也在这份设置里，控制栏按钮和 `C` 键都写 `setZhMode`，页面不再自己存一份。设置抽屉（`widgets/settings-panel`）
   照着五步法抽屉做，和它互相关闭，抽屉里的按键不冒泡给页面快捷键。
 
 ## 发版与 Release（2026-10-08 定）

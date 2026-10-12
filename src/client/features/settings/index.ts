@@ -1,6 +1,6 @@
 /**
  * Public API of the settings feature: the reader's choices about how the page looks (colour theme,
- * light or dark, the size of the sentence on stage, how the video's picture is shown), remembered in this
+ * light or dark, the size of the sentence on stage, 「中文显示」, how the video's picture is shown), remembered in this
  * browser, and the pure resolution of a theme into the custom properties the page root carries.
  */
 export {

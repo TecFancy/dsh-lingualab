@@ -28,6 +28,11 @@ the plugin that was installed and used, not an artifact on a registry.
   opened from a workspace keeps it in the plugin state. A picked file that disappears plays by name until it is back,
   and the button says so. Saving reads the subtitles again and keeps the position.
 
+### Changed
+
+- 「中文显示」 is remembered. It is kept with the other settings in this browser, so "English only" stays chosen after a
+  reload instead of starting at 「变淡」 every time.
+
 ### Fixed
 
 - An English-marked subtitle next to one unmarked file now pairs as English and Chinese. `MDJT S01E01-EN.srt` beside a

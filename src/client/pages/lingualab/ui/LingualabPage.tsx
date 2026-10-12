@@ -35,7 +35,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { DEFAULT_SUBTITLE_ZH_MODE, splitCue, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
@@ -157,7 +157,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const folderNames = useMemo(() => (library.payload?.episodes ?? []).map((entry) => entry.id), [library.payload])
   const importer = useImport(library.reload, folderNames)
   const [view, setView] = useState<View>('home')
-  const [zhMode, setZhMode] = useState<SubtitleZhMode>(DEFAULT_SUBTITLE_ZH_MODE)
+  // 「中文显示」 is a setting: it is remembered in this browser with the theme and the stage size.
+  const zhMode = useSettings((state) => state.zhMode)
+  const setZhMode = useSettings((state) => state.setZhMode)
   const [layer, setLayer] = useState<Layer>('none')
   const [column, setColumn] = useState<Column>('transcript')
   const [review, setReview] = useState<ReviewSession | null>(null)

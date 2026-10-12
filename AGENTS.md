@@ -33,7 +33,7 @@ src/client/             客户端半边，FSD 分层，没有 app 层
                         import-media（拖入分组与上传）、resume（听到哪里按集或按段存，五步勾选按集：浏览器缓存加 host 同步）、
                         review（复习队列：本集或整个库，逐句评级）、
                         subtitle-choice（读写一集或一段手选的字幕文件）、
-                        settings（主题、明暗、舞台字号与画面状态，存浏览器；主题是覆盖宿主 token 的调色板）、
+                        settings（主题、明暗、舞台字号、「中文显示」与画面状态，存浏览器；主题是覆盖宿主 token 的调色板）、
                         video（一段的视频状态、准备任务与哪张卡片，决定播放器放视频还是音频文件）
   widgets/              library-home（首页与拖放区）、control-bar（含「字幕」弹层）、subtitle-panel、notes-panel（右栏的「收藏」）、
                         episode-picker（只剩浏览）、media-folder、step-tracker、segment-picker（分段按钮与列表）、
