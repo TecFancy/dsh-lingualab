@@ -927,11 +927,19 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-videostage.is-empty{display:none}
 .dsh-lingualab-videostage.is-shown{padding:20px 12px 0}
 .dsh-lingualab-videostage.is-hidden{padding:14px 12px 0}
-.dsh-lingualab-videostage.is-large{flex:1;min-height:0;padding:16px 0 8px}
+.dsh-lingualab-videostage.is-large{flex:1;min-height:0;padding:16px 0 8px;justify-content:center;container-type:size}
 .dsh-lingualab-picture{position:relative;flex:none;box-sizing:border-box;width:min(64%,720px);min-width:min(100%,300px);
   aspect-ratio:16/9;max-height:42vh;border-radius:12px;overflow:hidden;background:#0e100f}
 .dsh-lingualab-picture.is-off{display:none}
-.dsh-lingualab-videostage.is-large .dsh-lingualab-picture{flex:1;min-height:0;width:min(100%,1100px);max-height:none;aspect-ratio:auto}
+/* Large: the frame hugs the picture. The stage is a size container, so the frame can be the biggest box of the video's own
+   shape that fits in it (at most 1100px wide, centred): the width is the smallest of the stage's width, 1100px and its
+   height times the ratio, and aspect-ratio makes the height follow. The ratio is the real videoWidth/videoHeight, set by
+   the component once the metadata is in (16/9 until then). The badge, the peek button and the caption sit on the frame,
+   so they sit on the picture. Without container queries the frame is as wide as the stage allows, which is the old look. */
+.dsh-lingualab-videostage.is-large .dsh-lingualab-picture{flex:none;min-width:0;min-height:0;max-height:none;width:min(100%,1100px);
+  aspect-ratio:var(--ll-video-ratio,1.7778)}
+@supports (container-type:size){.dsh-lingualab-videostage.is-large .dsh-lingualab-picture{
+  width:min(100cqw,1100px,calc(100cqh * var(--ll-video-ratio,1.7778)))}}
 .dsh-lingualab-video{display:block;width:100%;height:100%;object-fit:contain;background:#0e100f}
 .dsh-lingualab-picture-time{position:absolute;left:12px;bottom:10px;font-size:11px;color:rgba(255,255,255,0.55);
   font-variant-numeric:tabular-nums;pointer-events:none}

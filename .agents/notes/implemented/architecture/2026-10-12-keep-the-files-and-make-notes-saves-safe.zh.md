@@ -1,6 +1,6 @@
 # Agent Note: 保留文件，让笔记的保存变安全
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -9,7 +9,7 @@ Status: proposed
 2026-10-12 提出的问题是：要不要用一个 SQLite 数据库替换它们。一个应用一旦要存记录、查记录、频繁写记录，数据库通常就是答案。
 
 评估的结论是 SQLite 在这里不值它的代价，但也找到了 `notes.md` 写入方式上的两个真实弱点。两个结论当天都被采纳：文件保留，
-「Decision」一节里的两处修复已经列入计划，还没有做。这篇 note 留着 SQLite 的评估，免得以后从头再想一遍。
+「Decision」一节里的两处修复也在当天做完了。这篇 note 留着 SQLite 的评估，免得以后从头再想一遍。
 
 ## Assessment
 

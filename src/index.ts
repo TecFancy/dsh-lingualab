@@ -65,6 +65,7 @@ import {
   VIDEO_PATH,
   VIDEO_PREPARE_PATH,
   type LibraryConfigWriteRequest,
+  type NotesPayload,
   type NotesWriteRequest,
   type OpenPayload,
   type OpenRequest,
@@ -493,6 +494,11 @@ function fileMediaRoute(readState: () => OpenState): WebRoute {
   }
 }
 
+/** A notes answer for a request that never reached an episode. */
+function notesRefusal(reason: string): NotesPayload {
+  return { ok: false, episode: '', reason, phrases: [], version: null, stale: false }
+}
+
 /** `GET` and `POST /lingualab/notes` — the hand-off file between panel and agent. */
 function notesRoute(
   ctx: HostContext,
@@ -518,21 +524,23 @@ function notesRoute(
       try {
         body = await readJsonBody(req)
       } catch (error) {
-        sendJson(res, 400, { ok: false, episode: '', reason: `请求体读不了：${String(error)}`, phrases: [] })
+        sendJson(res, 400, notesRefusal(`请求体读不了：${String(error)}`))
         return
       }
       if (typeof body !== 'object' || body === null) {
-        sendJson(res, 400, { ok: false, episode: '', reason: '请求体不是对象', phrases: [] })
+        sendJson(res, 400, notesRefusal('请求体不是对象'))
         return
       }
       const request = body as Partial<NotesWriteRequest>
       if (typeof request.episode !== 'string' || !Array.isArray(request.phrases)) {
-        sendJson(res, 400, { ok: false, episode: '', reason: '缺 episode 或 phrases', phrases: [] })
+        sendJson(res, 400, notesRefusal('缺 episode 或 phrases'))
         return
       }
-      const result = writeNotes(root, request.episode, request.phrases, state)
+      // Anything but a version string counts as "never read", which a folder episode refuses.
+      const expect = typeof request.expect === 'string' ? request.expect : null
+      const result = writeNotes(root, request.episode, request.phrases, state, expect)
       if (result.state !== state) await writeState(result.state)
-      sendJson(res, result.payload.ok ? 200 : 400, result.payload)
+      sendJson(res, result.payload.ok ? 200 : result.payload.stale ? 409 : 400, result.payload)
     },
   }
 }

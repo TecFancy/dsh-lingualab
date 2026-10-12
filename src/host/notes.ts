@@ -6,9 +6,16 @@
  * the weekly quiz. Both therefore go through {@link parseNotes} and
  * {@link serializeNotes} rather than treating the markdown as opaque text.
  *
- * Writes are whole-file and last-writer-wins. That is deliberate for V1: one
- * person, one browser, and a file small enough to rewrite in a single call. A
- * merge strategy would be guessing at a conflict that does not exist yet.
+ * Writes are whole-file, and two rules keep a whole-file write from losing anything:
+ *
+ *   · **The write is atomic.** The new text goes to a temporary sibling that is then renamed
+ *     over the old file, as the progress file does, so a crash leaves the old notes or the new
+ *     ones and never half of either.
+ *   · **A stale save is refused.** A read answers with a hash of the bytes it parsed, and a save
+ *     sends that hash back. If the file changed in between (another tab, a hand edit, the agent),
+ *     the save is answered `stale` and nothing is written; the page reads the notes again. A
+ *     successful save answers with the hash of what it wrote, so one tab saving twice in a row
+ *     is never its own conflict.
  *
  * There are two stores behind one route, and the id decides which one answers. A
  * folder episode writes `notes.md` inside its folder, where the agent's grep finds
@@ -22,7 +29,8 @@
  * which is the folder's own (the scan's), so the file reads in play order however the
  * phrases arrived. The ceiling counts the whole file, not each segment.
  */
-import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { MAX_PHRASES, parseNotes, serializeNotes, withSegmentDefault } from '../shared/notes-format.ts'
 import { NOTES_FILE, type NotePhrase, type NotesPayload } from '../shared/protocol.ts'
@@ -52,6 +60,33 @@ function defaultPreamble(episode: string): string {
     '> 每句收藏只有一个状态，在页面上按 1 记住了、2 模糊、3 没记住。',
     '> 文件里打勾 `[x]` 是记住了，`#review` 是模糊，`#hard` 是没记住，都没有是新收藏。',
   ].join('\n')
+}
+
+/** The version of a notes file: a hash of its bytes, with a missing file hashed as an empty one. */
+export function notesVersion(bytes: Buffer | string): string {
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
+/** The bytes of a notes file, or none when it does not exist yet. */
+function readBytes(path: string): Buffer {
+  return existsSync(path) ? readFileSync(path) : Buffer.alloc(0)
+}
+
+/** Replace the file through a temporary sibling, leaving the old one if anything fails. */
+function writeAtomically(path: string, text: string): void {
+  const temporary = `${path}.${String(process.pid)}.tmp`
+  try {
+    writeFileSync(temporary, text, 'utf8')
+    renameSync(temporary, path)
+  } catch (error) {
+    rmSync(temporary, { force: true })
+    throw error
+  }
+}
+
+/** A refusal: nothing was written, and the page should not take the phrases as saved. */
+function refused(episode: string, reason: string, stale = false): NotesPayload {
+  return { ok: false, episode, reason, phrases: [], version: null, stale }
 }
 
 /** Where an episode's notes live. */
@@ -95,26 +130,27 @@ function segmentIdsOf(folder: string): string[] {
 
 /** Read the notes for one episode; a missing file is an empty list, not an error. */
 export function readNotes(root: string, episode: string, state: OpenState = EMPTY_STATE): NotesPayload {
-  if (!isSafeEpisodeId(episode)) {
-    return { ok: false, episode, reason: '剧集 id 不合法', phrases: [] }
-  }
+  if (!isSafeEpisodeId(episode)) return refused(episode, '剧集 id 不合法')
   if (isFileEpisodeId(episode)) {
-    return { ok: true, episode, reason: null, phrases: [...notesFor(state, episode)] }
+    return { ok: true, episode, reason: null, phrases: [...notesFor(state, episode)], version: null, stale: false }
   }
   const path = notesPath(root, episode)
-  if (!staysInside(root, path)) {
-    return { ok: false, episode, reason: '笔记路径跑到素材目录外面了', phrases: [] }
-  }
-  if (!existsSync(path)) {
-    return { ok: true, episode, reason: null, phrases: [] }
-  }
+  if (!staysInside(root, path)) return refused(episode, '笔记路径跑到素材目录外面了')
   try {
-    const { phrases } = parseNotes(readFileSync(path, 'utf8'))
+    const bytes = readBytes(path)
+    const { phrases } = parseNotes(bytes.toString('utf8'))
     // What was written before the episode had segments belongs to the first one.
     const first = segmentIdsOf(dirname(path))[0]
-    return { ok: true, episode, reason: null, phrases: [...withSegmentDefault(phrases, first)] }
+    return {
+      ok: true,
+      episode,
+      reason: null,
+      phrases: [...withSegmentDefault(phrases, first)],
+      version: notesVersion(bytes),
+      stale: false,
+    }
   } catch (error) {
-    return { ok: false, episode, reason: `读不了笔记：${String(error)}`, phrases: [] }
+    return refused(episode, `读不了笔记：${String(error)}`)
   }
 }
 
@@ -135,45 +171,47 @@ export interface NotesWriteResult {
  *
  * The state comes back with the payload so the caller can persist it; a folder
  * episode returns the state it was given, untouched.
+ *
+ * `expect` is the version the page read. A folder episode's file is only replaced while it
+ * still has that version; `null` (the page never read the file) is refused too, because a page
+ * that could not read the notes has no business overwriting them. Left out, nothing is
+ * compared: that is for callers inside the host, never for the route.
  */
 export function writeNotes(
   root: string,
   episode: string,
   input: readonly unknown[],
   state: OpenState = EMPTY_STATE,
+  expect?: string | null,
 ): NotesWriteResult {
-  if (!isSafeEpisodeId(episode)) {
-    return { payload: { ok: false, episode, reason: '剧集 id 不合法', phrases: [] }, state }
-  }
+  if (!isSafeEpisodeId(episode)) return { payload: refused(episode, '剧集 id 不合法'), state }
   const phrases: NotePhrase[] = sanitizePhrases(input)
   if (phrases.length > MAX_PHRASES) {
-    return {
-      payload: {
-        ok: false,
-        episode,
-        reason: `一集的笔记最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`,
-        phrases: [],
-      },
-      state,
-    }
+    return { payload: refused(episode, `一集的笔记最多 ${MAX_PHRASES} 条，收到 ${phrases.length} 条`), state }
   }
 
   if (isFileEpisodeId(episode)) {
-    return { payload: { ok: true, episode, reason: null, phrases }, state: withNotes(state, episode, phrases) }
+    return {
+      payload: { ok: true, episode, reason: null, phrases, version: null, stale: false },
+      state: withNotes(state, episode, phrases),
+    }
   }
 
   const path = notesPath(root, episode)
-  if (!staysInside(root, path)) {
-    return { payload: { ok: false, episode, reason: '笔记路径跑到素材目录外面了', phrases: [] }, state }
-  }
+  if (!staysInside(root, path)) return { payload: refused(episode, '笔记路径跑到素材目录外面了'), state }
+  if (expect === null) return { payload: refused(episode, '页面没读到这一集的笔记，不覆盖它'), state }
+  let written: string
   try {
-    const preamble = existsSync(path)
-      ? parseNotes(readFileSync(path, 'utf8')).preamble
-      : defaultPreamble(episode)
+    const bytes = readBytes(path)
+    if (expect !== undefined && notesVersion(bytes) !== expect) {
+      return { payload: refused(episode, '笔记在页面读过之后被改过了，已经重新读取，刚才那一下没有保存', true), state }
+    }
+    const preamble = bytes.length > 0 ? parseNotes(bytes.toString('utf8')).preamble : ''
     const order = segmentIdsOf(dirname(path))
-    writeFileSync(path, serializeNotes(preamble.length > 0 ? preamble : defaultPreamble(episode), phrases, order), 'utf8')
+    written = serializeNotes(preamble.length > 0 ? preamble : defaultPreamble(episode), phrases, order)
+    writeAtomically(path, written)
   } catch (error) {
-    return { payload: { ok: false, episode, reason: `写不了笔记：${String(error)}`, phrases: [] }, state }
+    return { payload: refused(episode, `写不了笔记：${String(error)}`), state }
   }
-  return { payload: { ok: true, episode, reason: null, phrases }, state }
+  return { payload: { ok: true, episode, reason: null, phrases, version: notesVersion(written), stale: false }, state }
 }

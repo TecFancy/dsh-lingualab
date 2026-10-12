@@ -302,6 +302,14 @@ export interface NotesPayload {
   readonly reason: string | null
   /** The phrases in file order. */
   readonly phrases: readonly NotePhrase[]
+  /**
+   * A hash of the `notes.md` bytes these phrases came from (or were just written as), which
+   * the next save sends back as `expect`. A missing file hashes as an empty one. `null` for a
+   * file episode, whose notes are not a file, and for an answer that read nothing.
+   */
+  readonly version: string | null
+  /** True when a save was refused because the file changed after the page read it. */
+  readonly stale: boolean
 }
 
 /** One folder the panel may offer as a library root. */
@@ -363,6 +371,8 @@ export interface ReviewPayload {
 export interface NotesWriteRequest {
   readonly episode: string
   readonly phrases: readonly NotePhrase[]
+  /** The `version` of the notes the page is editing; `null` for a file episode. */
+  readonly expect: string | null
 }
 
 /** Where the reader stopped in one episode, or in one segment of it (see `segmentKey`). */

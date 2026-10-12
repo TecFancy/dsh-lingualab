@@ -19,6 +19,26 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-12
+
+### Fixed
+
+- Saving kept sentences can no longer lose a `notes.md`. The file is written to a temporary sibling and renamed into place,
+  so a crash leaves the old notes or the new ones and never half a file. A save also carries the version of the file the
+  page read: if the file changed in between (another tab, a hand edit, the agent), the host answers `409` and writes
+  nothing, and the page reads the notes again and says so in the kept-sentences drawer. Requests for notes now go out one at
+  a time, so a page never conflicts with its own previous save.
+- The large picture no longer has black bars above and below it. Its frame is now the biggest box of the video's own shape
+  that fits the stage (still at most 1100px wide, centred), using the real width and height the video reports once its
+  metadata is in and 16:9 until then, so the "Large" badge, the "R" peek button and the peeked caption sit on the picture
+  and follow it when the window gets narrower or shorter. The shown and hidden states are unchanged.
+- After clicking a button with the mouse, the space bar plays and pauses again. A press on a button used to leave the focus
+  on it, and a button that goes away when pressed (the large picture's "R" peek button, the "R" reveal button on the stage)
+  dropped the focus to the document, outside the panel, so the space bar did nothing until the next click on the page. A
+  mouse press on a button now keeps the focus on the panel, for every button of the page except the dialogs and the settings
+  drawer, which read the keyboard themselves. Tabbing to a button and pressing Space or Enter still presses that button
+  and no longer plays or pauses as well.
+
 ## [0.8.0] - 2026-10-12
 
 ### Added

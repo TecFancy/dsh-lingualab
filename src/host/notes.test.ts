@@ -6,12 +6,12 @@
  * the plugin state — and the rules that give the study method its discipline, the
  * ceiling above all, have to hold in both stores or they hold in neither.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MAX_PHRASES } from '../shared/notes-format.ts'
-import { writeNotes, readNotes } from './notes.ts'
+import { notesVersion, writeNotes, readNotes } from './notes.ts'
 import { EMPTY_STATE, parseState, serializeState, withNotes } from './state.ts'
 import { makeTempDir } from './test-dir.ts'
 
@@ -36,7 +36,14 @@ const FILE_ID = 'file.0123456789abcdef'
 describe('file episode notes', () => {
   it('starts empty and stays in memory, writing nothing to the library', () => {
     episode()
-    expect(readNotes(root, FILE_ID)).toEqual({ ok: true, episode: FILE_ID, reason: null, phrases: [] })
+    expect(readNotes(root, FILE_ID)).toEqual({
+      ok: true,
+      episode: FILE_ID,
+      reason: null,
+      phrases: [],
+      version: null,
+      stale: false,
+    })
 
     const phrases = [{ at: 12, text: 'Hello there', zh: '你好', note: '开场', tags: ['review'], done: false }]
     const result = writeNotes(root, FILE_ID, phrases)
@@ -97,5 +104,66 @@ describe('folder episode notes still go to the file', () => {
     expect(result.state).toBe(EMPTY_STATE)
     expect(readFileSync(join(root, 'S01E01', 'notes.md'), 'utf8')).toContain('Hello')
     expect(readNotes(root, 'S01E01').phrases).toHaveLength(1)
+  })
+})
+
+describe('saving notes.md safely', () => {
+  const notes = (): string => join(root, 'S01E01', 'notes.md')
+
+  it('reads a version, and a missing file has the version of an empty one', () => {
+    episode()
+    expect(readNotes(root, 'S01E01').version).toBe(notesVersion(''))
+    writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }])
+    expect(readNotes(root, 'S01E01').version).toBe(notesVersion(readFileSync(notes())))
+  })
+
+  it('answers a save with the version it wrote, so the same page can save again', () => {
+    episode()
+    const first = writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }], EMPTY_STATE, readNotes(root, 'S01E01').version)
+    expect(first.payload.ok).toBe(true)
+    expect(first.payload.version).toBe(notesVersion(readFileSync(notes())))
+    const second = writeNotes(root, 'S01E01', [{ at: 6, text: 'Again' }], EMPTY_STATE, first.payload.version)
+    expect(second.payload.ok).toBe(true)
+    expect(readFileSync(notes(), 'utf8')).toContain('Again')
+  })
+
+  it('refuses a save against a file that changed since it was read, and leaves the file alone', () => {
+    episode()
+    writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }])
+    const seen = readNotes(root, 'S01E01').version
+    const edited = `${readFileSync(notes(), 'utf8')}- [ ] 00:09 | Added by hand. | |\n`
+    writeFileSync(notes(), edited)
+
+    const result = writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }], EMPTY_STATE, seen)
+    expect(result.payload).toMatchObject({ ok: false, stale: true, version: null })
+    expect(readFileSync(notes(), 'utf8')).toBe(edited)
+  })
+
+  it('refuses a save from a page that never read the file', () => {
+    episode()
+    writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }])
+    const before = readFileSync(notes(), 'utf8')
+    const result = writeNotes(root, 'S01E01', [], EMPTY_STATE, null)
+    expect(result.payload).toMatchObject({ ok: false, stale: false })
+    expect(readFileSync(notes(), 'utf8')).toBe(before)
+  })
+
+  it('writes through a temporary file and leaves nothing beside notes.md', () => {
+    episode()
+    writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }])
+    writeNotes(root, 'S01E01', [{ at: 6, text: 'Again' }])
+    expect(readdirSync(join(root, 'S01E01')).sort()).toEqual(['audio.mp3', 'notes.md'])
+  })
+
+  it('keeps the old file whole when the new one cannot be written', () => {
+    episode()
+    writeNotes(root, 'S01E01', [{ at: 5, text: 'Hello' }])
+    const before = readFileSync(notes(), 'utf8')
+    // A directory where the temporary file would go makes the write fail before any rename.
+    mkdirSync(`${notes()}.${String(process.pid)}.tmp`)
+
+    const result = writeNotes(root, 'S01E01', [{ at: 6, text: 'Again' }])
+    expect(result.payload.ok).toBe(false)
+    expect(readFileSync(notes(), 'utf8')).toBe(before)
   })
 })
