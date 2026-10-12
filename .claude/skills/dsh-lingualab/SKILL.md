@@ -36,23 +36,24 @@ node scripts/verify.mjs --list   # 看检查表
 
 1. **路由路径只有一处定义**：`src/shared/protocol.ts` 的路径常量。它们同时写在
    `dsh-plugin.naming.json` 里，`check-host.mjs` 会把两边对上，改一边不改另一边会被拦下。
-   新增路由要写一个 `src/host/<名字>.route.ts`，在 `src/index.ts` 里挂上，同时改这份 naming 记录与 README 的路由表。
+   新增路由写在它那个 feature 的 `src/host/features/<名字>/api/<名字>.route.ts`，从切片的 `index.ts` 导出，
+   在 `src/index.ts` 里挂上，同时改这份 naming 记录与 README 的路由表。
 2. **笔记格式只有一处解析**：`src/shared/notes-format.ts`。面板与 host 都走它，别在任一侧
    写第二份正则。文件剧集（`file.` 开头的 id）的笔记不走文件，存在插件 profile 的 `openState` 里。
    一条短语占文件的一行，所以备注字段里的换行写成 `<br>`、读回来再变成换行（`<br/>`、`<br />`、大小写都认，
    `\r` 丢掉），与 `|` 的转义在同一处；别让原始换行进文件，它会把这条短语截断。
 3. **浏览只认 place id，不认路径**：页面传 `ws_<哈希>` 或 `lib`，由 host 自己解析成绝对路径
-   （`src/host/places.ts`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
+   （`src/host/entities/place`，路径检查在 `src/host/shared/fs`）。`/`、`/etc`、`/proc` 这类根一律拒绝，`rel` 拒绝 `..` 与绝对路径，
    每一步都 `realpath` 之后再确认仍在根内。**不要**为了让某条路由方便而接受浏览器传来的路径。
-3a. **每一条路由都先过宿主的请求信任**（`src/host/guard.ts`，`index.ts` 里 `.map(guarded)`）：它调
+3a. **每一条路由都先过宿主的请求信任**（`src/host/shared/http/guard.ts`，`index.ts` 里 `.map(guarded)`）：它调
    `ctx.get('connection').admit(req)`，检查回环的 `Host`、匹配的 `Origin` 与签名的会话 cookie，不满足回
    `401`/`403`；没有 connection 服务时一律回 `403`，不是放行。**这才是访问控制。** 宿主的信任只罩 `/api`
    与 RPC，插件自己注册的路由不在其内，所以漏了这一步，任何把主机名重绑到 127.0.0.1 的页面、本机任何进程
    都能调。新增路由不要绕开 `guarded`，读路由也一样。`x-lingualab-import` 请求头只是第二道检查，防不住上面两种。
 4. **写素材目录只有六处，都很窄**：一是文件夹剧集里的 `notes.md`（先写临时文件再 `rename`；读时回内容哈希 `version`，存时带 `expect`，对不上回 409 不写，页面重读；路由不收没有 `expect` 的文件夹剧集保存）；二是媒体库根目录的隐藏文件
-   `.lingualab-progress.json`（`src/host/progress.ts`，听到哪里与五步勾选；分段的位置键是
+   `.lingualab-progress.json`（`src/host/features/progress/model/progress.ts`，听到哪里与五步勾选；分段的位置键是
    `<集>::<段>`（`segmentKey`），五步仍按集；POST 按「每个键取最新 `updatedAt`」合并而不是覆盖，先写临时文件再 `rename`，因为这个文件本来就是要被替换的；坏文件按空读；
-   不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/import.ts`，
+   不要把进度塞回 `openState` 配置，那会让每几秒一次的写入去重写 profile）；三是 `src/host/features/import/model/import.ts`，
    收用户拖进来的音频与字幕。库扫描、浏览、打开仍然全部只读。导入的底线不许松：**不覆盖已有文件**
    （名字在就报 `exists`，放到位用 `link`，不支持硬链接的卷退回 `COPYFILE_EXCL`，**不用 `rename`**，它在
    所有平台上都会替换目标）、只收扫描读的扩展名、名字在 host 清洗、媒体目录不能是系统文件夹
@@ -60,18 +61,18 @@ node scripts/verify.mjs --list   # 看检查表
    `.part` 下次写这个文件夹时清掉、同时最多两个上传（超了回 `429`）、单个文件 2 GB（流式限额，不信
    `content-length`）。文件剧集的笔记仍然落在 profile 里，不要改成在音频旁边建文件。
    见 `.agents/notes/implemented/feature/2026-10-09-home-first-and-drop-to-import.md`。
-   四是 `src/host/timing.ts`，把一句的开头和结尾写回媒体库里的字幕文件：只换那一句（和被它推动的相邻句）的时间行，同一文件的几句在原文上一遍找齐再替换，其余字节不动（按 Latin-1
+   四是 `src/host/features/timing/model/timing.ts`，把一句的开头和结尾写回媒体库里的字幕文件：只换那一句（和被它推动的相邻句）的时间行，同一文件的几句在原文上一遍找齐再替换，其余字节不动（按 Latin-1
    读写，GBK 与 GB18030 因此原样保留，UTF-16 带 BOM 的走 Node 自带编码）；请求带页面读到的字节的 SHA-256，
    对不上回 `409`；按文件里写的毫秒和「同一范围里的第几句」找句子，不按解析后的序号（解析器会排序、丢块）；第一次写某个文件前
    复制一份 `<名>.bak`，只复制一次；两个文件都检查通过才写；媒体库以外的文件剧集一律 `403`。页面的出处记在 `Cue.origin` /
    `zhOrigin`，客户端的计数规则必须和 host 一致（没有文本的块也要计数）。
    见 `.agents/notes/implemented/feature/2026-10-11-edit-subtitle-timing.md`。
-   五是视频缓存，`src/host/video-jobs.ts`：只写每集文件夹里自己的隐藏文件夹 `.lingualab/`（`<词干>.mp4` 是画面复制加声音转成立体声 AAC，
+   五是视频缓存，`src/host/features/video/model/video-jobs.ts`：只写每集文件夹里自己的隐藏文件夹 `.lingualab/`（`<词干>.mp4` 是画面复制加声音转成立体声 AAC，
    `<词干>.m4a` 只是声音），先写 `<名>.part` 再 `rename`，一次只跑一个任务，失败或取消删掉 `.part`，崩溃或重启留下的在下次起任务时清掉；
    源视频从不被改。路由只收「哪一集哪一段、要画面还是只要声音」，路径、命令行全由 host 自己的扫描算出来，ffmpeg 用参数数组起，不过 shell。
    缓存文件比源文件旧就不算数。只有媒体库里的文件夹剧集有视频，文件剧集没有。
    见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
-   六是手选字幕，`src/host/subtitle-choice.ts`：文件夹剧集的选择写在剧集文件夹里隐藏的 `.lingualab-subtitles.json`（按段记，没有分段的记在 `folder`），
+   六是手选字幕，`src/host/entities/subtitle-choice/model/subtitle-choice.ts`：文件夹剧集的选择写在剧集文件夹里隐藏的 `.lingualab-subtitles.json`（按段记，没有分段的记在 `folder`），
    先写临时文件再 `rename`，全部改回「按文件名」时删掉这个文件；文件剧集的选择记在 `openState` 里它那条记录的 `subtitles`，重新打开不会冲掉。
    选择只覆盖它点名的槽，其余照旧走 `pairing.ts`；选的文件不在了就按文件名配对，并在 `subtitleChoice.missing` 里报出来，选择本身保留。
    存的时候选的文件必须是那个文件夹里现有的字幕文件。配对规则不再加新标记，规则管不到的命名交给手选。
@@ -84,9 +85,11 @@ node scripts/verify.mjs --list   # 看检查表
    那是当时的决定，不要改它。**收藏的句子按「段 + 整秒 + 文本」匹配**（`keptSentenceKey`），因为 `notes.md`
    只存整秒；别改回比较原始浮点时间。重播收藏也走这把钥匙找回原句（页面的 `keptCueStart`），
    直接 seek 到整秒会落进前一句后面的空隙。段写在 `notes.md` 的 `## <段 id>` 标题里，不进收藏行。
-6. **客户端按 FSD 分层**：`shared → entities → features → widgets → pages`，没有 `app` 层。
-   跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，需要组合就在页面里做。
-   `npm run lint:fsd` 会拦。
+6. **两个半边都按 FSD 分层**：客户端是 `shared → entities → features → widgets → pages`，没有 `app` 层；
+   host 只有下三层 `shared → entities → features`，`src/index.ts` 在分层之外收集各个 feature 导出的路由。
+   跨切片导入一律走该切片的 `index.ts`，feature 之间不许互相导入，客户端需要组合就在页面里做。
+   host 的实体之间要互读，只能经过被读那一方的 `@x/<读者>.ts`；host 的 `shared` 里除 `lib` 外每段都有
+   `index.ts`。`npm run lint:fsd` 对两个半边各跑一遍 Steiger，会拦。
 7. **快捷键挂在面板容器上**，不许挂 `window`：会话与面板共处一页，抢空格键是敌意行为。
    浮层打开时，容器把键盘让给浮层（页面里那个 `layer` 的提前返回）；收藏已经不是浮层，是右栏的另一个视图。
    复习进行时 `1` 到 `3` 评级、`←` `→` 在队列里走，而不是在句子之间走。带 Ctrl/Cmd/Alt 的组合键

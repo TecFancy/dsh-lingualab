@@ -6,13 +6,13 @@
  * without asking, because the question "which subtitle goes with which audio" is the one thing the
  * drop was supposed to spare them.
  *
- * The rule is the host's pairing rule, kept in step with `src/host/pairing.ts`: a
- * subtitle belongs to the audio file whose stem it starts with, followed by a separator
- * (`lesson.mp3` owns `lesson.srt`, `lesson.en.srt`, `lesson_zh.srt`; it does not own
- * `lesson2.srt`). The longest matching stem wins, so `lesson-2.mp3` takes `lesson-2.srt`
- * even though `lesson.mp3` is also a prefix of it. A video pairs the same way (`lesson.mkv` goes with
- * `lesson.mp3`), and one that no audio file owns is an episode of its own, named after it, which its
- * subtitles can join by the same rule.
+ * The rule is the host's pairing rule, kept in step with
+ * `src/host/entities/episode/model/pairing.ts`: a subtitle belongs to the audio file whose stem it
+ * starts with, followed by a separator (`lesson.mp3` owns `lesson.srt`, `lesson.en.srt`,
+ * `lesson_zh.srt`; it does not own `lesson2.srt`). The longest matching stem wins, so
+ * `lesson-2.mp3` takes `lesson-2.srt` even though `lesson.mp3` is also a prefix of it. A video
+ * pairs the same way (`lesson.mkv` goes with `lesson.mp3`), and one that no audio file owns is an
+ * episode of its own, named after it, which its subtitles can join by the same rule.
  *
  * A subtitle that matches no audio file is not dropped silently: when exactly one episode was dropped
  * it joins that episode (a lone `.srt` beside a lone `.mp3` is

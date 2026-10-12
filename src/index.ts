@@ -12,8 +12,9 @@
  * snapshot taken at boot would be stale exactly when it matters most: right after a
  * new episode lands.
  *
- * Each route is built in `host/<name>.route.ts`, beside the rules it calls; this file
- * holds the config and mounts them.
+ * `src/host/` is FSD's lower three layers. Each route is built in its feature's `api/`
+ * segment (`host/features/<name>/api/<name>.route.ts`), beside the rules it calls; this
+ * file holds the config and mounts them.
  *
  * Routes live under `/lingualab/`, clear of the module system's `/plugins` prefix
  * route, and every one of them is declared in `dsh-plugin.naming.json` — `npm run
@@ -26,23 +27,27 @@
  */
 import z from '@deepseek-ai/schemastery'
 import type { HostContext } from './host-context.ts'
-import { browseRoute, placesRoute } from './host/browse.route.ts'
-import { configRoute } from './host/config.route.ts'
-import { settingsOf } from './host/config.ts'
-import { realSpawn } from './host/ffmpeg.ts'
-import { guarded } from './host/guard.ts'
-import { importRoute } from './host/import.route.ts'
-import { libraryRoute } from './host/library.route.ts'
-import { fileMediaRoute, mediaRoute } from './host/media.route.ts'
-import { notesRoute } from './host/notes.route.ts'
-import { openRoute } from './host/open.route.ts'
-import { progressRoute } from './host/progress.route.ts'
-import { reviewRoute } from './host/review.route.ts'
-import { parseState, serializeState, type OpenState } from './host/state.ts'
-import { subtitleChoiceRoute } from './host/subtitle-choice.route.ts'
-import { timingRoute } from './host/timing.route.ts'
-import { createVideoJobs } from './host/video-jobs.ts'
-import { videoCancelRoute, videoPrepareRoute, videoRoute } from './host/video.route.ts'
+import { parseState, serializeState, type OpenState } from './host/entities/open-state/index.ts'
+import { browseRoute, placesRoute } from './host/features/browse/index.ts'
+import { importRoute } from './host/features/import/index.ts'
+import { configRoute } from './host/features/library-config/index.ts'
+import { libraryRoute } from './host/features/library/index.ts'
+import { fileMediaRoute, mediaRoute } from './host/features/media/index.ts'
+import { notesRoute } from './host/features/notes/index.ts'
+import { openRoute } from './host/features/open/index.ts'
+import { progressRoute } from './host/features/progress/index.ts'
+import { reviewRoute } from './host/features/review/index.ts'
+import { subtitleChoiceRoute } from './host/features/subtitle-choice/index.ts'
+import { timingRoute } from './host/features/timing/index.ts'
+import {
+  createVideoJobs,
+  videoCancelRoute,
+  videoPrepareRoute,
+  videoRoute,
+} from './host/features/video/index.ts'
+import { settingsOf } from './host/shared/config/index.ts'
+import { realSpawn } from './host/shared/ffmpeg/index.ts'
+import { guarded } from './host/shared/http/index.ts'
 
 /** Stable plugin name (the composition row id is `lingualab`). */
 export const name = 'lingualab'

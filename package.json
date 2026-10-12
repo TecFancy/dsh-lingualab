@@ -27,7 +27,7 @@
     "docs:check": "node scripts/check-docs.mjs",
     "links:check": "node scripts/check-links.mjs",
     "lint": "eslint .",
-    "lint:fsd": "steiger src/client",
+    "lint:fsd": "steiger src/client && steiger src/host",
     "notes:check": "node scripts/check-notes.mjs",
     "notes:links": "node scripts/check-note-links.mjs",
     "prepare": "node -e \"try { require.resolve('husky') } catch { process.exit(0) } require('node:child_process').execSync('husky', { stdio: 'inherit' })\"",

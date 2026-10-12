@@ -19,12 +19,18 @@
 ## 目录
 
 ```text
-src/index.ts            host 半边：配置，并挂上各条路由
-src/host/               每条路由在 `<名字>.route.ts` 里，挨着它调用的规则；库扫描（一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干）、导入（不覆盖）、
-                        媒体伺服（带 Range，含 `.lingualab/` 缓存里的 mp4 与 m4a）、笔记读写、跨集复习清单（只读）、进度文件、字幕时间、
-                        手选字幕（`subtitle-choice` 存取与覆盖规则、`subtitle-choice-rules` 路由逻辑）、
-                        视频探测与准备（`video-plan` 纯规划、`ffmpeg` 查找与起进程、`video-jobs` 一次一个的任务、`video` 状态与路由逻辑、
-                        `video-cache` 缓存路径；写素材目录只有导入、notes.md、进度文件、字幕时间、手选字幕文件与视频缓存）
+src/index.ts            host 半边：配置，并挂上各个 feature 导出的路由
+src/host/               host 半边，FSD 的下三层，没有 widgets、pages、app 层
+  shared/               config（库根解析）、http（请求信任、媒体伺服带 Range、JSON）、fs（路径检查）、
+                        ffmpeg（查找与起进程）、lib、testing（只给测试用）；除 lib 外每段都有 `index.ts`
+  entities/             episode（库扫描：一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干；
+                        文件剧集能伺服哪些文件）、open-state（打开的剧集与文件剧集记录）、place（可浏览的位置）、note（笔记读写）、
+                        subtitle-choice（手选字幕的存取与覆盖规则）、video-cache（缓存路径）；实体之间只经 `@x/<读者>.ts` 互读
+  features/             一个能力一个切片，路由在 `api/<名字>.route.ts`，挨着它调用的规则：browse、library-config、
+                        import（不覆盖）、library、media（含 `.lingualab/` 缓存里的 mp4 与 m4a）、notes、open、progress（进度文件）、
+                        review（跨集复习清单，只读）、subtitle-choice、timing（字幕时间）、
+                        video（`lib/video-plan` 纯规划、`video-jobs` 一次一个的任务、`video` 状态）；
+                        写素材目录只有导入、notes.md、进度文件、字幕时间、手选字幕文件与视频缓存
 src/shared/             跨半边契约、笔记格式与文件名配对（最长词干归属），只有这一份
 src/client/             客户端半边，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
