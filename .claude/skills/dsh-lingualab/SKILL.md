@@ -118,6 +118,14 @@ node scripts/verify.mjs --list   # 看检查表
   （`video.ffmpeg.test.ts`，没装 ffmpeg 的机器自动跳过）。**不转码**是定死的，别为一个 HEVC 加转码。探测结果按「路径、大小、修改时间」记住，
   不然轮询进度时每秒探一次。取消靠杀进程，等进程关了再删 `.part`（Windows 删不了打开着的文件）。五步法的盲看只通过计时器碰画面状态
   （`features/settings/lib/picture.ts` 的纯函数），手动的选择清掉要恢复的状态，所以不会盖过读者自己选的。
+- **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
+  （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
+  对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`
+  则让按钮上的空格与回车归按钮自己（`keepsKeyForTarget`，Tab 过去的人照常能按）。会在被按下时消失的按钮，点击里先
+  `returnFocusToPage` 再改状态，键盘按下时焦点也不会丢。新加会自己消失的按钮照做。
+- **大画面的外框贴着画面**：`.is-large` 舞台是 `container-type:size`，外框宽是 `min(100cqw,1100px,100cqh * 比例)` 加 `aspect-ratio`，
+  比例是 `--ll-video-ratio`，由 `VideoStage` 在元素 `loadedmetadata` 与 `resize` 后写成真实的 videoWidth/videoHeight，之前按 16:9。
+  不要把外框改回 `flex:1`，那会让上下出黑边，角标和按钮就落在黑边里。
 - **改了源码要重启隔离实例并强刷安装副本**：宿主半边要重启才生效；而 profile 用 `file:` 装 tar 包时，
   版本号没变是不会换新文件的，得 `rm -rf node_modules/<包名> && npx pnpm@11.22.0 install --force`，
   否则你在浏览器里验的还是上一版。

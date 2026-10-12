@@ -19,14 +19,16 @@
  *
  * The notice bar at the top of the practice view is also drawn here, since it speaks about the same things.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import type { Picture } from '../../../features/settings/index.ts'
 import { isInformational, type CardKind } from '../../../features/video/index.ts'
+import { returnFocusToPage } from '../../../shared/lib/focus.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, TimerIcon, VideoIcon, WarnIcon } from '../../../shared/ui/icons.tsx'
 import type { VideoStatusPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
+import { ratioOf, ratioValue } from '../lib/ratio.ts'
 
 /** How long "copied" stays on the copy button. */
 const COPIED_MS = 1400
@@ -90,6 +92,36 @@ export function VideoStage({
   onShowPicture,
 }: VideoStageProps) {
   const time = useMediaPlayer((state) => state.currentTime)
+
+  // The picture's real shape, for the large state's frame. The element is the page's (it plays the audio
+  // files too), so it is kept in state to have somewhere to listen: `loadedmetadata` comes with every new
+  // source, and `resize` when the picture's size changes under the same one.
+  const [element, setElement] = useState<HTMLVideoElement | null>(null)
+  const [ratio, setRatio] = useState<number | null>(null)
+  const attach = useCallback(
+    (next: HTMLVideoElement | null) => {
+      setElement(next)
+      mediaRef(next)
+    },
+    [mediaRef],
+  )
+  useEffect(() => {
+    if (element === null) return
+    let live = true
+    const read = (): void => {
+      if (live) setRatio(ratioOf(element.videoWidth, element.videoHeight))
+    }
+    element.addEventListener('loadedmetadata', read)
+    element.addEventListener('resize', read)
+    // Metadata that came in before this effect ran is not announced again.
+    if (element.readyState >= 1) queueMicrotask(read)
+    return () => {
+      live = false
+      element.removeEventListener('loadedmetadata', read)
+      element.removeEventListener('resize', read)
+    }
+  }, [element])
+
   // Large only means something while a picture plays; without one the card keeps the usual size.
   const mode = picture === 'hidden' ? 'hidden' : picture === 'large' && playing ? 'large' : 'shown'
   const showScreen = playing && mode !== 'hidden'
@@ -122,8 +154,12 @@ export function VideoStage({
         </button>
       ) : null}
 
-      <div className={`dsh-lingualab-picture${showScreen ? '' : ' is-off'}`}>
-        <video ref={mediaRef} className="dsh-lingualab-video" playsInline preload="metadata" />
+      <div
+        className={`dsh-lingualab-picture${showScreen ? '' : ' is-off'}`}
+        // Only the large frame follows the picture's shape; the other states keep 16:9.
+        style={mode === 'large' ? ({ '--ll-video-ratio': ratioValue(ratio) } as CSSProperties) : undefined}
+      >
+        <video ref={attach} className="dsh-lingualab-video" playsInline preload="metadata" />
         {showScreen ? (
           <>
             {mode === 'shown' ? <span className="dsh-lingualab-picture-time">{formatClock(time)}</span> : null}
@@ -132,7 +168,16 @@ export function VideoStage({
               <div className="dsh-lingualab-picture-caption">{caption}</div>
             ) : null}
             {mode === 'large' && caption === null ? (
-              <button type="button" className="dsh-lingualab-picture-peek" onClick={onPeek}>
+              <button
+                type="button"
+                className="dsh-lingualab-picture-peek"
+                onClick={(event) => {
+                  // The button is replaced by the caption it asks for. Pressed by the keyboard it has the focus,
+                  // and the document would get it: the page takes it first, so the keys go on working.
+                  returnFocusToPage(event.currentTarget)
+                  onPeek()
+                }}
+              >
                 <kbd>R</kbd> {t('peekSentence')}
               </button>
             ) : null}

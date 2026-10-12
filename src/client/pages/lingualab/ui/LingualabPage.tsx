@@ -68,6 +68,7 @@ import {
 } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
 import { cardOf, isInformational, playSource, segmentKey, useFirstTimeCard, useVideo } from '../../../features/video/index.ts'
+import { holdsMouseFocus, keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { gradeForKey } from '../../../shared/lib/grades.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
@@ -842,6 +843,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       // saving a page took the star off a sentence, with its note, and Ctrl+C stopped
       // copying. Shift stays allowed because `[` and `]` can need it on some layouts.
       if (event.ctrlKey || event.metaKey || event.altKey) return
+      // Space and Enter on a button that has the focus press that button (the browser does it): a reader who
+      // got there with Tab keeps that. A mouse click never leaves the focus on a button (see the mouse-down
+      // below), so after a click these keys are the page's again.
+      if (keepsKeyForTarget(event.target, event.key)) return
       const store = useMediaPlayer.getState
       // Handled keys stop here. The conversation lives in the same document, and a
       // space bar that scrolls or submits behind the panel is a stolen keystroke.
@@ -1104,7 +1109,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       onMouseDown={(event) => {
         // Clicking the page's own chrome puts the keyboard back on the container; a
         // click into a field leaves the field alone.
-        if (!isTypingTarget(event.target)) containerRef.current?.focus({ preventScroll: true })
+        if (isTypingTarget(event.target)) return
+        containerRef.current?.focus({ preventScroll: true })
+        // A press on a button would then move the focus onto the button, after this handler: the browser does
+        // it as the default of the mouse-down. From there a button that goes away when it is pressed (the peek
+        // and reveal buttons) drops the focus to the document, outside this container, and the space bar is
+        // dead until the next click; one that stays would have the page and the button fight over the space
+        // bar. Cancelling the default keeps the focus here; the click itself still happens.
+        if (holdsMouseFocus(event.target)) event.preventDefault()
       }}
       // The practice view and the top bars have no drop target of their own, and a file
       // let go there would otherwise be opened by the browser in place of the page. The

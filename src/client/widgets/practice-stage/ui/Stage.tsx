@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { splitCue, tokenizeEnglish, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
+import { returnFocusToPage } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, CopyIcon, EyeIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
 import { StageSkeleton } from '../../../shared/ui/Skeleton.tsx'
@@ -322,7 +323,16 @@ export function Stage({
               )}
         </div>
         {masked ? (
-          <button type="button" className="dsh-lingualab-reveal" onClick={onReveal}>
+          <button
+            type="button"
+            className="dsh-lingualab-reveal"
+            onClick={(event) => {
+              // The button goes away with the blur it lifts; pressed by the keyboard it has the focus, which
+              // would fall to the document and take the page's shortcuts with it.
+              returnFocusToPage(event.currentTarget)
+              onReveal()
+            }}
+          >
             <EyeIcon size={14} /> {t('reveal')} <kbd>R</kbd>
           </button>
         ) : null}

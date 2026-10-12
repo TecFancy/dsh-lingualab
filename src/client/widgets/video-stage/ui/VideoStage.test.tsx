@@ -8,6 +8,7 @@ import type { ReactElement } from 'react'
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { CardKind } from '../../../features/video/index.ts'
+import { STYLES } from '../../../shared/lib/styles.ts'
 import type { VideoState, VideoStatusPayload } from '../../../shared/protocol.ts'
 import { VideoNotice, VideoStage, type VideoStageProps } from './VideoStage.tsx'
 
@@ -98,6 +99,56 @@ describe('a video that plays', () => {
     expect(markup).toContain('pictureHiddenChip')
     expect(markup).toContain('dsh-lingualab-picture is-off')
     expect(markup).toContain('<video')
+  })
+})
+
+describe('the large frame', () => {
+  /** The rule block of a selector, from the stylesheet the page ships. */
+  const rule = (selector: string): string => {
+    const start = STYLES.indexOf(`${selector}{`)
+    expect(start).toBeGreaterThanOrEqual(0)
+    return STYLES.slice(start, STYLES.indexOf('}', start))
+  }
+
+  it('asks the stylesheet for a frame of the video shape, 16:9 until the real one is known', () => {
+    const markup = html({ picture: 'large' })
+    expect(markup).toContain('--ll-video-ratio:1.7778')
+  })
+
+  it('leaves the other states on the stylesheet own 16:9', () => {
+    expect(html({ picture: 'shown' })).not.toContain('--ll-video-ratio')
+    expect(html({ picture: 'hidden' })).not.toContain('--ll-video-ratio')
+    // No picture to enlarge: the card state keeps the usual size.
+    expect(html({ playing: false, picture: 'large', card: 'prepare', status: status('prepare') })).not.toContain('--ll-video-ratio')
+  })
+
+  it('makes the stage a size container and the frame the biggest box of the video shape that fits, at most 1100px wide', () => {
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('container-type:size')
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('flex:1')
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('min-height:0')
+    const frame = rule('.dsh-lingualab-videostage.is-large .dsh-lingualab-picture')
+    expect(frame).toContain('aspect-ratio:var(--ll-video-ratio,1.7778)')
+    // The old frame filled the stage's height, which is what left the bars; nothing may stretch it again.
+    expect(frame).not.toContain('flex:1')
+    expect(frame).toContain('flex:none')
+    expect(frame).toContain('min-width:0')
+    expect(STYLES).toContain('width:min(100cqw,1100px,calc(100cqh * var(--ll-video-ratio,1.7778)))')
+  })
+
+  it('does not touch the shown and hidden states', () => {
+    expect(rule('.dsh-lingualab-videostage.is-shown')).toBe('.dsh-lingualab-videostage.is-shown{padding:20px 12px 0')
+    expect(rule('.dsh-lingualab-videostage.is-hidden')).toBe('.dsh-lingualab-videostage.is-hidden{padding:14px 12px 0')
+    const base = rule('.dsh-lingualab-picture')
+    expect(base).toContain('width:min(64%,720px)')
+    expect(base).toContain('aspect-ratio:16/9')
+    expect(base).toContain('max-height:42vh')
+  })
+
+  it('puts the badge, the peek button and the caption on the frame, not on the stage', () => {
+    expect(rule('.dsh-lingualab-picture')).toContain('position:relative')
+    for (const selector of ['.dsh-lingualab-picture-badge', '.dsh-lingualab-picture-peek', '.dsh-lingualab-picture-caption']) {
+      expect(rule(selector)).toContain('position:absolute')
+    }
   })
 })
 
