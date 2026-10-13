@@ -13,10 +13,11 @@
  *
  * The browser artifact is not an ES module. It is a classic script that calls
  * `window.__ModuleLoader__.load({ id, factory })`, and the module table answers
- * the factory's `require` calls. `format: 'cjs'` plus the `banner`, `intro` and
- * `footer` below produce exactly that closure shape; the platform's own plugins
- * are built the same way by `packages/client/tsdown.client.ts`, which this file
- * mirrors for a repository that has no access to that monorepo preset.
+ * the factory's `require` calls. `format: 'cjs'` plus the `postBanner` and
+ * `postFooter` below produce exactly that closure shape; the platform's own
+ * plugins get the same wrapper from `packages/client/tsdown.client.ts`, which
+ * this file mirrors for a repository that has no access to that monorepo preset.
+ * Unlike that preset, this bundle is minified and ships no source map.
  *
  * Everything the module table can answer stays a `require`; everything else is
  * inlined. A `require` the table cannot answer is a guaranteed runtime throw, so
@@ -80,8 +81,12 @@ export default defineConfig([
     fixedExtension: false,
     dts: false,
     clean: false,
-    // No sourcemap yet: nothing here is minified, and a map with `sourcesContent`
-    // would copy the whole source tree into `lib/` for no debugging gain.
+    // The shell puts this bundle into the script every dsh page loads at start,
+    // so it is minified. The loader wrapper is added afterwards (see
+    // `postBanner`) and stays readable.
+    minify: true,
+    // No sourcemap: a map with `sourcesContent` would copy the whole source tree
+    // into `lib/`.
     sourcemap: false,
     deps: {
       neverBundle: (specifier) => requested.has(specifier),
@@ -92,9 +97,10 @@ export default defineConfig([
       // a package-local dynamic chunk must be named `client.<name>.js`.
       entryFileNames: 'client.js',
       chunkFileNames: 'client.[name].js',
-      intro: 'var module = { exports: {} }; var exports = module.exports;',
-      banner: REGISTRATION,
-      footer: 'return module.exports; } });',
+      // The wrapper goes on after minification, so the loader handoff and the
+      // `module`/`exports` it gives the CommonJS body keep their names.
+      postBanner: `${REGISTRATION}\nvar module = { exports: {} }; var exports = module.exports;`,
+      postFooter: 'return module.exports; } });',
     },
   },
 ])
