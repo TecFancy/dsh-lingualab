@@ -68,6 +68,44 @@ describe('playSource', () => {
   })
 })
 
+describe('playSource with a file from the reader own disk', () => {
+  const audio = '/m/E1/a.mp3'
+  const video = '/m/E1/.lingualab/a.mp4'
+  const local = 'blob:http://host/1'
+
+  it('plays it ahead of the served video, with its picture', () => {
+    expect(playSource(audio, status('playable', video), null, false, local)).toEqual({ url: local, picture: true })
+  })
+
+  it('plays it whatever state the served video is in, or none at all', () => {
+    for (const state of ['prepare', 'preparing', 'no-ffmpeg', 'sound-only', 'sound-ready', 'failed', 'unplayable'] as const) {
+      expect(playSource(audio, status(state), null, false, local)).toEqual({ url: local, picture: true })
+    }
+    expect(playSource(audio, null, null, false, local)).toEqual({ url: local, picture: true })
+    expect(playSource(null, status('prepare'), null, false, local)).toEqual({ url: local, picture: true })
+  })
+
+  it('leaves the audio file playing while the picture is hidden, as for a served video', () => {
+    expect(playSource(audio, status('playable', video), null, true, local)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('prepare'), null, true, local)).toEqual({ url: audio, picture: false })
+  })
+
+  it('plays it even hidden when it is the only sound there is', () => {
+    expect(playSource('', status('prepare'), null, true, local)).toEqual({ url: local, picture: true })
+    expect(playSource(null, null, null, true, local)).toEqual({ url: local, picture: true })
+  })
+
+  it('is given up on like any URL the browser could not decode, and the served source plays again', () => {
+    expect(playSource(audio, status('playable', video), local, false, local)).toEqual({ url: video, picture: true })
+    expect(playSource(audio, status('prepare'), local, false, local)).toEqual({ url: audio, picture: false })
+  })
+
+  it('changes nothing without one', () => {
+    expect(playSource(audio, status('playable', video), null, false, null)).toEqual({ url: video, picture: true })
+    expect(playSource(audio, status('playable', video), null, false, '')).toEqual({ url: video, picture: true })
+  })
+})
+
 describe('cardOf', () => {
   it('has no card for a video that plays, no video, or nothing known yet', () => {
     expect(cardOf(null, null)).toBeNull()
