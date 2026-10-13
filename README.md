@@ -62,7 +62,8 @@ the source is never modified and deleting the folder only means preparing again.
 progress and a 「取消」, and it needs `ffmpeg` and `ffprobe` on `PATH` or in the optional `ffmpegPath` config field (a
 folder holding both, or the path of either; a volatile field, so the Plugins page can set it with no restart). Without
 them an `mp4` or `webm` still plays directly and anything else shows a card with the install command. Once a segment has
-a playable video it is the player's source, and its sound is the sound of the session; the subtitles, loop, kept
+a playable video it is the player's source, and its sound is the sound of the session (with the picture hidden, a segment
+that has an audio file of its own plays that instead, so the video is not downloaded); the subtitles, loop, kept
 sentences, timing edits and review all keep working on that one timeline. A picture on the stage has three states
 (shown, large and hidden), kept in this browser with the other settings: `V` and a button in the play card cycle them,
 and in the large state `R` shows the English of the current sentence on the picture until the next sentence starts. The

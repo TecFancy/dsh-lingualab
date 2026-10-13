@@ -11,7 +11,7 @@
  *   · **Playing a picture.** *Shown* puts it above the sentence at a modest size; *large* gives it the
  *     whole stage (the page hides the sentence then, for the blind-watch step), with a button and the
  *     `R` key to peek at the English of the current sentence as a caption that folds away when the next
- *     sentence starts; *hidden* shows only a small chip saying the sound still comes from the video.
+ *     sentence starts; *hidden* shows only a small chip, and the page plays the audio file instead of the video where there is one.
  *   · **Not playing one.** A card in the same place says what is needed: prepare it, wait for it, install
  *     ffmpeg, or that only the sound can be had or that nothing can. The cards that only inform are shown in
  *     full the first time and then as a small label that opens them again; hiding the picture hides the
@@ -42,7 +42,10 @@ export interface VideoStageProps {
   readonly mediaRef: (element: HTMLVideoElement | null) => void
   /** The reader's choice. */
   readonly picture: Picture
-  /** The element is playing a source with a picture. */
+  /**
+   * The segment has a video that plays: the element is playing it, or would be but for the picture being hidden
+   * (then the audio file plays and the stage keeps the small chip that brings the picture back).
+   */
   readonly playing: boolean
   readonly status: VideoStatusPayload | null
   /** The card the status needs, if any. */
@@ -159,7 +162,7 @@ export function VideoStage({
         // Only the large frame follows the picture's shape; the other states keep 16:9.
         style={mode === 'large' ? ({ '--ll-video-ratio': ratioValue(ratio) } as CSSProperties) : undefined}
       >
-        <video ref={attach} className="dsh-lingualab-video" playsInline preload="metadata" />
+        <video ref={attach} className="dsh-lingualab-video" playsInline preload="auto" />
         {showScreen ? (
           <>
             {mode === 'shown' ? <span className="dsh-lingualab-picture-time">{formatClock(time)}</span> : null}

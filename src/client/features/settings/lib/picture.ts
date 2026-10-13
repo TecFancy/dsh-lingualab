@@ -3,7 +3,8 @@
  *
  * A segment with a playable video can show its picture three ways: **shown** (above the sentence), **large**
  * (the picture takes the stage and the sentence text is hidden: the blind-watch step) and **hidden** (the
- * stage as it is without a video, the sound still coming from the video). The reader cycles them with `V`
+ * stage as it is without a video, the sound coming from the segment's audio file so the video is not downloaded, or from
+ * the video when there is no audio file of its own). The reader cycles them with `V`
  * or the button in the play card, and the choice is kept per device like the other settings.
  *
  * The five steps touch it in one place only. Starting the blind-watch step's timer switches the picture to

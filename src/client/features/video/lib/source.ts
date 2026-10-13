@@ -3,8 +3,10 @@
  *
  * **What plays.** One media element plays one source at a time. A segment with a playable video plays
  * the video, and its sound is the sound of the session; otherwise the segment's audio file as always.
- * A video-only segment that has had its sound taken out plays that. A video the browser turned out not
- * to be able to decode is given up on for the rest of the visit, and the audio file takes over.
+ * With the picture hidden nothing is drawn, so a segment that has an audio file of its own plays that
+ * instead and the much larger video is not downloaded; a video-only segment has no other sound and keeps
+ * playing the video. A video-only segment that has had its sound taken out plays that. A video the browser
+ * turned out not to be able to decode is given up on for the rest of the visit, and the audio file takes over.
  *
  * **What the stage shows.** Besides the picture itself, the video slot can hold a card that says what
  * is needed (prepare it, wait, install ffmpeg, only the sound can be had) or that nothing can be done.
@@ -27,11 +29,17 @@ export interface PlaySource {
  * @param audioUrl - the segment's audio file URL; empty or `null` for a segment that has none.
  * @param status - what the host said about the segment's video, or `null` while unknown.
  * @param failedUrl - a URL the browser said it cannot decode, or `null`.
+ * @param pictureHidden - the reader hides the picture, so a playable video is only worth its sound.
  */
-export function playSource(audioUrl: string | null, status: VideoStatusPayload | null, failedUrl: string | null): PlaySource {
+export function playSource(
+  audioUrl: string | null,
+  status: VideoStatusPayload | null,
+  failedUrl: string | null,
+  pictureHidden: boolean,
+): PlaySource {
   const audio = audioUrl === null || audioUrl.length === 0 ? null : audioUrl
   if (status !== null && status.url !== null && status.url !== failedUrl) {
-    if (status.state === 'playable') return { url: status.url, picture: true }
+    if (status.state === 'playable' && !(pictureHidden && audio !== null)) return { url: status.url, picture: true }
     // The sound taken from a video stands in only for a segment that has no audio file of its own.
     if (status.state === 'sound-ready' && audio === null) return { url: status.url, picture: false }
   }
