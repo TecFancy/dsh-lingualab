@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-13
+
 ### Added
 
 - 「用本地文件播放」: a segment that has a video file can play it from a file on the reader's own machine, in place of the
