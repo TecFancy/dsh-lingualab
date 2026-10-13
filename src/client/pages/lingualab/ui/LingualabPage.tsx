@@ -67,7 +67,15 @@ import {
   type ReviewSession,
 } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
-import { cardOf, isInformational, playSource, segmentKey, useFirstTimeCard, useVideo } from '../../../features/video/index.ts'
+import {
+  cardOf,
+  isInformational,
+  playSource,
+  segmentKey,
+  useFirstTimeCard,
+  useLocalVideo,
+  useVideo,
+} from '../../../features/video/index.ts'
 import { holdsMouseFocus, keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { gradeForKey } from '../../../shared/lib/grades.ts'
@@ -229,17 +237,43 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     refreshListing()
   }, [t, refreshListing])
   const video = useVideo(episodeId, segmentId, hasVideoFile, onVideoReady)
+  /** A remembered local file could not be opened: not allowed, or gone. */
+  const onLocalUnreadable = useCallback((): void => {
+    setNotice({ kind: 'warn', text: t('noticeLocalUnreadable'), action: t('cardGotIt') })
+  }, [t])
+  /** A video file the reader picked from their own disk, to play in place of the served one. */
+  const local = useLocalVideo({
+    key: hasVideoFile ? segmentKey(episodeId, segmentId) : null,
+    status: video.status,
+    audioUrl: library.media?.audioUrl ?? null,
+    onUnreadable: onLocalUnreadable,
+  })
+  const markUndecodable = video.markUndecodable
+  const rejectLocal = local.reject
+  /** The browser cannot decode what the element was given: the reader's file is dropped, anything else is given up on. */
+  const onUndecodable = useCallback(
+    (failed: string): void => {
+      const name = rejectLocal(failed)
+      if (name === null) markUndecodable(failed)
+      else setNotice({ kind: 'warn', text: t('noticeLocalFailed', { name }), action: t('cardGotIt') })
+    },
+    [rejectLocal, markUndecodable, t],
+  )
   /**
-   * What plays: the video once it plays, else the audio file (or nothing, for a video that is not prepared).
-   * With the picture hidden the audio file plays even when the video could, so the video is not downloaded; the
-   * reader showing the picture again swaps it back under the same session, keeping the position.
+   * What plays: the reader's own file when they chose one, else the video once it plays, else the audio file (or
+   * nothing, for a video that is not prepared). With the picture hidden the audio file plays even when a video
+   * could, so the video is not downloaded; the reader showing the picture again swaps it back under the same
+   * session, keeping the position.
    */
-  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, picture === 'hidden')
+  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, picture === 'hidden', local.url)
   /** Whether the segment has a video that plays, whichever of the two is the source right now. */
-  const videoPlays = picture === 'hidden' ? playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, false).picture : source.picture
+  const videoPlays =
+    picture === 'hidden'
+      ? playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, false, local.url).picture
+      : source.picture
   // The one media element. A new source for the same segment (the audio, then the video that was just
-  // prepared) keeps the position; the `session` is what says it is the same segment.
-  const binding = useMediaBinding(source.url, segmentKey(episodeId, segmentId), video.markUndecodable)
+  // prepared, or the file the reader chose) keeps the position; the `session` is what says it is the same segment.
+  const binding = useMediaBinding(source.url, segmentKey(episodeId, segmentId), onUndecodable)
 
   // Feature-to-feature wiring is the page's job: the library feature may not reach into
   // the player, so loading a new cue list resets the player here.
@@ -825,9 +859,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const card = cardOf(video.status, video.failedUrl)
   const firstTimeCard = useFirstTimeCard(card !== null && isInformational(card) ? JSON.stringify([segmentKey(episodeId, segmentId), card]) : null)
 
-  // The length warning: a video that is longer or shorter than the audio the subtitles were timed against.
+  // The length warning: a video that is longer or shorter than the audio the subtitles were timed against. The reader's
+  // own file is held against the served video (or the audio file, when that was never probed) first; one that matches
+  // it has the served video's own warning, if it has one.
   const mismatchKey = segmentKey(episodeId, segmentId)
-  const mismatch = source.picture ? (video.status?.mismatch ?? null) : null
+  const mismatch = source.picture ? (local.url === null ? null : local.mismatch) ?? video.status?.mismatch ?? null : null
   const mismatchNotice: VideoNoticeData | null =
     mismatch === null || mismatchKey === null || dismissedMismatch.has(mismatchKey)
       ? null
@@ -1298,6 +1334,20 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 onCardShow={firstTimeCard.show}
                 onCardHide={firstTimeCard.hide}
                 onShowPicture={() => useSettings.getState().setPicture('shown')}
+                local={
+                  hasVideoFile
+                    ? {
+                        name: local.name,
+                        remembered: local.remembered,
+                        canPick: local.canRemember,
+                        onPick: local.pick,
+                        onFile: local.use,
+                        onResume: local.resume,
+                        onForget: local.forget,
+                        onStop: local.stop,
+                      }
+                    : null
+                }
               />
               {stageHidden ? null : (
                 <Stage

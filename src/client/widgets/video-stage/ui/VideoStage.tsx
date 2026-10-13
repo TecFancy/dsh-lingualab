@@ -17,18 +17,23 @@
  *     full the first time and then as a small label that opens them again; hiding the picture hides the
  *     cards too, leaving that label.
  *
+ * A segment that has a video file can also play it from the reader's own disk (see `useLocalVideo`): the picture carries a
+ * small action for it, every card ends with the same one, a video dropped on the stage is taken as the choice, and while one
+ * plays a label says so, with the way to stop. The drop is claimed here, so it never reaches the page's import.
+ *
  * The notice bar at the top of the practice view is also drawn here, since it speaks about the same things.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import type { Picture } from '../../../features/settings/index.ts'
-import { isInformational, type CardKind } from '../../../features/video/index.ts'
+import { isInformational, isVideoFile, type CardKind } from '../../../features/video/index.ts'
 import { returnFocusToPage } from '../../../shared/lib/focus.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, TimerIcon, VideoIcon, WarnIcon } from '../../../shared/ui/icons.tsx'
 import type { VideoStatusPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { ratioOf, ratioValue } from '../lib/ratio.ts'
+import { LocalFileActions, LocalFileBadge, type LocalFileProps } from './LocalFileActions.tsx'
 
 /** How long "copied" stays on the copy button. */
 const COPIED_MS = 1400
@@ -67,6 +72,8 @@ export interface VideoStageProps {
   readonly onCardHide: () => void
   /** Leave the hidden state, from the small label. */
   readonly onShowPicture: () => void
+  /** Playing the segment's video from a file on the reader's disk, or `null` when the segment has no video file. */
+  readonly local: LocalFileProps | null
 }
 
 /** A codec name as it is written on a card: `hevc` becomes `HEVC`. */
@@ -93,6 +100,7 @@ export function VideoStage({
   onCardShow,
   onCardHide,
   onShowPicture,
+  local,
 }: VideoStageProps) {
   const time = useMediaPlayer((state) => state.currentTime)
 
@@ -135,13 +143,33 @@ export function VideoStage({
   const empty = !showScreen && !fullCard && !chip && label === null
 
   return (
-    <div className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}`}>
+    <div
+      className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}`}
+      // A video file let go on the stage is the reader's choice to play it. The event stops here whatever was dropped,
+      // so nothing else (the page's own catch-all, a browser that would open the file) acts on it.
+      onDragOver={(event) => {
+        if (local === null || !Array.from(event.dataTransfer.types).includes('Files')) return
+        event.preventDefault()
+        event.stopPropagation()
+        event.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(event) => {
+        if (local === null || !Array.from(event.dataTransfer.types).includes('Files')) return
+        event.preventDefault()
+        event.stopPropagation()
+        const file = Array.from(event.dataTransfer.files).find(isVideoFile)
+        if (file !== undefined) local.onFile(file)
+      }}
+    >
       {chip ? (
         <div className="dsh-lingualab-videochip">
           <VideoIcon size={13} off />
           {t('pictureHiddenChip')}
           <kbd>V</kbd>
         </div>
+      ) : null}
+      {chip && local !== null && local.name !== null ? (
+        <LocalFileBadge t={t} name={local.name} variant="card" onStop={local.onStop} />
       ) : null}
       {label !== null ? (
         <button
@@ -165,6 +193,15 @@ export function VideoStage({
         <video ref={attach} className="dsh-lingualab-video" playsInline preload="auto" />
         {showScreen ? (
           <>
+            {local === null ? null : (
+              <div className="dsh-lingualab-picture-local">
+                {local.name === null ? (
+                  <LocalFileActions t={t} local={local} variant="picture" withHint={false} />
+                ) : (
+                  <LocalFileBadge t={t} name={local.name} variant="picture" onStop={local.onStop} />
+                )}
+              </div>
+            )}
             {mode === 'shown' ? <span className="dsh-lingualab-picture-time">{formatClock(time)}</span> : null}
             {mode === 'large' ? <span className="dsh-lingualab-picture-badge">{t('pictureLargeBadge')}</span> : null}
             {mode === 'large' && caption !== null ? (
@@ -196,6 +233,7 @@ export function VideoStage({
           hasAudioFile={hasAudioFile}
           busy={busy}
           eta={eta}
+          local={local}
           onPrepare={onPrepare}
           onCancel={onCancel}
           onHide={onCardHide}
@@ -212,16 +250,20 @@ interface CardProps {
   readonly hasAudioFile: boolean
   readonly busy: boolean
   readonly eta: number | null
+  readonly local: LocalFileProps | null
   readonly onPrepare: (mode: 'video' | 'sound') => void
   readonly onCancel: () => void
   readonly onHide: () => void
 }
 
 /** One card, drawn the size of the picture it stands in for. */
-function Card({ t, kind, status, hasAudioFile, busy, eta, onPrepare, onCancel, onHide }: CardProps) {
+function Card({ t, kind, status, hasAudioFile, busy, eta, local, onPrepare, onCancel, onHide }: CardProps) {
   const file = [status.file, formatBytes(status.bytes)].filter((part) => part !== null && part.length > 0).join(' · ')
   // A refusal from the host (another job is running, say) is shown on the card it came back to.
   const refusal = !status.ok && status.reason !== null && kind !== 'failed' ? status.reason : null
+  // Whatever the served video is doing, the reader's own copy of it is a way out; every card ends with it. (A card is
+  // only up while no picture plays, so a local file is never in use here.)
+  const localActions = local === null ? null : <LocalFileActions t={t} local={local} variant="card" withHint />
 
   if (kind === 'preparing') {
     const progress = status.progress
@@ -250,12 +292,13 @@ function Card({ t, kind, status, hasAudioFile, busy, eta, onPrepare, onCancel, o
         <button type="button" className="dsh-lingualab-btn" onClick={onCancel} disabled={busy}>
           {t('cardCancel')}
         </button>
+        {localActions}
       </section>
     )
   }
 
   if (kind === 'no-ffmpeg') {
-    return <NoFfmpegCard t={t} command={status.installCommand ?? ''} hasAudioFile={hasAudioFile} />
+    return <NoFfmpegCard t={t} command={status.installCommand ?? ''} hasAudioFile={hasAudioFile} localActions={localActions} />
   }
 
   const soundOnlyLine = t('cardSoundCodec', { codec: codecName(status.videoCodec) })
@@ -340,12 +383,23 @@ function Card({ t, kind, status, hasAudioFile, busy, eta, onPrepare, onCancel, o
           </button>
         </>
       ) : null}
+      {localActions}
     </section>
   )
 }
 
 /** The card for a host with no ffmpeg: what to run, a button to copy it, and where the path can be set. */
-function NoFfmpegCard({ t, command, hasAudioFile }: { readonly t: Translate; readonly command: string; readonly hasAudioFile: boolean }) {
+function NoFfmpegCard({
+  t,
+  command,
+  hasAudioFile,
+  localActions,
+}: {
+  readonly t: Translate
+  readonly command: string
+  readonly hasAudioFile: boolean
+  readonly localActions: ReactNode
+}) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -381,13 +435,14 @@ function NoFfmpegCard({ t, command, hasAudioFile }: { readonly t: Translate; rea
       <div className="dsh-lingualab-videocard-sub">{t('cardFfmpegPath', { field: 'ffmpegPath' })}</div>
       <span className="dsh-lingualab-spacer" />
       {hasAudioFile ? <div className="dsh-lingualab-videocard-note">{t('cardFfmpegNote')}</div> : null}
+      {localActions}
     </section>
   )
 }
 
 /** What the notice bar says. */
 export interface VideoNoticeData {
-  readonly kind: 'ready' | 'mismatch' | 'blind'
+  readonly kind: 'ready' | 'mismatch' | 'blind' | 'warn'
   readonly text: string
   /** The action button (「知道了」, 「撤销」), if the notice has one. */
   readonly action: string | null

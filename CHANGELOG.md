@@ -19,6 +19,18 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- 「用本地文件播放」: a segment that has a video file can play it from a file on the reader's own machine, in place of the
+  served video, without uploading it. Pick it from the picture or from any video card (prepare, preparing, no ffmpeg,
+  sound only, failed, unplayable), or drop it on the stage; it is played from an object URL under the same session, so the
+  position, loop, subtitles and kept sentences carry on, and a label on the stage says 「本地文件」 with a way to stop using
+  it. Its length is compared with the served video's, or the audio file's when that was never probed, and the existing
+  length warning shows when they differ by more than a second. A file the browser cannot decode drops back to the served
+  source with a notice that says to use an `mp4`. Where the browser has the File System Access API the choice is remembered
+  per segment on this device, and one click continues with it; elsewhere the file is picked again each visit. The host is
+  not involved.
+
 ## [0.9.3] - 2026-10-13
 
 ### Changed
