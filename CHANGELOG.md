@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The browser bundle is minified. dsh puts every plugin's bundle into the script it loads at start, so `lib/client.js`
+  going from 554 KB to 288 KB (133 KB to 71 KB gzipped) makes every dsh page lighter, not only this one. The loader
+  wrapper around it is left as it was.
+
 ## [0.9.1] - 2026-10-13
 
 ### Fixed
