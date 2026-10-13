@@ -1,6 +1,6 @@
 {
   "name": "dsh-lingualab",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "「语言实验室」— a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
   "license": "MIT",
