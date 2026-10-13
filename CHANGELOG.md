@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-13
+
 ### Changed
 
 - Hiding the picture now plays the segment's own audio file instead of downloading the video. The video of a 23 minute
