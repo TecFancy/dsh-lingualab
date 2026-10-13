@@ -19,6 +19,19 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-13
+
+### Changed
+
+- Hiding the picture now plays the segment's own audio file instead of downloading the video. The video of a 23 minute
+  episode is about 940 MB against 55 MB of mp3, which a slow link cannot keep up with; a segment that has only a video
+  keeps playing it, since that is its only sound. Showing the picture again swaps back to the video at the same position.
+- Media responses carry an `ETag` and `Last-Modified`, answer `304` to a matching `If-None-Match` or
+  `If-Modified-Since`, and drop a `Range` whose `If-Range` no longer matches. Chrome only keeps a partial response that
+  has a validator, so until now nothing it had downloaded was ever reused; a file prepared again under the same name is
+  still picked up, because the browser keeps asking.
+- The player buffers ahead before you press play, so the sentence you are reading is already on its way.
+
 ## [0.9.2] - 2026-10-13
 
 ### Changed

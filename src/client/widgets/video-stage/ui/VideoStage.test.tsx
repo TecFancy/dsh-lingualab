@@ -74,6 +74,10 @@ describe('a video that plays', () => {
     expect(markup).not.toContain('dsh-lingualab-videocard')
   })
 
+  it('buffers ahead before play is pressed, so a slow link has the sentence ready', () => {
+    expect(html()).toContain('preload="auto"')
+  })
+
   it('gives the picture the whole stage when large, with a button to peek at the sentence', () => {
     const markup = html({ picture: 'large' })
     expect(markup).toContain('dsh-lingualab-videostage is-large')
