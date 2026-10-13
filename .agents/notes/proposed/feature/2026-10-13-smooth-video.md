@@ -81,4 +81,5 @@ started by hand for one episode or segment, and once it is ready it replaces the
   it again, which is a minute of remuxing. Whether the page offers that as an action, or the reader deletes
   the smooth file by hand, is left to decide when it is built.
 
-Related: [play video episodes in the page](../../implemented/feature/2026-10-12-video-episodes.md).
+Related: [play the picture from a file on the reader's own machine](2026-10-13-play-a-local-video.md),
+[play video episodes in the page](../../implemented/feature/2026-10-12-video-episodes.md).
