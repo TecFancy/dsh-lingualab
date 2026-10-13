@@ -37,7 +37,7 @@ export interface LocalVideo {
   readonly resume: () => void
   /** Forget the remembered file. */
   readonly forget: () => void
-  /** Stop using the file in use, and forget it, so the served source plays again from the same position. */
+  /** Stop using the file in use, so the served source plays again from the same position. A remembered file is kept. */
   readonly stop: () => void
   /**
    * The browser said it cannot decode a URL. When it is the local file's, the file is dropped and forgotten, so the
@@ -193,10 +193,10 @@ export function useLocalVideo({ key, status, audioUrl, onUnreadable }: LocalVide
     })
   }, [key, handle, adopt, forget, onUnreadable])
 
+  // A remembered file stays remembered: stopping is not a verdict on the file, and 「忘掉」 is one click away.
   const stop = useCallback((): void => {
     setCurrent(null)
-    forget()
-  }, [forget])
+  }, [])
 
   const reject = useCallback(
     (failedUrl: string): string | null => {

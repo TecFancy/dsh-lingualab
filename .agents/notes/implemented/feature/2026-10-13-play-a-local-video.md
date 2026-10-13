@@ -91,11 +91,12 @@ Decisions made while building:
   difference from the reference (positive when the local file is longer) instead.
 - **Only where the browser has `showOpenFilePicker` is a choice remembered.** The handle is kept per segment in
   IndexedDB, on this device only. Opening the segment again offers 「继续用本地文件」 with the file's name, because
-  asking permission to read it needs a click; 「忘记」 removes it, 「停用」 removes it as well, and a handle whose file
-  is gone is dropped after saying so. Elsewhere the page uses a plain file input and the reader picks the file again in
+  asking permission to read it needs a click; 「忘记」 removes it, 「停用」 keeps it (stopping is not a verdict on the
+  file), and a handle whose file is gone is dropped after saying so. Elsewhere the page uses a plain file input and the reader picks the file again in
   each page session. Every IndexedDB call is allowed to fail, and then nothing is remembered.
 - **The object URL lives as long as the file is in use.** It is revoked when the file is replaced or stopped, when the
   segment changes (the remembered handle offers the file back) and when the page goes.
+- **「视频准备好了」 waits while a local file plays.** It is about the served video, which is not what plays then.
 - **A video dropped on the practice stage is the choice; nothing else it could mean happens.** Only a video file is
   taken, anything else dropped there is ignored (and not opened by the browser), and the drop never reaches the import,
   which stays on the home page.

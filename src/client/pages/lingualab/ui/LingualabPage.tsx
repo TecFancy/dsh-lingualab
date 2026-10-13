@@ -873,7 +873,13 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           action: t('cardGotIt'),
         }
   // The blind-watch notice goes when the reader changes the picture by hand: there is nothing left to undo.
-  const liveNotice = notice !== null && notice.kind === 'blind' && pictureRestore === null ? null : notice
+  // 「视频准备好了」 is about the served video, which does not play while the reader's own file does.
+  const liveNotice =
+    notice === null ||
+    (notice.kind === 'blind' && pictureRestore === null) ||
+    (notice.kind === 'ready' && local.url !== null)
+      ? null
+      : notice
   const shownNotice = liveNotice ?? mismatchNotice
   const onNoticeAction = (): void => {
     if (shownNotice === null) return
