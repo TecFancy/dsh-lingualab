@@ -27,29 +27,44 @@ describe('playSource', () => {
   const video = '/m/E1/.lingualab/a.mp4'
 
   it('plays the audio file until the video is known to play', () => {
-    expect(playSource(audio, null, null)).toEqual({ url: audio, picture: false })
-    expect(playSource(audio, status('prepare'), null)).toEqual({ url: audio, picture: false })
-    expect(playSource(audio, status('preparing'), null)).toEqual({ url: audio, picture: false })
-    expect(playSource(audio, status('no-ffmpeg'), null)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, null, null, false)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('prepare'), null, false)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('preparing'), null, false)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('no-ffmpeg'), null, false)).toEqual({ url: audio, picture: false })
   })
 
   it('plays the video, with its picture, once it plays', () => {
-    expect(playSource(audio, status('playable', video), null)).toEqual({ url: video, picture: true })
+    expect(playSource(audio, status('playable', video), null, false)).toEqual({ url: video, picture: true })
   })
 
   it('goes back to the audio when the browser could not decode the video', () => {
-    expect(playSource(audio, status('playable', video), video)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('playable', video), video, false)).toEqual({ url: audio, picture: false })
   })
 
   it('plays nothing for a video-only segment that is not prepared', () => {
-    expect(playSource('', status('prepare'), null)).toEqual({ url: null, picture: false })
-    expect(playSource(null, null, null)).toEqual({ url: null, picture: false })
+    expect(playSource('', status('prepare'), null, false)).toEqual({ url: null, picture: false })
+    expect(playSource(null, null, null, false)).toEqual({ url: null, picture: false })
+  })
+
+  it('plays the audio file while the picture is hidden, so the video is not downloaded', () => {
+    expect(playSource(audio, status('playable', video), null, true)).toEqual({ url: audio, picture: false })
+  })
+
+  it('keeps playing the video while the picture is hidden when it is the only sound there is', () => {
+    expect(playSource('', status('playable', video), null, true)).toEqual({ url: video, picture: true })
+    expect(playSource(null, status('playable', video), null, true)).toEqual({ url: video, picture: true })
+  })
+
+  it('has nothing to change when the picture is hidden and the video does not play', () => {
+    expect(playSource(audio, null, null, true)).toEqual({ url: audio, picture: false })
+    expect(playSource(audio, status('prepare'), null, true)).toEqual({ url: audio, picture: false })
+    expect(playSource('', status('prepare'), null, true)).toEqual({ url: null, picture: false })
   })
 
   it('plays the sound taken from a video only when the segment has no audio file of its own', () => {
     const sound = '/m/E1/.lingualab/a.m4a'
-    expect(playSource('', status('sound-ready', sound), null)).toEqual({ url: sound, picture: false })
-    expect(playSource(audio, status('sound-ready', sound), null)).toEqual({ url: audio, picture: false })
+    expect(playSource('', status('sound-ready', sound), null, false)).toEqual({ url: sound, picture: false })
+    expect(playSource(audio, status('sound-ready', sound), null, false)).toEqual({ url: audio, picture: false })
   })
 })
 

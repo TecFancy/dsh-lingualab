@@ -8,6 +8,14 @@
  * frequent action in the whole study method — would wait on a 20 MB file every
  * time. The handler answers `206 Partial Content` with the requested slice.
  *
+ * **Validators.** Every answer carries a strong `ETag` (the file's size and modification time) and
+ * `Last-Modified`, and `cache-control` stays `no-cache`, so the browser asks again each time and a file that
+ * was prepared again under the same name is picked up. The validators are what make that asking cheap:
+ * Chrome only keeps a `206` in its disk cache when the response has one, so without them every byte of a
+ * video is fetched again on every visit. A matching `If-None-Match` or `If-Modified-Since` is answered `304`
+ * with no body, and an `If-Range` that no longer matches means the file changed under a half-finished
+ * download, so the `Range` is dropped and the whole new file is sent.
+ *
  * **Containment.** The path comes from the URL, so it is untrusted input: the
  * request is decoded, joined to the library root, and then compared with
  * `path.relative`. A prefix comparison would be wrong the moment the filesystem
@@ -20,7 +28,7 @@
  * served by its own name when a browser can play it as it is; `mkv` and `mov` are never served, they
  * are prepared first.
  */
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, statSync, type Stats } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, isAbsolute, join, relative } from 'node:path'
 import { VIDEO_CACHE_DIR } from '../../../shared/protocol.ts'
@@ -96,6 +104,47 @@ function parseRange(header: string | undefined, size: number): { start: number; 
   return { start, end }
 }
 
+/** The strong validator of a file: its size and modification time, quoted as an `ETag` is. */
+function etagOf(stat: Stats): string {
+  return `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`
+}
+
+/** Whole seconds of a time in milliseconds, which is all an HTTP date can say. */
+function secondsOf(milliseconds: number): number {
+  return Math.floor(milliseconds / 1000)
+}
+
+/** Whether an `If-None-Match` list names the current `ETag`: `*`, or any entry, compared weakly. */
+function noneMatchHits(header: string, etag: string): boolean {
+  return header.split(',').some((entry) => {
+    const candidate = entry.trim()
+    return candidate === '*' || candidate.replace(/^W\//, '') === etag
+  })
+}
+
+/** Whether the request is a conditional one that the current file satisfies, so the answer is `304`. */
+function isNotModified(req: IncomingMessage, etag: string, stat: Stats): boolean {
+  const noneMatch = req.headers['if-none-match']
+  if (noneMatch !== undefined) return noneMatchHits(noneMatch, etag)
+  const since = Date.parse(req.headers['if-modified-since'] ?? '')
+  return !Number.isNaN(since) && secondsOf(stat.mtimeMs) <= secondsOf(since)
+}
+
+/**
+ * Whether a `Range` is still to be honoured given `If-Range`. No `If-Range` means yes. One that is an `ETag`
+ * must equal the current one exactly (a weak one never does, as the spec has it); one that is a date must
+ * be the file's own modification time.
+ */
+function ifRangeHolds(header: string | string[] | undefined, etag: string, stat: Stats): boolean {
+  if (header === undefined) return true
+  // Node types an unknown header as possibly repeated; a repeated `If-Range` is nonsense, so nothing is vouched for.
+  if (typeof header !== 'string') return false
+  const value = header.trim()
+  if (value.startsWith('"') || value.startsWith('W/')) return value === etag
+  const date = Date.parse(value)
+  return !Number.isNaN(date) && secondsOf(date) === secondsOf(stat.mtimeMs)
+}
+
 /** Send one file, honouring `Range`. Returns nothing; the response owns the socket. */
 export function serveMedia(
   req: IncomingMessage,
@@ -122,37 +171,56 @@ export function serveMedia(
  *
  * The caller owns containment. This function trusts `target`, and says so here
  * because it is the only place a reader might wonder.
- * @param req - the request, read for `Range` and for `HEAD`.
+ * @param req - the request, read for `Range`, the conditional headers and `HEAD`.
  * @param res - the response to write.
  * @param target - absolute path of the file to send.
  */
 export function serveFile(req: IncomingMessage, res: ServerResponse, target: string): void {
-  if (!existsSync(target)) {
+  let stat: Stats | null = null
+  try {
+    stat = statSync(target)
+  } catch {
+    // Missing, or removed since the scan: the same answer.
+  }
+  if (stat === null || !stat.isFile()) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('没有这个文件\n')
     return
   }
 
-  const size = statSync(target).size
+  const size = stat.size
   const type = CONTENT_TYPES[extname(target).slice(1).toLowerCase()] ?? 'application/octet-stream'
-  const range = parseRange(req.headers.range, size)
+  const etag = etagOf(stat)
+  // `no-cache` keeps the browser asking each time, so these validators are what let it reuse the bytes it has.
+  const validators = {
+    etag,
+    'last-modified': new Date(stat.mtimeMs).toUTCString(),
+    'cache-control': 'no-cache',
+    'accept-ranges': 'bytes',
+  }
+
+  if (isNotModified(req, etag, stat)) {
+    res.writeHead(304, validators)
+    res.end()
+    return
+  }
+
+  // A `Range` the `If-Range` no longer vouches for is ignored: the file changed, and a slice of the new
+  // one stitched to the old bytes would be garbage.
+  const asked = req.headers.range !== undefined && ifRangeHolds(req.headers['if-range'], etag, stat)
+  const range = asked ? parseRange(req.headers.range, size) : null
 
   // A `Range` header the file cannot satisfy is a `416`, not a silent whole-file
   // response: players treat the second as "this server ignores ranges" and stop
   // asking, which costs the scrubber its responsiveness.
-  if (req.headers.range !== undefined && range === null) {
+  if (asked && range === null) {
     res.writeHead(416, { 'content-range': `bytes */${size}`, 'accept-ranges': 'bytes' })
     res.end()
     return
   }
 
   if (range === null) {
-    res.writeHead(200, {
-      'content-type': type,
-      'content-length': String(size),
-      'accept-ranges': 'bytes',
-      'cache-control': 'no-cache',
-    })
+    res.writeHead(200, { ...validators, 'content-type': type, 'content-length': String(size) })
     if (req.method === 'HEAD') {
       res.end()
       return
@@ -162,11 +230,10 @@ export function serveFile(req: IncomingMessage, res: ServerResponse, target: str
   }
 
   res.writeHead(206, {
+    ...validators,
     'content-type': type,
     'content-length': String(range.end - range.start + 1),
     'content-range': `bytes ${range.start}-${range.end}/${size}`,
-    'accept-ranges': 'bytes',
-    'cache-control': 'no-cache',
   })
   if (req.method === 'HEAD') {
     res.end()

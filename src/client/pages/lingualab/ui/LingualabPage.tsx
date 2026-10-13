@@ -229,8 +229,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     refreshListing()
   }, [t, refreshListing])
   const video = useVideo(episodeId, segmentId, hasVideoFile, onVideoReady)
-  /** What plays: the video once it plays, else the audio file (or nothing, for a video that is not prepared). */
-  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl)
+  /**
+   * What plays: the video once it plays, else the audio file (or nothing, for a video that is not prepared).
+   * With the picture hidden the audio file plays even when the video could, so the video is not downloaded; the
+   * reader showing the picture again swaps it back under the same session, keeping the position.
+   */
+  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, picture === 'hidden')
+  /** Whether the segment has a video that plays, whichever of the two is the source right now. */
+  const videoPlays = picture === 'hidden' ? playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, false).picture : source.picture
   // The one media element. A new source for the same segment (the audio, then the video that was just
   // prepared) keeps the position; the `session` is what says it is the same segment.
   const binding = useMediaBinding(source.url, segmentKey(episodeId, segmentId), video.markUndecodable)
@@ -798,7 +804,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    * The blind-watch step's timer started or stopped (the step tracker says so; opening its drawer says nothing).
    *
    * Starting switches the picture to large, once, and shows the notice with 「撤销」; pausing or ticking the
-   * step off puts the previous state back. Without a picture playing there is nothing to switch.
+   * step off puts the previous state back. Without a video that plays there is nothing to switch; a hidden
+   * picture is switched like a shown one, and the video then takes over from the audio file at the same position.
    */
   const onBlindRunning = useCallback(
     (running: boolean): void => {
@@ -808,10 +815,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         setNotice((current) => (current?.kind === 'blind' ? null : current))
         return
       }
-      if (!source.picture) return
+      if (!videoPlays) return
       if (settings.blindStarted()) setNotice({ kind: 'blind', text: t('noticeBlind'), action: t('noticeUndo') })
     },
-    [source.picture, t],
+    [videoPlays, t],
   )
 
   // What the card in the video's place needs, and the memory of whether it was shown in full already.
@@ -1277,7 +1284,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 t={t}
                 mediaRef={binding.attach}
                 picture={picture}
-                playing={source.picture}
+                playing={videoPlays}
                 status={video.status}
                 card={card}
                 cardOpen={firstTimeCard.open}
