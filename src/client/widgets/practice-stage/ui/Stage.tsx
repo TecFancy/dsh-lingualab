@@ -16,8 +16,9 @@
  *   · **Shadowing hides the English.** While the pause-after-sentence mode is on, the
  *     line is blurred until the sentence has ended (or you press R), so the first thing
  *     you do is say it from what you heard, and the text is the answer key.
- *   · **Nothing is a blank.** No subtitles, no audio and "finished" each get a message
- *     that says what to do next, because an empty stage looks like a crash.
+ *   · **Nothing is a blank.** No subtitles, no audio, the opening before the first sentence
+ *     and "finished" each get a message that says what to do next, because an empty stage
+ *     looks like a crash.
  *
  * The sentence's time range is also a button: it opens the strip that moves the sentence's
  * start and end, because the range is where a reader looks when a loop clips a word.
@@ -255,6 +256,20 @@ export function Stage({
     return (
       <div className="dsh-lingualab-stage">
         <StageSkeleton label={`${t('stageLoading')}…`} />
+      </div>
+    )
+  }
+
+  // Subtitles that start after an opening with no dialogue leave the stage without a sentence
+  // until the first one, which is not the same as having no subtitles at all.
+  const first = cues[0]
+  if ((cue === undefined || lines === null) && first !== undefined && activeIndex < 0) {
+    return (
+      <div className="dsh-lingualab-stage">
+        <div className="dsh-lingualab-stage-empty">
+          <strong>{t('beforeFirstCue', { time: formatClock(first.start) })}</strong>
+          <span>{t('beforeFirstCueHint')}</span>
+        </div>
       </div>
     )
   }
