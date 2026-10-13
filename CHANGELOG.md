@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-13
+
 ### Changed
 
 - The browser bundle is minified. dsh puts every plugin's bundle into the script it loads at start, so `lib/client.js`
