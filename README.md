@@ -71,6 +71,14 @@ five steps use it once: starting the blind-watch timer switches to large (with a
 marking the step done puts the previous state back. Videos only play inside the library: a video picked from elsewhere
 in the workspace plays only when it needs no preparing, the same boundary subtitle timing draws.
 
+A segment with a video can also play it **from a file on the reader's own machine** (「用本地文件播放」, on the picture and on
+every video card, or drop the file on the stage): it plays in place of the served video, under the same session, without
+being uploaded, which spares a slow link. Its length is compared with the served video's (the audio file's when that was
+never probed), and a difference of more than a second shows the same length warning. An `mp4` (H.264 with AAC) plays
+everywhere, an `mkv` often plays with no sound, and a file the browser cannot decode drops back to the served source. Where
+the browser can hand out file handles (Chromium) the choice is remembered per segment on this device, and one click
+continues with it; elsewhere the file is picked again each visit. Nothing about it goes to the host.
+
 Where the files live is one quiet line at the bottom of the home, with 「Change」. The folder is
 set without typing a path: the layer's primary way in is 「Browse existing files」 — walk to the
 folder, click 「Use as media folder」, and the host resolves the path itself. A typed absolute path

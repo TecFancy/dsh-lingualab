@@ -1,6 +1,6 @@
 # Agent Note: play the picture from a file on the reader's own machine
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -17,7 +17,7 @@ library.
 On a local dsh this changes nothing: the server is the same machine and already reads the file from disk.
 The gain is on a remote dsh.
 
-## Proposal
+## Decision
 
 **「用本地文件播放」 on the video stage: the reader picks the episode's video from their own disk, and the
 page plays it in place of the served one, for this segment, without uploading it.**
@@ -31,14 +31,15 @@ page plays it in place of the served one, for this segment, without uploading it
   sentences, review and the five steps all carry on as with a served video. Hiding the picture still plays
   the audio file; with a local file that costs nothing, but it keeps one rule.
 - **It has to be the same video.** The local file's length is compared with the served video's (the
-  status route already reports it). Within a second it is taken as the same file, and the length check the
-  served video already has against the audio still applies. A different length shows the existing
+  status route already reports it), or with the audio file's when that was never probed. Within a second it
+  is taken as the same file, and the length check the served video already has against the audio still applies. A different length shows the existing
   "subtitles may be out of step" notice with the difference, and plays anyway, because a different cut of
   the same episode is still worth watching.
 - **It has to be a file the browser plays.** There is no `ffmpeg` in the browser, so an `mp4` (H.264 with
   AAC) is the format that works everywhere. A file the browser cannot decode falls back to the served
   source through the existing "cannot decode" path, with a message that says to use an `mp4`. A source
-  `mkv` may play its picture in Chromium but often not its sound (DTS, AC-3); see the open questions.
+  `mkv` may play its picture in Chromium but often not its sound (DTS, AC-3); the page only says so
+  beforehand (see the settled details).
 - **It lasts for the page session, or longer where the browser allows.** An object URL dies with the page.
   Where the File System Access API is available (Chromium on HTTPS, which the live site is), the file
   handle is kept per segment in IndexedDB, and opening the segment again asks once for permission to read
@@ -63,16 +64,42 @@ page plays it in place of the served one, for this segment, without uploading it
   each can be built or dropped on its own, and they combine: a reader with the file plays it locally, a
   reader without it gets the smooth version.
 
-## Open questions
+## Settled details
 
-- **A source whose sound the browser cannot play.** Chromium may play an `mkv`'s H.264 picture with no
-  sound when the track is DTS or AC-3, and there is no standard way to ask an element whether it found
-  audio. Telling the reader beforehand (use an `mp4`), detecting it after a second of playing (the
-  non-standard `webkitAudioDecodedByteCount`), or reading the container's track list in the page are the
-  choices, from cheapest to most work.
-- **Matching without the served video.** A segment whose video was never prepared has no served length to
-  compare with. Comparing with the audio file's length instead would allow a local picture for any
-  segment that has a video file, prepared or not.
+Two questions were open when this was proposed. They were settled on 2026-10-13, before the build:
 
-Related: [a smooth version of a video for slow links](2026-10-13-smooth-video.md),
+- **A format the browser cannot play is a hint, not a check.** The picker says that an `mp4` (H.264 with AAC) plays
+  everywhere and that an `mkv` often plays with no sound, and does nothing more about sound. Detecting a missing audio
+  track (the non-standard `webkitAudioDecodedByteCount`) or reading the container's track list would be code for a case
+  the reader fixes in a minute by choosing an `mp4`. A file the browser cannot decode at all does fall back to the served
+  source, with a notice that says to use an `mp4`, and the file is forgotten, since it will not decode next time either.
+- **The reference length falls back to the audio file.** The served video's probed length is compared first. When the
+  host never probed it (the video was never prepared), the segment's audio file stands in, since the subtitles were timed
+  against it, so any segment that has a video file can use a local picture, prepared or not. With neither length known
+  the file plays without a notice.
+
+Decisions made while building:
+
+- **The local file comes ahead of every state the served video can be in**, including a running job and a failed one,
+  and a segment with a video file always offers it: as a small action on the corner of the picture, and as the last row of
+  every card. With the picture hidden the rule is the served video's own: the audio file plays, and a segment with no
+  audio file plays the local one, being the only sound.
+- **The length is read by a throwaway element**, never by the page's one media element, so that element loads the file
+  once. A container the browser cannot read the length of (some `mkv`) gives no notice rather than a wrong one.
+- **Two warnings, one rule.** A local file within a second of the reference is the same file, and then the served
+  video's own length warning against the audio still applies. A file that differs shows the existing warning with the
+  difference from the reference (positive when the local file is longer) instead.
+- **Only where the browser has `showOpenFilePicker` is a choice remembered.** The handle is kept per segment in
+  IndexedDB, on this device only. Opening the segment again offers 「继续用本地文件」 with the file's name, because
+  asking permission to read it needs a click; 「忘记」 removes it, 「停用」 keeps it (stopping is not a verdict on the
+  file), and a handle whose file is gone is dropped after saying so. Elsewhere the page uses a plain file input and the reader picks the file again in
+  each page session. Every IndexedDB call is allowed to fail, and then nothing is remembered.
+- **The object URL lives as long as the file is in use.** It is revoked when the file is replaced or stopped, when the
+  segment changes (the remembered handle offers the file back) and when the page goes.
+- **「视频准备好了」 waits while a local file plays.** It is about the served video, which is not what plays then.
+- **A video dropped on the practice stage is the choice; nothing else it could mean happens.** Only a video file is
+  taken, anything else dropped there is ignored (and not opened by the browser), and the drop never reaches the import,
+  which stays on the home page.
+
+Related: [a smooth version of a video for slow links](../../proposed/feature/2026-10-13-smooth-video.md),
 [play video episodes in the page](../../implemented/feature/2026-10-12-video-episodes.md).

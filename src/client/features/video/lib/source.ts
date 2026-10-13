@@ -7,6 +7,8 @@
  * instead and the much larger video is not downloaded; a video-only segment has no other sound and keeps
  * playing the video. A video-only segment that has had its sound taken out plays that. A video the browser
  * turned out not to be able to decode is given up on for the rest of the visit, and the audio file takes over.
+ * A video file the reader picked from their own disk plays ahead of every one of those, under the same rules about
+ * the hidden picture, and is given up on in the same way.
  *
  * **What the stage shows.** Besides the picture itself, the video slot can hold a card that says what
  * is needed (prepare it, wait, install ffmpeg, only the sound can be had) or that nothing can be done.
@@ -30,14 +32,21 @@ export interface PlaySource {
  * @param status - what the host said about the segment's video, or `null` while unknown.
  * @param failedUrl - a URL the browser said it cannot decode, or `null`.
  * @param pictureHidden - the reader hides the picture, so a playable video is only worth its sound.
+ * @param localUrl - the object URL of a video file the reader picked from their own disk, or `null`.
  */
 export function playSource(
   audioUrl: string | null,
   status: VideoStatusPayload | null,
   failedUrl: string | null,
   pictureHidden: boolean,
+  localUrl: string | null = null,
 ): PlaySource {
   const audio = audioUrl === null || audioUrl.length === 0 ? null : audioUrl
+  // The reader's own file beats the served video, whatever state that one is in. Hidden, it is only worth its
+  // sound, so a segment with an audio file of its own plays that, as it does for the served video.
+  if (localUrl !== null && localUrl.length > 0 && localUrl !== failedUrl && !(pictureHidden && audio !== null)) {
+    return { url: localUrl, picture: true }
+  }
   if (status !== null && status.url !== null && status.url !== failedUrl) {
     if (status.state === 'playable' && !(pictureHidden && audio !== null)) return { url: status.url, picture: true }
     // The sound taken from a video stands in only for a segment that has no audio file of its own.

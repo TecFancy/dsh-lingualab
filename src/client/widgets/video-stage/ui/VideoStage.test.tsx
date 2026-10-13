@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import type { CardKind } from '../../../features/video/index.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import type { VideoState, VideoStatusPayload } from '../../../shared/protocol.ts'
+import type { LocalFileProps } from './LocalFileActions.tsx'
 import { VideoNotice, VideoStage, type VideoStageProps } from './VideoStage.tsx'
 
 const renderToStaticMarkup = render as (element: ReactElement) => string
@@ -58,6 +59,22 @@ function props(patch: Partial<VideoStageProps> = {}): VideoStageProps {
     onCardShow: () => undefined,
     onCardHide: () => undefined,
     onShowPicture: () => undefined,
+    local: null,
+    ...patch,
+  }
+}
+
+/** The local file's props: nothing chosen, nothing remembered, no picker that remembers. */
+function local(patch: Partial<LocalFileProps> = {}): LocalFileProps {
+  return {
+    name: null,
+    remembered: null,
+    canPick: false,
+    onPick: () => undefined,
+    onFile: () => undefined,
+    onResume: () => undefined,
+    onForget: () => undefined,
+    onStop: () => undefined,
     ...patch,
   }
 }
@@ -257,5 +274,85 @@ describe('the notice bar', () => {
     const blind = renderToStaticMarkup(<VideoNotice notice={{ kind: 'blind', text: 'blind', action: 'undo' }} onAction={() => undefined} />)
     expect(blind).toContain('<button')
     expect(blind).toContain('undo')
+  })
+})
+
+describe('a video from the reader own disk', () => {
+  it('offers nothing for a segment with no video file', () => {
+    const markup = html({ local: null })
+    expect(markup).not.toContain('localFileUse')
+    expect(markup).not.toContain('dsh-lingualab-picture-local')
+  })
+
+  it('puts a small action on the picture that plays, with the formats in its tooltip', () => {
+    const markup = html({ local: local() })
+    expect(markup).toContain('dsh-lingualab-picture-local')
+    expect(markup).toContain('localFileUse')
+    expect(markup).toContain('title="localFileHint"')
+  })
+
+  it('is a file input that takes video (and mkv, which some browsers give no type) where there is no picker that remembers', () => {
+    const markup = html({ local: local({ canPick: false }) })
+    expect(markup).toContain('type="file"')
+    expect(markup).toContain('accept="video/*,.mkv"')
+    expect(markup).not.toContain('multiple')
+  })
+
+  it('is a button that opens the picker where there is one', () => {
+    const markup = html({ local: local({ canPick: true }) })
+    expect(markup).not.toContain('type="file"')
+    expect(markup).toContain('<button type="button" class="dsh-lingualab-picture-local-btn" title="localFileHint">localFileUse</button>')
+  })
+
+  it('offers the remembered file with its name, a way to forget it, and the choice of another', () => {
+    const markup = html({ local: local({ remembered: 'ep1.mp4', canPick: true }) })
+    expect(markup).toContain('localFileResume[name=ep1.mp4]')
+    expect(markup).toContain('localFileForget')
+    expect(markup).toContain('localFileUse')
+  })
+
+  it('labels the file that plays, with its name as the tooltip and a way to stop using it', () => {
+    const markup = html({ local: local({ name: 'ep1.mp4', remembered: 'ep1.mp4' }) })
+    expect(markup).toContain('localFileBadge')
+    expect(markup).toContain('title="ep1.mp4"')
+    expect(markup).toContain('localFileStop')
+    // What it replaces is not offered while it plays.
+    expect(markup).not.toContain('localFileUse')
+    expect(markup).not.toContain('localFileResume')
+  })
+
+  it('keeps the label (and the way to stop) while the picture is hidden and the audio file plays', () => {
+    const markup = html({ picture: 'hidden', local: local({ name: 'ep1.mp4' }) })
+    expect(markup).toContain('pictureHiddenChip')
+    expect(markup).toContain('localFileBadge')
+    expect(markup).toContain('localFileStop')
+  })
+
+  const cards: readonly [CardKind, VideoState][] = [
+    ['prepare', 'prepare'],
+    ['preparing', 'preparing'],
+    ['no-ffmpeg', 'no-ffmpeg'],
+    ['sound-only', 'sound-only'],
+    ['sound-ready', 'sound-ready'],
+    ['failed', 'failed'],
+    ['unplayable', 'unplayable'],
+  ]
+  for (const [card, state] of cards) {
+    it(`ends the ${card} card with the action and the hint about formats`, () => {
+      const markup = html({
+        playing: false,
+        card,
+        cardOpen: true,
+        local: local({ canPick: true }),
+        status: status(state, { installCommand: 'winget install Gyan.FFmpeg' }),
+      })
+      expect(markup).toContain('dsh-lingualab-videocard')
+      expect(markup).toContain('localFileUse')
+      expect(markup).toContain('dsh-lingualab-videocard-note">localFileHint')
+    })
+  }
+
+  it('does not add the action to a card for a segment with no video file', () => {
+    expect(html({ playing: false, card: 'prepare', status: status('prepare') })).not.toContain('localFileUse')
   })
 })

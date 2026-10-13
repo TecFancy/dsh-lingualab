@@ -389,6 +389,14 @@ export const zh: Record<string, string> = {
   noticeMismatchShorter: '视频比音频短 {seconds} 秒，字幕可能对不上',
   noticeBlind: '盲看开始计时，已切到大画面',
   noticeUndo: '撤销',
+  localFileUse: '用本地文件播放',
+  localFileHint: 'mp4（H.264 加 AAC）到处都能放，mkv 常常没有声音。文件不会上传。',
+  localFileResume: '继续用本地文件：{name}',
+  localFileForget: '忘记',
+  localFileBadge: '本地文件',
+  localFileStop: '停用',
+  noticeLocalFailed: '本地文件「{name}」放不了，已改回原来的来源。请换成 mp4（H.264 加 AAC）。',
+  noticeLocalUnreadable: '没能打开之前选的本地文件，可能没有授权，或者文件已经不在了',
 }
 /** English copy, same keys, same order. */
 export const en: Record<string, string> = {
@@ -756,4 +764,12 @@ export const en: Record<string, string> = {
   noticeMismatchShorter: 'The video is {seconds} s shorter than the audio, so the subtitles may be out of step',
   noticeBlind: 'The blind watch has started, switched to the large picture',
   noticeUndo: 'Undo',
+  localFileUse: 'Play from a local file',
+  localFileHint: 'An mp4 (H.264 with AAC) plays everywhere; an mkv often plays with no sound. The file is not uploaded.',
+  localFileResume: 'Keep using the local file: {name}',
+  localFileForget: 'Forget',
+  localFileBadge: 'Local file',
+  localFileStop: 'Stop using',
+  noticeLocalFailed: 'The local file "{name}" could not be played, so the page went back to the original source. Use an mp4 (H.264 with AAC) instead.',
+  noticeLocalUnreadable: 'The local file chosen before could not be opened: it was not allowed, or it is gone',
 }

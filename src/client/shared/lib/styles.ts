@@ -965,6 +965,25 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
 .dsh-lingualab-videochip.is-button{cursor:pointer;transition:background var(--ll-fade),color var(--ll-fade)}
 .dsh-lingualab-videochip.is-button:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
+/* A local file in place of the served video. On the picture the controls are quiet pills in the top right corner (the large
+   state's badge is top left); on a card they are the last row; while one plays the label says so. */
+.dsh-lingualab-picture-local{position:absolute;right:14px;top:12px;display:flex;justify-content:flex-end;max-width:calc(100% - 28px)}
+.dsh-lingualab-localactions{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
+.dsh-lingualab-localactions.is-picture{align-items:flex-end}
+.dsh-lingualab-localactions.is-card{align-items:center;margin-top:2px}
+.dsh-lingualab-localactions-row{display:flex;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%}
+.dsh-lingualab-localactions.is-picture .dsh-lingualab-localactions-row{justify-content:flex-end}
+.dsh-lingualab-localactions.is-card .dsh-lingualab-localactions-row{justify-content:center}
+.dsh-lingualab-picture-local-btn{position:relative;display:inline-flex;align-items:center;box-sizing:border-box;height:26px;padding:0 10px;
+  border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:12px;color:rgba(255,255,255,0.86);background:rgba(0,0,0,0.5);
+  transition:background var(--ll-fade)}
+.dsh-lingualab-picture-local-btn:hover{background:rgba(0,0,0,0.7)}
+.dsh-lingualab-picture-local-btn:focus-within{outline:2px solid rgba(255,255,255,0.7);outline-offset:1px}
+.dsh-lingualab-localactions .is-name{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:26px}
+.dsh-lingualab-localbadge{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.dsh-lingualab-localbadge-label{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:11.5px;
+  white-space:nowrap;color:var(--dsw-alias-label-secondary,#61666b);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-localbadge.is-picture .dsh-lingualab-localbadge-label{border:0;color:rgba(255,255,255,0.86);background:rgba(0,0,0,0.5)}
 .dsh-lingualab-videocard{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;width:min(64%,720px);
   min-width:min(100%,300px);min-height:min(342px,42vh);padding:18px;border-radius:12px;text-align:left;
   background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
@@ -998,15 +1017,15 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));box-shadow:0 6px 20px rgba(0,0,0,0.12)}
 @keyframes ll-notice-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 .dsh-lingualab-notice>svg{flex:none;color:var(--dsw-alias-brand-primary,#0f1115)}
-.dsh-lingualab-notice.is-mismatch{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 12%,var(--ll-surface));
+.dsh-lingualab-notice.is-mismatch,.dsh-lingualab-notice.is-warn{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 12%,var(--ll-surface));
   border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 35%,transparent)}
-.dsh-lingualab-notice.is-mismatch>svg{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.dsh-lingualab-notice.is-mismatch>svg,.dsh-lingualab-notice.is-warn>svg{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
 .dsh-lingualab-notice-text{flex:1;min-width:0}
 .dsh-lingualab-notice-action{flex:none;height:28px;padding:0 10px;border:0;border-radius:8px;cursor:pointer;font:inherit;
   font-size:12.5px;font-weight:600;color:var(--dsw-alias-brand-primary,#0f1115);background:none;
   transition:background var(--ll-fade)}
 .dsh-lingualab-notice-action:hover{background:var(--ll-hover)}
-.dsh-lingualab-notice.is-mismatch .dsh-lingualab-notice-action{color:inherit}
+.dsh-lingualab-notice.is-mismatch .dsh-lingualab-notice-action,.dsh-lingualab-notice.is-warn .dsh-lingualab-notice-action{color:inherit}
 .dsh-lingualab-episode-badges{display:inline-flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;min-width:0}
 .dsh-lingualab-videomark{display:inline-flex;align-items:center;gap:4px;flex:none;height:20px;padding:0 7px;border-radius:999px;
   font-size:11px;white-space:nowrap;color:var(--dsw-alias-label-secondary,#61666b);
