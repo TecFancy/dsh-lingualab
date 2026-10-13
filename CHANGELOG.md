@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-13
+
 ### Fixed
 
 - The stage no longer says an episode has no subtitles while its opening plays. When the first sentence starts later
