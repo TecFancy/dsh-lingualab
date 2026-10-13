@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- A source that cannot be opened no longer sends the player back to 00:00. Dropping a local file the browser cannot
+  play, or a prepared video it cannot decode, used to go back to the other source from the start; it now carries on
+  from where the reader was.
+
 ## [0.10.0] - 2026-10-13
 
 ### Added
