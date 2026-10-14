@@ -19,6 +19,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { currentSpeed, useMediaPlayer } from '../model/store.ts'
+import { swapStart, type Loaded } from './swap.ts'
 
 /** `MediaError.code` values that mean the file cannot be decoded, as opposed to a network hiccup. */
 const MEDIA_ERR_DECODE = 3
@@ -29,13 +30,6 @@ export interface MediaBinding {
   /** The `ref` for the `<video>` element. */
   readonly attach: (element: HTMLVideoElement | null) => void
   readonly element: HTMLVideoElement | null
-}
-
-/** The source the element was last given, and for whom, to tell a swap from a change of episode. */
-interface Loaded {
-  readonly element: HTMLVideoElement
-  readonly src: string | null
-  readonly session: string | null
 }
 
 /**
@@ -64,7 +58,7 @@ export function useMediaBinding(
   const seekToken = useMediaPlayer((state) => state.seekToken)
   /** The last seek request this element has been given, so a source change cannot re-apply one. */
   const appliedSeek = useRef(0)
-  const loaded = useRef<Loaded | null>(null)
+  const loaded = useRef<Loaded<HTMLVideoElement> | null>(null)
   const undecodable = useRef(onUndecodable)
   useEffect(() => {
     undecodable.current = onUndecodable
@@ -78,18 +72,8 @@ export function useMediaBinding(
     useMediaPlayer.getState().setDuration(0)
     const element = node.current
     if (element === null) return
-    const before = loaded.current
-    // Only a swap under the same element and the same session keeps the position.
-    const keep =
-      before !== null &&
-      before.element === element &&
-      before.session === session &&
-      before.src !== null &&
-      before.src !== src &&
-      src !== null
-        ? element.currentTime
-        : 0
-    loaded.current = { element, src, session }
+    const keep = swapStart(loaded.current, { element, src, session }, element)
+    loaded.current = { element, src, session, start: keep }
     if (src === null) {
       element.removeAttribute('src')
       element.load()
