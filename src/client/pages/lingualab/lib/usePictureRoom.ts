@@ -1,11 +1,12 @@
 /**
- * Whether the playing picture has room while the timing panel is open, measured.
+ * Whether the playing picture has room above the sentence, measured.
  *
- * In timing mode the picture takes whatever the scroller has left (`flex:1 1 0` in a size container) and is not drawn
- * under 120px. A size container cannot change its own size when its child is not drawn, so a picture that stepped aside
- * used to leave its box behind as an empty gap above the sentence. This hook is what lets the page collapse the box
- * instead: it says whether the picture would have the room, and the page puts `is-picture-squeezed` on the column
- * when it would not.
+ * The picture gives way to the sentence and the player card: with the timing panel open it takes whatever the scroller has
+ * left (`flex:1 1 0` in a size container), and with it closed it is the size it always was, less what is missing when the
+ * column is too short for all of it (`flex:0 1` in the same kind of container). In both it is not drawn under 120px. A
+ * size container cannot change its own size when its child is not drawn, so a picture that stepped aside used to leave
+ * its box behind as an empty gap above the sentence. This hook is what lets the page collapse the box instead: it says
+ * whether the picture would have the room, and the page puts `is-picture-squeezed` on the column when it would not.
  *
  * The answer must not come from the picture's own box, or it would chase itself (collapse, room appears, show, room
  * goes, ...). It is computed from what stays when the picture is not drawn: the scroller's height, the sentence stage's
@@ -73,8 +74,9 @@ function roomFor(main: HTMLElement, picture: Element): number {
  * Whether the picture fits.
  *
  * @param main The column's scroller (`.dsh-lingualab-practice-main`), or `null` while it is not on the page.
- * @param active Whether the timing panel is open. Off, nothing is watched and the answer is that it fits.
- * @returns `false` only while the picture plays, the panel is open and the room is short of what the picture needs;
+ * @param active Whether a picture plays above the sentence (the shown state, not the large one). Off, nothing is watched
+ *   and the answer is that it fits.
+ * @returns `false` only while the picture plays and the room is short of what the picture needs;
  *   always `true` without `ResizeObserver` (the first render, a test, a render to a string).
  */
 export function usePictureRoom(main: HTMLElement | null, active: boolean): boolean {

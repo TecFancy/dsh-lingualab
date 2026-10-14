@@ -19,6 +19,28 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-10-14
+
+### Fixed
+
+- The practice view fits at the heights a real iPad in Safari has, where Safari's status bar and toolbar take 74 to 110 px
+  that the earlier measurements did not count. With the timing panel closed and a picture playing, a two-line sentence with its
+  Chinese line needed up to 74 px more than the column had (an iPad mini at 1133 by 634, 49 px at 1133 by 670, 25 px at
+  1180 by 710, 17 px at 1194 by 724), so the part above the player card scrolled. The picture now gives way, as it already did
+  while timing: its stage is sized as the picture always was and may shrink when the room is less, down to 120 px, under which
+  the picture is not drawn and the sentence takes the room (it comes back at 128 px). The corner pills are not drawn on a
+  picture under 160 px. Where the page fitted it is unchanged (the 1440 by 900 desktop picture is still 443 by 249 with the
+  sidebar open); the sizes that did not fit lose some picture instead of getting a scroller. The play card stays on screen at
+  every size measured.
+- Dragging a finger across several English words on the stage now picks the phrase, as dragging a mouse does. The drag
+  used mouse events only, and iOS sends none while a finger moves, so on an iPad only a single tap worked, and a drag
+  scrolled the column or started a native text selection. The drag now follows pointer events and finds the word under
+  the finger from its coordinates (a touch pointer stays captured by the first word, so no other word is ever entered).
+  The sentence takes the touch for itself (`touch-action`, text selection and the long-press callout are off on it, and
+  `touch-action` is set on the block because it does not apply to inline words); the rest of the stage still scrolls.
+  A cancelled touch picks nothing, a second finger is ignored, and pressing outside the popover closes it by pointer
+  as well. A tap and `Shift`-click still work, and the mouse behaves as before.
+
 ## [0.11.5] - 2026-10-14
 
 ### Fixed

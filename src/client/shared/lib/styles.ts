@@ -208,6 +208,8 @@ export const STYLES = `
 .dsh-lingualab-stage-en{--ll-word-tint:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 14%,transparent)}
 .dsh-lingualab-stage-en .is-word{cursor:pointer;border-radius:.18em;
   transition:background var(--ll-fade),color var(--ll-fade),box-shadow var(--ll-fade),border-radius var(--ll-fade)}
+/* A finger drags across the words to pick a phrase, so the block must not scroll or select under it. touch-action does not apply to the non-replaced inline words, so it is set on this block. */
+.dsh-lingualab-stage-en:not(.is-masked){touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 /* The gaps of a picked phrase carry no class until the phrase is picked, so the fade is set on
    every plain span of the sentence: the band fades out with its words instead of snapping off. */
 .dsh-lingualab-stage-en>span{transition:background var(--ll-fade)}
@@ -927,7 +929,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
    and the audio plays on. The stage keeps the shapes it had: shown puts the picture above the sentence,
    large gives it the whole stage (the sentence is hidden then), hidden leaves a chip. The screen colour is the
    picture's own black, not a theme colour: a video has no theme. */
-.dsh-lingualab-videostage{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.dsh-lingualab-videostage{--ll-pic-share:.64;--ll-pic-h:42cqh;flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
 .dsh-lingualab-videostage.is-empty{display:none}
 .dsh-lingualab-videostage.is-shown{padding:20px 12px 0}
 .dsh-lingualab-videostage.is-hidden{padding:14px 12px 0}
@@ -1089,6 +1091,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
    because a tooltip does not exist on a touch screen and a cut-off word cannot be read. */
 @container ll-practice (max-width:600px){
   .dsh-lingualab-picture,.dsh-lingualab-videocard{--ll-pic-w:100%}
+  .dsh-lingualab-videostage{--ll-pic-share:1}
   .dsh-lingualab-smooth-pill{height:auto;min-height:26px;flex-wrap:wrap;border-radius:13px}
   .dsh-lingualab-smooth-text{white-space:normal;overflow:visible;padding:3px 10px 3px 4px}
   /* The player card's row: the sentence buttons first, then every other button in one centred, wrapping flow, instead of
@@ -1132,9 +1135,28 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
    picture's height cap drops from 42% of the column to 30%, and the stage gives up some padding. */
 @container ll-practice (max-height:700px){
   .dsh-lingualab-stage-side{display:none}
-  .dsh-lingualab-picture{--ll-pic-h:30cqh}
+  .dsh-lingualab-videostage,.dsh-lingualab-picture{--ll-pic-h:30cqh}
   .dsh-lingualab-videocard{min-height:0}
   .dsh-lingualab-stage{padding-block:12px}
+}
+
+/* A picture that plays gives way to the sentence and the player card when the column is short (the sentence is text and the card
+   is the way to play, so the picture is the part that can). Its stage is sized as the picture would be, from the column: the
+   smallest of its share of the width, 720px and the height cap, each in the stage's own terms (the stage's padding is 12px a side
+   and 20px on top, outside the box it is sized by). It may shrink below that, by flex, when the room is less; it is a size
+   container for that, so the picture is the biggest 16:9 box that fits what the stage gets, and with its own room that box is the
+   one the picture always had. Under the 120px that the page measures (usePictureRoom, which puts is-picture-squeezed on the
+   column; 128px brings it back) the stage is not there at all. */
+.dsh-lingualab-practice:not(.is-timing) .dsh-lingualab-videostage.is-shown.has-screen{box-sizing:content-box;
+  flex:0 1 min(calc(var(--ll-pic-share) * (100cqw - 24px) * 9 / 16),405px,var(--ll-pic-h));min-height:0;container:ll-video/size}
+.dsh-lingualab-practice:not(.is-timing) .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture{min-width:0;max-height:none;
+  width:min(var(--ll-pic-w),720px,calc(100cqh * 16 / 9))}
+/* The corner pills (a local file, the smooth version) need about 160px of picture to stay clear of each other, as in timing mode,
+   where they are not drawn at all; a picture that has given way to under that has none. This asks the stage about the picture's
+   size, which is fine for what is drawn on the picture; only whether the picture itself is drawn is the page's measurement. */
+@container ll-video (max-height:159px){
+  .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture-local,
+  .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture-smooth{display:none}
 }
 
 /* Adjusting timing is a mode (the page sets is-timing on the column while the panel has a sentence). Everything that is not
@@ -1171,7 +1193,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 /* No fallback container query on the picture's own height under 120px (there was one, at 119px): the page measures before
    the first paint, and a second rule with its own idea of the edge (a rounded pixel apart) would leave the empty box behind
    exactly where the two disagree. */
-.dsh-lingualab-practice.is-timing.is-picture-squeezed .dsh-lingualab-videostage.is-shown.has-screen{display:none}
+.dsh-lingualab-practice.is-picture-squeezed .dsh-lingualab-videostage.is-shown.has-screen{display:none}
 .dsh-lingualab-practice.is-timing.is-picture-squeezed .dsh-lingualab-stage{flex:1 1 auto}
 
 /* A touch screen: no keyboard to describe, and fingers need 44px. The small pills on the picture keep their look and get a

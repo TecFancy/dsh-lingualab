@@ -9,10 +9,12 @@
  *     The animation is off under `prefers-reduced-motion`.
  *   · **Words can be pointed at.** A click on an English word opens a small popover to
  *     copy it or add it to the sentence's note, and playback carries on: stopping the
- *     audio to look at a word would cost the next sentence. Dragging across words, or
- *     `Shift`-clicking a second one, picks the phrase between them, because a collocation
- *     is often the thing worth keeping; it is kept as one `[her skirt]`. Once kept, the
- *     popover's 「已记下」 takes it out again.
+ *     audio to look at a word would cost the next sentence. Dragging across words (with a
+ *     mouse, a pen or a finger), or `Shift`-clicking a second one, picks the phrase between
+ *     them, because a collocation is often the thing worth keeping; it is kept as one
+ *     `[her skirt]`. Once kept, the popover's 「已记下」 takes it out again. The drag runs on
+ *     pointer events, since a finger on iOS sends no mouse events while it moves (see
+ *     `../lib/word-drag.ts`).
  *   · **Shadowing hides the English.** While the pause-after-sentence mode is on, the
  *     line is blurred until the sentence has ended (or you press R), so the first thing
  *     you do is say it from what you heard, and the text is the answer key.
@@ -24,13 +26,14 @@
  * start and end, because the range is where a reader looks when a loop clips a word.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { splitCue, tokenizeEnglish, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { returnFocusToPage } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, CopyIcon, EyeIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
 import { StageSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { Translate } from '../../../context.ts'
+import { isOutsidePress, pressAction, startWordDrag, type PointerEventType, type PointerSource } from '../lib/word-drag.ts'
 
 /** Past this many characters the sentence is set a size smaller so it still fits. */
 const LONG_LINE = 90
@@ -72,6 +75,14 @@ interface Pinned extends Span {
   readonly top: number
 }
 
+/** Pointer events as the page's document sees them: a captured touch pointer still bubbles up to it. */
+const documentPointers: PointerSource = {
+  listen(type: PointerEventType, handler: (event: PointerEvent) => void) {
+    document.addEventListener(type, handler)
+    return () => document.removeEventListener(type, handler)
+  },
+}
+
 /** A span from two token indexes in either order. */
 function spanOf(one: number, two: number): Span {
   return { from: Math.min(one, two), to: Math.max(one, two) }
@@ -110,11 +121,8 @@ export function Stage({
   const [pinned, setPinned] = useState<Pinned | null>(null)
   /** The words under a drag that has not been let go yet. */
   const [dragging, setDragging] = useState<Span | null>(null)
-  /**
-   * Where the drag started, the word it is over now and the sentence it is in; read when the
-   * button comes up, and dropped then when the sentence has moved on under it.
-   */
-  const drag = useRef<{ anchor: number; over: number; sentence: number } | null>(null)
+  /** The drag that has not been let go yet: how to end it, and the sentence it began in. */
+  const drag = useRef<{ stop: () => void; sentence: number } | null>(null)
   const [done, setDone] = useState<'copied' | 'added' | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** The sentence on stage, for a handler that outlives the render it was made in. */
@@ -145,20 +153,24 @@ export function Stage({
       event.preventDefault()
       close()
     }
-    const onDown = (event: MouseEvent): void => {
-      if (!(event.target instanceof Element) || event.target.closest('.dsh-lingualab-word-pop, .is-word') === null) close()
+    // A pointer press, not a mouse press: a finger sends no mouse event until it lifts, and then only for a tap.
+    const onDown = (event: PointerEvent): void => {
+      if (isOutsidePress(event.target)) close()
     }
     document.addEventListener('keydown', onKey, true)
-    document.addEventListener('mousedown', onDown)
+    document.addEventListener('pointerdown', onDown)
     return () => {
       document.removeEventListener('keydown', onKey, true)
-      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('pointerdown', onDown)
     }
   }, [pinned, close])
 
   useEffect(
     () => () => {
       if (timer.current !== null) clearTimeout(timer.current)
+      // A drag that outlives the stage would go on listening to the document and settle into nothing.
+      drag.current?.stop()
+      drag.current = null
     },
     [],
   )
@@ -201,37 +213,64 @@ export function Stage({
     })
   }
 
+  /** The token under a point of the screen, if it is a word of the sentence on stage. */
+  const tokenAt = (x: number, y: number): number | null => {
+    const host = block.current
+    if (host === null) return null
+    const word = document.elementFromPoint(x, y)?.closest('[data-token]')
+    if (word === null || word === undefined || !host.contains(word)) return null
+    const index = Number(word.getAttribute('data-token'))
+    return Number.isInteger(index) ? index : null
+  }
+
   /**
    * A press on a word: `Shift` extends the picked span to it, anything else starts a drag that
-   * picks the word itself when the button comes up where it went down.
+   * picks the word itself when the pointer comes up where it went down.
    *
-   * The press is the browser's default too, a text selection, which would paint over the span and
-   * copy the wrong thing, so it is cancelled.
+   * The drag follows the pointer by its coordinates, because a finger is captured by the word it
+   * went down on and enters no other. A mouse press is also the browser's default, a text
+   * selection, which would paint over the span and copy the wrong thing; `mousedown` is cancelled
+   * where the word is drawn, and a finger has its selection and callout turned off in the style.
    */
-  const press = (event: ReactMouseEvent<HTMLElement>, index: number): void => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    if (event.shiftKey && pinned !== null) {
+  const press = (event: ReactPointerEvent<HTMLElement>, index: number): void => {
+    const action = pressAction({
+      button: event.button,
+      isPrimary: event.isPrimary,
+      shiftKey: event.shiftKey,
+      pinned: pinned !== null,
+    })
+    if (action === 'ignore') return
+    if (action === 'extend' && pinned !== null) {
       settle(pinned.from, index)
       return
     }
-    drag.current = { anchor: index, over: index, sentence: activeIndex }
+    drag.current?.stop()
+    const sentence = activeIndex
     setDragging(spanOf(index, index))
-    const release = (): void => {
-      document.removeEventListener('mouseup', release)
-      const held = drag.current
-      drag.current = null
-      if (held !== null && held.sentence === shown.current) settle(held.anchor, held.over)
-    }
-    document.addEventListener('mouseup', release)
-  }
-
-  /** The pointer moved onto another word while the button is down. */
-  const sweep = (index: number): void => {
-    const held = drag.current
-    if (held === null) return
-    drag.current = { ...held, over: index }
-    setDragging(spanOf(held.anchor, index))
+    const stop = startWordDrag({
+      source: documentPointers,
+      pointerId: event.pointerId,
+      anchor: index,
+      tokenAt,
+      onSweep: (over) => {
+        // The sentence moved on under the drag: what it was picking is not on stage any more.
+        if (sentence !== shown.current) {
+          stop()
+          drag.current = null
+          return
+        }
+        setDragging(spanOf(index, over))
+      },
+      onRelease: (anchor, over) => {
+        drag.current = null
+        if (sentence === shown.current) settle(anchor, over)
+      },
+      onCancel: () => {
+        drag.current = null
+        setDragging(null)
+      },
+    })
+    drag.current = { stop, sentence }
   }
 
   const copy = (word: string): void => {
@@ -322,8 +361,8 @@ export function Stage({
                     key={index}
                     data-token={index}
                     className={`is-word${wordMark(marked, index)}`}
-                    onMouseDown={(event) => press(event, index)}
-                    onMouseEnter={() => sweep(index)}
+                    onPointerDown={(event) => press(event, index)}
+                    onMouseDown={(event) => event.preventDefault()}
                   >
                     {token.text}
                   </span>

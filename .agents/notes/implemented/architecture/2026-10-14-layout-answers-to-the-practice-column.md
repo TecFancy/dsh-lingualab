@@ -25,6 +25,15 @@ sentence, the panel (379px) and the card (264px) still needed 147px more than th
 the picture was hidden whenever the panel was open and the column was under 1000px tall, which is every iPad and a 900px
 desktop window. The transcript's follow switch also stuck out of the 260px transcript.
 
+Both fixes were measured at viewport sizes that left out Safari's own chrome. A real iPad in Safari has its status bar and
+toolbar (about 74px with the compact tab layout, about 110px with the separate tab bar, which is the default on recent
+iPadOS) taken out of the height, so an iPad mini in landscape has 1133 by 670 or 634 and not 1133 by 744, an iPad Air 11" has
+1180 by 746 or 710, an iPad Pro 11" 1194 by 760 or 724 and an iPad Pro 13" 1366 by 950 or 914. With the timing panel closed and
+a picture playing, the picture (180px), the sentence and the card (264px, or 230px on touch) needed up to 74px more than the
+column had at 1133 by 634 (40px on touch), 49px at 1133 by 670, 25px at 1180 by 710 and 17px at 1194 by 724, for a two-line
+English sentence with its Chinese line, so the scroller scrolled in a view that has no use for one. An audio file, the
+timing panel open (where the picture already gives way) and the larger iPads did not overflow.
+
 ## Decision
 
 **The practice column is a size container, and every rule about what is in it asks the column.** The row it shares with the
@@ -47,6 +56,23 @@ transcript is a width container for the one rule about the transcript.
   height the lines either side of the sentence go, the picture is capped at 30% of the height (it was 42% of the window's, a
   cap that did not follow the column) and the stage gives up some padding. The picture's width is the smallest of its share,
   720px and what the cap allows at 16:9, so a cap makes it smaller and keeps its shape.
+- **A picture that plays gives way to the sentence and the card, with the timing panel closed too.** The sentence is text
+  and the card is the way to play, so the picture is the one part with room to give. The stage of a playing picture
+  (`is-shown.has-screen`) has the size the picture would have as its `flex-basis`, computed from the column: the smallest of
+  its share of the width, 720px and the height cap, as a height (the share and the cap are variables the stage reads as well
+  as the picture, so the numbers are still said once), with `flex-shrink:1` and `min-height:0`. It is a size container
+  (`ll-video`) like the timing one, and the picture is the biggest 16:9 box that fits what the stage gets (its width is the
+  smallest of its share, 720px and `100cqh * 16 / 9`; no 300px floor and no height cap of its own). The sentence stage is
+  `flex:1 0 auto` and the card `flex:none`, so only the picture can shrink, and the scroller is the last resort again. With
+  the room it always had the stage is the old box (the basis is the old picture height, and the stage says
+  `box-sizing:content-box` so the padding stays outside it whatever the host does), so nothing that fitted moves. Under 120px
+  the same measurement collapses the stage as in timing mode: `usePictureRoom` now runs whenever a picture plays in the shown
+  state (it ran only while the panel was open), and the rule that removes the stage no longer needs `is-timing`. What stays
+  timing only is the squeezed sentence stage's `flex:1 1 auto`: in a closed column a long sentence must never shrink below
+  its text. The pills on a picture (a local file, the smooth version) are not drawn once the picture is under 160px
+  (`ll-video (max-height:159px)`, the one query on the stage's height; it is about what is drawn on the picture and never
+  about whether the picture is drawn), because they need about that much to keep clear of each other, as screenshots at 231
+  by 130 showed.
 - **Adjusting timing is a mode.** While the timing panel is on the page (it holds a sentence, and stays for its way out) the
   page sets `is-timing` on the column. It is a class on purpose, and not a `:has()` of the panel: the page's one presence
   state decides it for the column and the panel alike, and a test can see it without a layout engine. Only the layout follows
@@ -128,17 +154,56 @@ transcript is a width container for the one rule about the transcript.
   and the picture would define each other; the measurement breaks the loop by using only what does not change.
 - **Stack the two edge cards in a narrow column (v0.11.2).** Two stacked cards of two rows each were 232px of a column that
   has 631px; one row per edge is 96px, less than half of that, and the same layout serves a short wide column and a narrow tall one.
+- **Write the picture's size from the measured room (a variable set by the page).** It needs no new CSS idea, but the
+  measurement runs after layout, so every sentence that gains a line would draw one frame with the scroller scrolled and
+  then a smaller picture. The container sizes the picture in the same layout pass; the measurement is kept for the one
+  decision a container cannot make.
+- **Make the stage font follow the column's height.** Not needed: with the picture giving way, the sentence and the card fit
+  every size measured, and a height term in the font would only change the text where the picture can still absorb the
+  shortfall. It is also the "scale to fit" idea above, which makes the sentence smaller where a reader needs it larger.
+- **Tighten the card and the stage's padding in a shorter column.** It buys about 24px, which keeps a picture at one size (1133
+  by 634 with a pointer, sidebar open, two lines) at the price of a new threshold that changes the sizes of this note that fit
+  today. Left out; the picture steps aside there instead.
+- **Hide the picture whenever the column is short.** That was the mistake of v0.11.2 for timing; a picture of 130 to 200px is
+  what an iPad has the room for.
+
+
 
 ## Settled details
 
 - **Measured, not guessed.** The thresholds come from rendering the real components to markup with the real stylesheet in a
   browser at each size (iPad portrait 820 by 1180 and 744 by 1133, landscape 1180 by 760 and 1024 by 700, each with the host
-  sidebar at 56, 224 and 280px, and a desktop 1440 by 900), touch and not, and reading the heights back. Not on a device:
-  Safari's own toolbar takes height the numbers above do not include, so a real iPad is a little shorter and reaches the
-  scroller a little earlier.
-- **Closed, the page is what it was.** With the timing panel closed and no touch, the deck, the picture and the sentence are
-  the same height at every size as in v0.11.2 (the 1440 by 900 desktop has the picture at 443 by 249). Only the touch screen
-  differs, by the 44px buttons.
+  sidebar at 56, 224 and 280px, and a desktop 1440 by 900), touch and not, and reading the heights back. The Safari sizes
+  below were measured the same way, except that the real components ran in a browser (the hook included, so the measured
+  squeeze is the shipped one), with overlay scrollbars as on an iPad and the stylesheet's touch block applied for touch. Not on
+  a device: the font is not SF Pro, which is a little wider, so a sentence may wrap a few characters sooner on an iPad.
+- **Safari's own height is in the numbers now.** The sizes are the visible viewport with 74px and with 110px of Safari's
+  status bar and toolbar taken off: iPad mini 1133 by 670 and 634, iPad and iPad Air 11" 1180 by 746 and 710, iPad Pro 11"
+  1194 by 760 and 724, iPad Pro 13" 1366 by 950 and 914, portrait 744 by 1059 and 820 by 1106, each with the sidebar at 56,
+  224 and 280px, one line and two lines (the longest English of two lines under 90 characters, plus a Chinese line), touch
+  and pointer, a picture and an audio file, the timing panel closed and open, together with the older sizes above: 720
+  states in all. The extra height the scroller was
+  needed for before (a two-line sentence, pointer and touch; one line in brackets): 1133 by 670 with the sidebar open 49 and 15
+  (5 and 0), 1133 by 634 74 and 40 (30 and 0; with the sidebar at 56px 12 and 16), 1180 by 710 25 and 0, 1194 by 724 17 and 0;
+  nothing at 1180 by 746, 1194 by 760, 1366 by 950 and 914, nor in portrait with the sidebar at 56px (a 744px portrait with the
+  sidebar open leaves a 155px column, which is not a layout the host produces). With the timing panel open nothing needed it,
+  and with an audio file nothing did. After the change none of the 720 states scrolls, and the card ends where the column ends.
+  The picture paid for it: with a two-line sentence and the sidebar open it is 234 by 132 at 1133 by 670 (295 by 166 on
+  touch), 231 by 130 at 1133 by 634 on touch, 297 by 167 at 1180 by 710 and 319 by 180 at 1194 by 724 (both with a pointer; touch
+  fits at full size there); at 1133 by 634 with a pointer and the key hints taking 34px more card it is not drawn, and the
+  sentence takes the room. With one line the smallest picture is 248 by 140 (1133 by 634, pointer, sidebar open). A
+  three-line sentence no longer scrolls closed either, because the picture steps aside.
+- **Closed, the page is what it was where it fitted.** With the timing panel closed, a column that holds the card, the sentence
+  and the picture at its own size is the same at every size as in v0.11.2 (the 1440 by 900 desktop with the sidebar open has the
+  picture at 443 by 249), apart from at most 0.1px because the stage's height is now computed from the column and not read from
+  the picture's width; the picture and the sentence do not move on any device pixel that matters. Touch differs only by the
+  44px buttons, as before. The sizes that changed are the ones that did not fit: 1024 by 700 with a two-line sentence and a
+  pointer (picture 307 by 173, was 337 by 189 with 17px of scrolling), 1440 by 900 with the sidebar at 56px and a two-line
+  sentence (548 by 308 and 540 by 304 on touch, was 557 by 314 with 6 and 10px of scrolling). The timing mode and the
+  audio file are identical in all 720 states, and the large picture at the five sizes it was measured at.
+- **The cards that stand in for a picture still scroll in a short column.** The card that asks to prepare a video, for one, is
+  a page of text, a file line and two buttons (about 340px), and needs 67 to 173px more than a 1133 by 634 or 670 column has.
+  It is drawn until the video is prepared, and the card below stays where it is; it was not part of this change.
 - **Timing at 1024 by 700 with the host sidebar open fits.** The column is 483 by 651. With a one-line sentence the card is
   126px, the sentence 135px, the panel 205px (233px on touch) and the picture 269 by 151 (219 by 123 on touch); nothing
   scrolls. With a two-line sentence the sentence is 214px and the picture does not fit, so it is not drawn, its stage is
