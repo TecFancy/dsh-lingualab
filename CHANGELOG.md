@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- With the timing panel open, a picture that does not fit (under 120 px of room, for example beside a two-line sentence at
+  1024 by 700) no longer leaves an empty box of about 80 px above the sentence. Its stage now takes no space at all, and the
+  sentence stage takes the room and centres the sentence in it. The page measures the room (what the scroller has left after
+  the sentence, the timing strip and the stage's padding, never the picture's own box, so it cannot flip back and forth) and
+  brings the picture back at 128 px, 8 px above where it left. A picture that fits looks exactly as it did.
+
 ## [0.11.3] - 2026-10-14
 
 ### Changed
