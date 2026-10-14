@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-14
+
 ### Fixed
 
 - A source that cannot be opened no longer sends the player back to 00:00. Dropping a local file the browser cannot
