@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-10-14
+
 ### Fixed
 
 - The picture no longer jumps when the timing panel opens and closes. The panel used to grow a grid row from nothing, so
