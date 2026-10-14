@@ -109,7 +109,10 @@ Decisions made while building:
   hidden, the corner stays quiet. Another segment's job running is the usual `busy` refusal, shown under the control.
 - **The estimate is the proposal's numbers and nothing cleverer.** About 1.9 Mbps for the size (picture and sound) and 1.5
   times real time for the encode, both from the probed length, so the host computes them and the page only words them
-  (「约 315 MB，约 16 分钟（估计）」, the time in whole minutes, under a minute when it is). The progress card gives the
+  (「约 315 MB · 约 16 分钟」, the time in whole minutes, under a minute when it is). The corner's line is kept short
+  (`~315 MB · ~16 min`) because the pill shares a narrow picture with the clock and the button, and the full sentence with
+  the word "estimate" (`About 315 MB and about 16 min (estimate)`) is its `title` and the text on a card, which has room.
+  Every text in the pill that can be cut with an ellipsis has a `title` with the whole text. The progress card gives the
   time left in minutes once it is two minutes or more.
 - **Priority and threads.** `os.setPriority(pid, 10)` is called right after the spawn, only for the smooth job, and a
   refusal is swallowed (the job then runs at the usual priority, which only costs time). Threads are `os.availableParallelism()`

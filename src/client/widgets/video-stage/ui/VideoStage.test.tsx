@@ -285,7 +285,14 @@ describe('the smooth version', () => {
     expect(markup).toContain('dsh-lingualab-picture-smooth')
     expect(markup).toContain('smoothAction')
     expect(markup).toContain('title="smoothHint"')
-    expect(markup).toContain('smoothEstimate[size=315 MB;minutes=16]')
+    expect(markup).toContain('>smoothEstimate[size=315 MB;minutes=16]<')
+  })
+
+  it('gives the estimate in the corner a title with the full sentence, so a cut line can still be read', () => {
+    const markup = html({ status: playing() })
+    expect(markup).toContain('title="smoothEstimateTitle[size=315 MB;minutes=16]"')
+    expect(html({ status: playing({ smooth: smooth({ estimateSeconds: 30 }) }) })).toContain('title="smoothEstimateShortTitle[size=315 MB]"')
+    expect(html({ status: playing({ smooth: smooth({ estimateSeconds: null }) }) })).toContain('title="smoothEstimateSizeTitle[size=315 MB]"')
   })
 
   it('says nothing where it cannot be made, and says no estimate when the length is not known', () => {
@@ -297,7 +304,7 @@ describe('the smooth version', () => {
 
   it('labels the smooth file that plays and offers the way back', () => {
     const markup = html({ status: playing({ via: 'smooth', smooth: smooth({ offer: false, revert: true }) }) })
-    expect(markup).toContain('smoothLabel')
+    expect(markup).toContain('title="smoothLabel">smoothLabel<')
     expect(markup).toContain('smoothRevert')
     expect(markup).not.toContain('smoothAction')
   })
@@ -309,6 +316,7 @@ describe('the smooth version', () => {
     })
     expect(markup).toContain('smoothRunning[percent=40]')
     expect(markup).toContain('cardPreparingEtaMinutes[minutes=5]')
+    expect(markup).toContain('title="smoothRunning[percent=40] · cardPreparingEtaMinutes[minutes=5]"')
     expect(markup).toContain('cardCancel')
     expect(markup).not.toContain('dsh-lingualab-videocard')
     expect(markup).not.toContain('dsh-lingualab-picture is-off')
@@ -346,7 +354,7 @@ describe('the smooth version', () => {
     it(`is offered at the foot of the ${card} card, with what it does and what it costs`, () => {
       const markup = html({ playing: false, card, cardOpen: true, status: status(state, { videoCodec: 'hevc', smooth: smooth() }) })
       expect(markup).toContain('smoothAction')
-      expect(markup).toContain('smoothEstimate[size=315 MB;minutes=16]')
+      expect(markup).toContain('dsh-lingualab-videocard-note">smoothEstimateTitle[size=315 MB;minutes=16]<')
       expect(markup).toContain('dsh-lingualab-videocard-note">smoothHint')
     })
 

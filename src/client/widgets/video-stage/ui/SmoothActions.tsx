@@ -20,10 +20,13 @@ export function etaLabel(t: Translate, seconds: number): string {
   return eta.unit === 'seconds' ? t('cardPreparingEta', { seconds: eta.value }) : t('cardPreparingEtaMinutes', { minutes: eta.value })
 }
 
-/** What the estimate says, or an empty string when the host does not know the length. */
-function estimateLine(t: Translate, status: VideoStatusPayload): string {
+/**
+ * What the estimate says: the short line for the corner, and the full sentence (with the word "estimate") for a tooltip or a
+ * card that has room. `null` when the host does not know the size.
+ */
+function estimateLines(t: Translate, status: VideoStatusPayload): { readonly short: string; readonly full: string } | null {
   const estimate = estimateText(status.smooth.estimateBytes, status.smooth.estimateSeconds, formatBytes(status.smooth.estimateBytes))
-  return estimate === null ? '' : t(estimate.key, estimate.params)
+  return estimate === null ? null : { short: t(estimate.key, estimate.params), full: t(estimate.titleKey, estimate.params) }
 }
 
 export interface SmoothCornerProps {
@@ -49,15 +52,17 @@ export function SmoothCorner({ t, status, eta, busy, onPrepare, onCancel }: Smoo
     action()
   }
   // The host's reason a request was not taken (another job runs, say), or why the last smooth job failed.
+  const estimate = estimateLines(t, status)
+  const runningText =
+    control.kind === 'running' ? `${t('smoothRunning', { percent: Math.round(control.fraction * 100) })}${eta === null ? '' : ` · ${etaLabel(t, eta)}`}` : ''
   const problem = status.smooth.error !== null ? t('smoothError', { reason: status.smooth.error }) : !status.ok ? status.reason : null
   return (
     <div className="dsh-lingualab-picture-smooth">
       <div className="dsh-lingualab-smooth-pill">
         {control.kind === 'running' ? (
           <>
-            <span className="dsh-lingualab-smooth-text">
-              {t('smoothRunning', { percent: Math.round(control.fraction * 100) })}
-              {eta === null ? '' : ` · ${etaLabel(t, eta)}`}
+            <span className="dsh-lingualab-smooth-text" title={runningText}>
+              {runningText}
             </span>
             <button type="button" className="dsh-lingualab-picture-local-btn" onClick={press(onCancel)} disabled={busy}>
               {t('cardCancel')}
@@ -66,7 +71,9 @@ export function SmoothCorner({ t, status, eta, busy, onPrepare, onCancel }: Smoo
         ) : null}
         {control.kind === 'revert' ? (
           <>
-            <span className="dsh-lingualab-smooth-text">{t('smoothLabel')}</span>
+            <span className="dsh-lingualab-smooth-text" title={t('smoothLabel')}>
+              {t('smoothLabel')}
+            </span>
             <button type="button" className="dsh-lingualab-picture-local-btn" title={t('smoothRevertHint')} onClick={press(() => onPrepare('original'))} disabled={busy}>
               {t('smoothRevert')}
             </button>
@@ -77,7 +84,9 @@ export function SmoothCorner({ t, status, eta, busy, onPrepare, onCancel }: Smoo
             <button type="button" className="dsh-lingualab-picture-local-btn" title={t('smoothHint')} onClick={press(() => onPrepare('smooth'))} disabled={busy}>
               {t('smoothAction')}
             </button>
-            <span className="dsh-lingualab-smooth-text">{estimateLine(t, status)}</span>
+            <span className="dsh-lingualab-smooth-text" title={estimate === null ? undefined : estimate.full}>
+              {estimate === null ? '' : estimate.short}
+            </span>
           </>
         ) : null}
       </div>
@@ -100,7 +109,7 @@ export interface SmoothOfferProps {
  */
 export function SmoothOffer({ t, status, busy, onPrepare }: SmoothOfferProps) {
   if (!status.smooth.offer && status.smooth.error === null) return null
-  const estimate = estimateLine(t, status)
+  const estimate = estimateLines(t, status)
   return (
     <div className="dsh-lingualab-smoothoffer">
       {status.smooth.offer ? (
@@ -108,7 +117,7 @@ export function SmoothOffer({ t, status, busy, onPrepare }: SmoothOfferProps) {
           {t('smoothAction')}
         </button>
       ) : null}
-      {status.smooth.offer && estimate.length > 0 ? <div className="dsh-lingualab-videocard-note">{estimate}</div> : null}
+      {status.smooth.offer && estimate !== null ? <div className="dsh-lingualab-videocard-note">{estimate.full}</div> : null}
       {status.smooth.offer ? <div className="dsh-lingualab-videocard-note">{t('smoothHint')}</div> : null}
       {status.smooth.error === null ? null : <div className="dsh-lingualab-error">{t('smoothError', { reason: status.smooth.error })}</div>}
     </div>
