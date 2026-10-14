@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-14
+
 ### Added
 
 - A smooth version of a video for slow links (「准备流畅版」). Started by hand for one episode or segment, from the corner of
