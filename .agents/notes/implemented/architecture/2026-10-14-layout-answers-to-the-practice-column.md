@@ -59,10 +59,25 @@ transcript is a width container for the one rule about the transcript.
   - A picture that plays takes what is left. Its stage is a size container (`ll-video`) with `flex:1 1 0`, and the picture is the
     biggest box of the video's own shape that fits, the technique of the large state: its width is the smallest of the
     container's width, 720px and its height times the ratio (`--ll-video-ratio`, which a shown picture now carries too; its
-    normal frame stays 16:9). It is not drawn when the container is under 120px tall; the `<video>` keeps playing, as it does
-    for an audio file. A card or a chip standing in for a picture (a stage without `has-screen`) is not drawn while timing,
-    and neither are the pills on the picture (a local file, the smooth version): they do not fit a small picture and are no
-    help in moving an edge.
+    normal frame stays 16:9). A card or a chip standing in for a picture (a stage without `has-screen`) is not drawn while
+    timing, and neither are the pills on the picture (a local file, the smooth version): they do not fit a small picture and
+    are no help in moving an edge.
+  - A picture with under 120px is not drawn, and its stage is not there either. A size container cannot shrink itself when its
+    child is not drawn (a container query on the picture hid the picture and left the stage's `flex:1` box behind: about 80px
+    of empty space above a two-line sentence), so this one decision is a measurement. `usePictureRoom` (in the page slice,
+    because it spans three widgets) computes the room the picture would get from things that do not change when it
+    collapses: the scroller's height inside its padding, less the height the sentence stage needs (measured from its lines, its
+    gap and its padding, not from its own box, which is stretched by this very state), less the timing strip, less the
+    picture stage's own padding. It is never read from the picture's own box, which would chase itself: collapse, room appears,
+    show, room goes. The picture is drawn from 120px, and one that has stepped aside comes back at 128px, so a window dragged
+    along the edge does not flicker. The page puts `is-picture-squeezed` on the column, and the stylesheet hides the
+    picture's stage (`display:none`) and makes the sentence stage `flex:1 1 auto`; the stage already centres its content, so
+    the sentence sits in the middle of the room, which reads as breathing room around it and not as a hole above it. The
+    `<video>` keeps playing, as it does for an audio file. The measuring runs before the first paint, watches the scroller,
+    the stage's lines (they are replaced on every sentence, so the watched set is rebuilt on each change) and the strip (its
+    panel opens as an animation, so the answer follows it), and is only on while the panel has a sentence and a picture
+    plays. Without `ResizeObserver` the picture is taken to fit. The earlier container query at 119px is gone: a second rule with
+    its own idea of the edge, a rounded pixel away, would bring the empty box back exactly where the two disagree.
   - A large picture keeps what it had. It is already the part that takes what is left (it is the whole stage, and its
     sentence is not on the stage to take the room) and it has a floor of 160px, so it never reaches the 120px rule. Hiding it
     would leave nothing on the stage for a reader who asked for it.
@@ -93,7 +108,9 @@ transcript is a width container for the one rule about the transcript.
   that was the bug; a breakpoint at 1100 would be right for one sidebar state and wrong for the other.
 - **A resize observer that sets classes.** It works where container queries do not, but it is code to keep in step with the
   stylesheet, runs after layout, and flashes the wrong layout once. Container queries are in current Safari, Chrome and Firefox.
-  The one class the page does set, `is-timing`, is a state the page already has, not a measurement.
+  The one class the page sets for the layout, `is-timing`, is a state the page already has, not a measurement. The exception
+  is `is-picture-squeezed`, for the one thing a container query cannot do (collapse the box it is measuring); it is the only
+  measurement, it runs before paint, and the stylesheet still holds every number but that one.
 - **Scroll the whole practice column, deck included.** Then the play button is
   off screen exactly when the column is too short, which was the complaint, and a sticky card needs a background to cover what
   scrolls under it.
@@ -105,6 +122,9 @@ transcript is a width container for the one rule about the transcript.
 - **Fold only the panel and leave the player card alone.** With the card at 264px the panel could not be under about 230px
   and the picture could not come back at 1024 by 700; while timing, the loop, the shadowing, the picture and the menus are not
   things the reader reaches for, so they wait.
+- **Hide the picture with a container query on its own stage only (v0.11.3).** It left the stage's box behind, with nothing
+  drawn in it. Making the box `flex:0 0 auto` would let it collapse, but the picture's size comes from that box, so the box
+  and the picture would define each other; the measurement breaks the loop by using only what does not change.
 - **Stack the two edge cards in a narrow column (v0.11.2).** Two stacked cards of two rows each were 232px of a column that
   has 631px; one row per edge is 96px, less than half of that, and the same layout serves a short wide column and a narrow tall one.
 
@@ -120,11 +140,12 @@ transcript is a width container for the one rule about the transcript.
   differs, by the 44px buttons.
 - **Timing at 1024 by 700 with the host sidebar open fits.** The column is 483 by 651. With a one-line sentence the card is
   126px, the sentence 135px, the panel 205px (233px on touch) and the picture 269 by 151 (219 by 123 on touch); nothing
-  scrolls. With a two-line sentence the sentence is 214px and the picture does not fit, so it is not drawn and the room above
-  the sentence stays empty; nothing scrolls either. The empty room is the cost of a picture container that cannot know how
-  much room is left before it is laid out.
+  scrolls. With a two-line sentence the sentence is 214px and the picture does not fit, so it is not drawn, its stage is
+  collapsed, and the sentence stage takes the 80px or so that is left and centres the sentence in it; nothing scrolls either.
+  This used to leave an empty box above the sentence, because a picture container cannot know how much room is left before
+  it is laid out; the measurement is what knows.
 - **The picture changes at most once while the panel opens.** The panel grows a grid row from nothing, so the room left for the
-  picture only shrinks, and it is hidden once when it crosses 120px. When the panel opens the picture first jumps from its
+  picture only shrinks, and it is hidden once when it crosses 120px (and back only at 128px). When the panel opens the picture first jumps from its
   usual size to the biggest box that fits (the room has no panel in it yet) and then shrinks. Closing puts the usual layout
   back at once while the panel finishes leaving.
 - **A long sentence still scrolls where it must.** Two lines of English and one of Chinese need about 250px of stage; in a column
