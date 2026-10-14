@@ -984,6 +984,20 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-localbadge-label{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;font-size:11.5px;
   white-space:nowrap;color:var(--dsw-alias-label-secondary,#61666b);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
 .dsh-lingualab-localbadge.is-picture .dsh-lingualab-localbadge-label{border:0;color:rgba(255,255,255,0.86);background:rgba(0,0,0,0.5)}
+/* The smooth version on a playing picture: bottom left, after the clock (the large state has no clock, and keeps clear of the
+   peek button on the right). A card carries it as one more small action at its foot. */
+.dsh-lingualab-picture-smooth{position:absolute;left:64px;bottom:8px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  min-width:0;max-width:calc(100% - 78px)}
+.dsh-lingualab-videostage.is-large .dsh-lingualab-picture-smooth{left:14px;bottom:12px;max-width:calc(100% - 190px)}
+.dsh-lingualab-smooth-pill{display:inline-flex;align-items:center;gap:8px;box-sizing:border-box;min-width:0;max-width:100%;height:26px;
+  padding:0 0 0 2px;border-radius:999px;font-size:11.5px;color:rgba(255,255,255,0.86);background:rgba(0,0,0,0.5)}
+.dsh-lingualab-smooth-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 10px 0 4px;font-variant-numeric:tabular-nums}
+.dsh-lingualab-smooth-pill .dsh-lingualab-picture-local-btn{flex:none;background:rgba(255,255,255,0.14)}
+.dsh-lingualab-smooth-pill .dsh-lingualab-picture-local-btn:hover{background:rgba(255,255,255,0.24)}
+.dsh-lingualab-smooth-pill .dsh-lingualab-picture-local-btn:disabled{cursor:default;opacity:0.6}
+.dsh-lingualab-smooth-pill .dsh-lingualab-smooth-text:first-child{padding-left:10px}
+.dsh-lingualab-smooth-problem{max-width:100%;padding:2px 8px;border-radius:6px;font-size:11.5px;color:#fff;background:rgba(160,20,20,0.72)}
+.dsh-lingualab-smoothoffer{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:2px}
 .dsh-lingualab-videocard{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;width:min(64%,720px);
   min-width:min(100%,300px);min-height:min(342px,42vh);padding:18px;border-radius:12px;text-align:left;
   background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}

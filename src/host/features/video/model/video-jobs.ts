@@ -15,14 +15,18 @@
  *     of it (Windows will not delete an open file), so cancelling never leaves a half file that
  *     looks finished.
  *   · **The source is never touched.** Only the hidden cache folder is written.
+ *   · **The smooth version is a guest.** Re-encoding a picture takes minutes of every core it is given, so that
+ *     process runs at a lower priority and with one thread fewer than the machine has cores. When its file is in
+ *     place the full-size prepared `mp4` is deleted, as the smooth one replaces it.
  *
  * Starting a process goes through an injected {@link Spawn}, so the lifecycle is tested with a fake.
  */
 import { mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
+import { availableParallelism, setPriority } from 'node:os'
 import { join } from 'node:path'
 import { cacheDirOf, cachePathFor, type CacheKind } from '../../../entities/video-cache/index.ts'
 import type { Spawn } from '../../../shared/ffmpeg/index.ts'
-import { ffmpegArgs, progressSeconds, type PreparePlan } from '../lib/video-plan.ts'
+import { ffmpegArgs, progressSeconds, smoothThreads, type PreparePlan } from '../lib/video-plan.ts'
 
 /** What a job needs to start. */
 export interface JobSpec {
@@ -56,18 +60,49 @@ export type StartResult =
   | { readonly ok: true; readonly job: JobView }
   | { readonly ok: false; readonly reason: 'busy' | 'failed'; readonly message: string }
 
+/** What the job runner needs to know about the machine it runs on. */
+export interface JobHost {
+  /** How many cores there are, for the smooth version's thread count. */
+  readonly cores: number
+  /** Lower a process's priority, so the pages stay responsive while it runs. Never throws. */
+  readonly lowerPriority: (pid: number) => void
+}
+
+/** `os.setPriority` value for a process that yields to the others: below normal on Windows, nice 10 on Linux and macOS. */
+const LOW_PRIORITY = 10
+
+/** The real machine. */
+export const realJobHost: JobHost = {
+  cores: availableParallelism(),
+  lowerPriority: (pid) => {
+    try {
+      setPriority(pid, LOW_PRIORITY)
+    } catch {
+      // The process is gone already, or the system will not lower it: it runs at the usual priority, which only costs time.
+    }
+  },
+}
+
 /** The job runner. */
 export interface VideoJobs {
   /** Start a job, unless one is running. */
   start: (spec: JobSpec) => StartResult
   /** The running job, else the last one that finished, else `null`. */
   current: () => JobView | null
+  /** Whether a job is running. */
+  busy: () => boolean
   /** Whether a job for this folder and stem is the current one, whatever its phase. */
   has: (folder: string, stem: string) => JobView | null
   /** Stop the running job. Returns whether there was one. */
   cancel: () => boolean
   /** Resolves when no job is running; for tests and for shutdown. */
   settled: () => Promise<void>
+}
+
+/** Which cache file a plan writes. */
+export function cacheKindOf(plan: PreparePlan): CacheKind {
+  if (plan.kind === 'remux') return 'video'
+  return plan.kind === 'smooth' ? 'smooth' : 'sound'
 }
 
 /** How much of ffmpeg's stderr is kept to say why a job failed. */
@@ -107,8 +142,9 @@ function nonEmpty(path: string): boolean {
 /**
  * Make the job runner.
  * @param spawnFn - how a process is started; the real one in the host, a fake in tests.
+ * @param host - the machine: cores and priority; the real one in the host, a recording one in tests.
  */
-export function createVideoJobs(spawnFn: Spawn): VideoJobs {
+export function createVideoJobs(spawnFn: Spawn, host: JobHost = realJobHost): VideoJobs {
   interface Running {
     view: JobView
     cancelRequested: boolean
@@ -121,7 +157,7 @@ export function createVideoJobs(spawnFn: Spawn): VideoJobs {
   const start = (spec: JobSpec): StartResult => {
     if (running !== null) return { ok: false, reason: 'busy', message: '正在准备另一个视频，等它做完或者先取消' }
 
-    const kind: CacheKind = spec.plan.kind === 'remux' ? 'video' : 'sound'
+    const kind = cacheKindOf(spec.plan)
     const final = cachePathFor(spec.folder, spec.stem, kind)
     const part = `${final}.part`
     try {
@@ -133,10 +169,12 @@ export function createVideoJobs(spawnFn: Spawn): VideoJobs {
 
     let child: ReturnType<Spawn>
     try {
-      child = spawnFn(spec.ffmpeg, ffmpegArgs(spec.plan, spec.source, part))
+      child = spawnFn(spec.ffmpeg, ffmpegArgs(spec.plan, spec.source, part, smoothThreads(host.cores)))
     } catch (error) {
       return { ok: false, reason: 'failed', message: `ffmpeg 没能启动：${String(error)}` }
     }
+
+    if (spec.plan.kind === 'smooth' && child.pid !== undefined) host.lowerPriority(child.pid)
 
     const base = { folder: spec.folder, stem: spec.stem, total: spec.plan.duration, kind }
     const record: Running = {
@@ -192,6 +230,9 @@ export function createVideoJobs(spawnFn: Spawn): VideoJobs {
             finish('failed', `没能放到位：${String(error)}`)
             return
           }
+          // The smooth file replaces the full-size one. A file the browser still has open may refuse to go (Windows);
+          // it is then only dead weight, as the smooth file is preferred.
+          if (kind === 'smooth') quietUnlink(cachePathFor(spec.folder, spec.stem, 'video'))
           finish('done', null)
           return
         }
@@ -208,6 +249,7 @@ export function createVideoJobs(spawnFn: Spawn): VideoJobs {
   return {
     start,
     current,
+    busy: () => running !== null,
     has: (folder, stem) => {
       const view = current()
       return view !== null && view.folder === folder && view.stem === stem ? view : null

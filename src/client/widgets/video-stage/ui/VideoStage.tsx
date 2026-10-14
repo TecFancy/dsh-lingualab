@@ -21,6 +21,10 @@
  * small action for it, every card ends with the same one, a video dropped on the stage is taken as the choice, and while one
  * plays a label says so, with the way to stop. The drop is claimed here, so it never reaches the page's import.
  *
+ * The smooth version (see `SmoothActions`) is offered in the corner of a picture that plays, where its progress also
+ * shows while it is made (the picture keeps playing until the new file is in place), and at the foot of the cards
+ * that ask for something, the ones that cannot play the picture included.
+ *
  * The notice bar at the top of the practice view is also drawn here, since it speaks about the same things.
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -30,10 +34,11 @@ import { isInformational, isVideoFile, type CardKind } from '../../../features/v
 import { returnFocusToPage } from '../../../shared/lib/focus.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
 import { CheckIcon, TimerIcon, VideoIcon, WarnIcon } from '../../../shared/ui/icons.tsx'
-import type { VideoStatusPayload } from '../../../shared/protocol.ts'
+import type { VideoPrepareMode, VideoStatusPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import { ratioOf, ratioValue } from '../lib/ratio.ts'
 import { LocalFileActions, LocalFileBadge, type LocalFileProps } from './LocalFileActions.tsx'
+import { etaLabel, SmoothCorner, SmoothOffer } from './SmoothActions.tsx'
 
 /** How long "copied" stays on the copy button. */
 const COPIED_MS = 1400
@@ -66,7 +71,7 @@ export interface VideoStageProps {
   /** The English of the sentence peeked at in the large state, or `null`. */
   readonly caption: string | null
   readonly onPeek: () => void
-  readonly onPrepare: (mode: 'video' | 'sound') => void
+  readonly onPrepare: (mode: VideoPrepareMode) => void
   readonly onCancel: () => void
   readonly onCardShow: () => void
   readonly onCardHide: () => void
@@ -202,6 +207,9 @@ export function VideoStage({
                 )}
               </div>
             )}
+            {local !== null && local.name !== null ? null : (
+              <SmoothCorner t={t} status={status} eta={eta} busy={busy} onPrepare={onPrepare} onCancel={onCancel} />
+            )}
             {mode === 'shown' ? <span className="dsh-lingualab-picture-time">{formatClock(time)}</span> : null}
             {mode === 'large' ? <span className="dsh-lingualab-picture-badge">{t('pictureLargeBadge')}</span> : null}
             {mode === 'large' && caption !== null ? (
@@ -251,7 +259,7 @@ interface CardProps {
   readonly busy: boolean
   readonly eta: number | null
   readonly local: LocalFileProps | null
-  readonly onPrepare: (mode: 'video' | 'sound') => void
+  readonly onPrepare: (mode: VideoPrepareMode) => void
   readonly onCancel: () => void
   readonly onHide: () => void
 }
@@ -270,8 +278,12 @@ function Card({ t, kind, status, hasAudioFile, busy, eta, local, onPrepare, onCa
     const fraction = progress === null ? 0 : progress.fraction
     return (
       <section className="dsh-lingualab-videocard" role="status" aria-live="polite">
-        <div className="dsh-lingualab-videocard-title">{t('cardPreparingTitle')}</div>
-        <div className="dsh-lingualab-videocard-sub">{t('cardPreparingSub')}</div>
+        <div className="dsh-lingualab-videocard-title">
+          {status.jobKind === 'smooth' ? t('cardPreparingTitleSmooth') : t('cardPreparingTitle')}
+        </div>
+        <div className="dsh-lingualab-videocard-sub">
+          {status.jobKind === 'smooth' ? t('cardPreparingSubSmooth') : t('cardPreparingSub')}
+        </div>
         <div className="dsh-lingualab-bar is-thick" aria-hidden>
           <div className="dsh-lingualab-bar-fill" style={{ width: `${String(Math.round(fraction * 100))}%` }} />
         </div>
@@ -283,7 +295,7 @@ function Card({ t, kind, status, hasAudioFile, busy, eta, local, onPrepare, onCa
               total: formatClock(progress?.total ?? 0),
             })}
           </span>
-          {eta === null ? null : <span>{t('cardPreparingEta', { seconds: eta })}</span>}
+          {eta === null ? null : <span>{etaLabel(t, eta)}</span>}
         </div>
         <p className="dsh-lingualab-videocard-body">
           {hasAudioFile ? t('cardPreparingBody') : t('cardPreparingBodyNoAudio')}
@@ -378,10 +390,18 @@ function Card({ t, kind, status, hasAudioFile, busy, eta, local, onPrepare, onCa
           <div className="dsh-lingualab-videocard-sub is-mono">{file}</div>
           <p className="dsh-lingualab-videocard-body is-mono">{status.reason ?? ''}</p>
           <span className="dsh-lingualab-spacer" />
-          <button type="button" className="dsh-lingualab-btn is-primary" onClick={() => onPrepare('video')} disabled={busy}>
+          <button
+            type="button"
+            className="dsh-lingualab-btn is-primary"
+            onClick={() => onPrepare(status.jobKind === 'sound' ? 'sound' : 'video')}
+            disabled={busy}
+          >
             {t('cardRetry')}
           </button>
         </>
+      ) : null}
+      {kind === 'prepare' || kind === 'sound-only' || kind === 'sound-ready' || kind === 'unplayable' ? (
+        <SmoothOffer t={t} status={status} busy={busy} onPrepare={onPrepare} />
       ) : null}
       {localActions}
     </section>

@@ -283,10 +283,10 @@ describe('a picture a browser cannot decode', () => {
     })
   })
 
-  it('is unplayable (and offers nothing to prepare) when the segment has its own audio file', async () => {
+  it('is unplayable (and offers nothing to prepare but the smooth version) when the segment has its own audio file', async () => {
     folder('S01E01', ['a.mp3', 'a.mkv'])
     const { deps } = setup({ 'a.mkv': MKV_HEVC })
-    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'unplayable', videoCodec: 'hevc' })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'unplayable', videoCodec: 'hevc', smooth: { offer: true } })
   })
 
   it('is unplayable when ffprobe cannot read the file, and when it has no sound', async () => {
@@ -321,5 +321,288 @@ describe('segments', () => {
     folder('S01E01', ['01_a.mp3', '01_a.mp4', '02_b.mp3'])
     const { deps } = setup({ '01_a.mp4': MP4_DIRECT })
     expect(await videoStatus('S01E01', '02_b', deps)).toMatchObject({ state: 'none' })
+  })
+})
+
+/** The pause that lets a fake process's output reach the job. */
+const tick = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
+
+describe('the smooth version of a video that plays as it is', () => {
+  /** An mp4 a browser plays, with an audio file beside it. */
+  function direct(): string {
+    return folder('S01E01', ['a.mp3', 'a.mp4'])
+  }
+
+  it('is on offer, with the size and the time it will take', async () => {
+    direct()
+    const { deps } = setup({ 'a.mp4': MP4_DIRECT })
+    const status = await videoStatus('S01E01', undefined, deps)
+    // 60 seconds: about 1.9 Mbps for the size, and about 1.5 times real time for the encode.
+    expect(status.smooth).toEqual({ offer: true, estimateBytes: 14_250_000, estimateSeconds: 40, revert: false, error: null })
+    expect(status).toMatchObject({ state: 'playable', via: 'direct', jobKind: null, progress: null })
+  })
+
+  it('starts one job that encodes into <stem>.smooth.mp4, while the picture keeps playing and shows the progress', async () => {
+    const directory = direct()
+    const { deps, fake, jobs } = setup({ 'a.mp4': MP4_DIRECT })
+
+    const started = await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    // What played still plays: the file as it is, not a card.
+    expect(started).toMatchObject({ ok: true, state: 'playable', via: 'direct', url: '/lingualab/media/S01E01/a.mp4', jobKind: 'smooth' })
+    expect(started.smooth.offer).toBe(false)
+    expect(started.progress).toMatchObject({ fraction: 0, total: 60 })
+    const call = fake.ffmpeg[0]
+    expect(call?.output).toBe(`${cachePathFor(directory, 'a', 'smooth')}.part`)
+    expect(call?.args).toContain('libx264')
+
+    call?.child.say('out_time_us=30000000\n')
+    await tick()
+    const running = await videoStatus('S01E01', undefined, deps)
+    expect(running).toMatchObject({ state: 'playable', via: 'direct', jobKind: 'smooth' })
+    expect(running.progress?.fraction).toBeCloseTo(0.5, 2)
+
+    writeFileSync(call?.output ?? '', 'smooth video')
+    call?.child.finish(0)
+    await jobs.settled()
+    const done = await videoStatus('S01E01', undefined, deps)
+    expect(done).toMatchObject({
+      state: 'playable',
+      via: 'smooth',
+      url: '/lingualab/media/S01E01/.lingualab/a.smooth.mp4',
+      progress: null,
+      jobKind: null,
+    })
+    expect(done.smooth).toMatchObject({ offer: false, revert: true })
+    expect(scanLibrary(root).episodes[0]?.video?.state).toBe('ready')
+    // The reader's own file is untouched.
+    expect(existsSync(join(directory, 'a.mp4'))).toBe(true)
+  })
+
+  it('prefers the smooth file to the full-size prepared one, and either to the source', async () => {
+    const directory = direct()
+    mkdirSync(join(directory, '.lingualab'))
+    const future = new Date(Date.now() + 60_000)
+    for (const kind of ['video', 'smooth'] as const) {
+      writeFileSync(cachePathFor(directory, 'a', kind), kind)
+      utimesSync(cachePathFor(directory, 'a', kind), future, future)
+    }
+    const { deps } = setup({ 'a.mp4': MP4_DIRECT })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'smooth', url: '/lingualab/media/S01E01/.lingualab/a.smooth.mp4' })
+    rmSync(cachePathFor(directory, 'a', 'smooth'))
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'prepared', url: '/lingualab/media/S01E01/.lingualab/a.mp4' })
+  })
+
+  it('does not trust a smooth file older than its source', async () => {
+    const directory = direct()
+    mkdirSync(join(directory, '.lingualab'))
+    writeFileSync(cachePathFor(directory, 'a', 'smooth'), 'old')
+    const past = new Date(Date.now() - 60_000)
+    utimesSync(cachePathFor(directory, 'a', 'smooth'), past, past)
+    const { deps } = setup({ 'a.mp4': MP4_DIRECT })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'direct', smooth: { offer: true, revert: false } })
+  })
+
+  it('says a failed job failed without taking the picture away, and offers it again', async () => {
+    direct()
+    const { deps, fake, jobs } = setup({ 'a.mp4': MP4_DIRECT })
+    await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    fake.ffmpeg[0]?.child.stderr.write('Conversion failed')
+    fake.ffmpeg[0]?.child.finish(1)
+    await jobs.settled()
+    const status = await videoStatus('S01E01', undefined, deps)
+    expect(status).toMatchObject({ ok: true, state: 'playable', via: 'direct', progress: null, jobKind: null })
+    expect(status.smooth).toMatchObject({ offer: true, error: 'Conversion failed' })
+  })
+
+  it('leaves the picture playing and nothing deleted when the job is cancelled', async () => {
+    const directory = direct()
+    const { deps, fake, jobs } = setup({ 'a.mp4': MP4_DIRECT })
+    await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'half')
+    jobs.cancel()
+    await jobs.settled()
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'playable', via: 'direct', smooth: { offer: true, error: null } })
+    expect(existsSync(`${cachePathFor(directory, 'a', 'smooth')}.part`)).toBe(false)
+  })
+
+  it('refuses a second job while one runs, and a smooth version that already exists', async () => {
+    direct()
+    folder('S01E02', ['b.mp4'])
+    const { deps, fake, jobs } = setup({ 'a.mp4': MP4_DIRECT, 'b.mp4': MP4_DIRECT })
+    await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    const second = await prepareVideo({ episode: 'S01E02', mode: 'smooth' }, deps)
+    expect(second).toMatchObject({ ok: false, state: 'playable' })
+    expect(second.reason).toContain('正在准备')
+    expect(fake.ffmpeg).toHaveLength(1)
+
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'smooth')
+    fake.ffmpeg[0]?.child.finish(0)
+    await jobs.settled()
+    const again = await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    expect(again).toMatchObject({ ok: false, via: 'smooth' })
+    expect(fake.ffmpeg).toHaveLength(1)
+  })
+
+  it('is not on offer without ffmpeg, for a video with no sound, or for a file ffprobe cannot read', async () => {
+    direct()
+    expect((await videoStatus('S01E01', undefined, setup({}, null).deps)).smooth.offer).toBe(false)
+    forgetProbes()
+    expect((await videoStatus('S01E01', undefined, setup({}).deps)).smooth.offer).toBe(false)
+    forgetProbes()
+    const silent = { streams: [{ index: 0, codec_type: 'video', codec_name: 'h264', pix_fmt: 'yuv420p' }], format: { duration: '9' } }
+    const { deps, fake } = setup({ 'a.mp4': silent })
+    expect((await videoStatus('S01E01', undefined, deps)).smooth.offer).toBe(false)
+    expect(await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)).toMatchObject({ ok: false })
+    expect(fake.ffmpeg).toHaveLength(0)
+  })
+})
+
+describe('the smooth version of a video that needs preparing', () => {
+  it('is on offer beside the ordinary preparing, and while it runs nothing plays, so the card shows it', async () => {
+    const directory = folder('S01E01', ['MDJT S01E01.mkv', 'MDJT S01E01.mp3'])
+    const { deps, fake, jobs } = setup({ 'MDJT S01E01.mkv': MKV_H264_DTS })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'prepare', smooth: { offer: true } })
+
+    const started = await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    expect(started).toMatchObject({ state: 'preparing', jobKind: 'smooth', url: null })
+    expect(fake.ffmpeg[0]?.output).toBe(`${cachePathFor(directory, 'MDJT S01E01', 'smooth')}.part`)
+
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'smooth video')
+    fake.ffmpeg[0]?.child.finish(0)
+    await jobs.settled()
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'playable', via: 'smooth', duration: 1379.42 })
+  })
+
+  it('replaces the prepared file: once the smooth one is in place the full-size one is gone', async () => {
+    const directory = folder('S01E01', ['a.mkv'])
+    const { deps, fake, jobs } = setup({ 'a.mkv': MKV_H264_DTS })
+    await prepareVideo({ episode: 'S01E01', mode: 'video' }, deps)
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'full-size')
+    fake.ffmpeg[0]?.child.finish(0)
+    await jobs.settled()
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'prepared', smooth: { offer: true } })
+
+    await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'playable', via: 'prepared', jobKind: 'smooth' })
+    writeFileSync(fake.ffmpeg[1]?.output ?? '', 'smooth')
+    fake.ffmpeg[1]?.child.finish(0)
+    await jobs.settled()
+    expect(existsSync(cachePathFor(directory, 'a', 'video'))).toBe(false)
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'smooth' })
+  })
+})
+
+describe('the smooth version of a picture a browser cannot decode', () => {
+  it('is on offer with the sound-only card and with the unplayable one, and turns the picture into a video', async () => {
+    const directory = folder('S01E01', ['only.mkv'])
+    folder('S01E02', ['b.mp3', 'b.mkv'])
+    const { deps, fake, jobs } = setup({ 'only.mkv': MKV_HEVC, 'b.mkv': MKV_HEVC })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ state: 'sound-only', smooth: { offer: true, estimateBytes: 142_500_000, estimateSeconds: 400 } })
+    expect(await videoStatus('S01E02', undefined, deps)).toMatchObject({ state: 'unplayable', smooth: { offer: true } })
+
+    const started = await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    expect(started).toMatchObject({ state: 'preparing', jobKind: 'smooth' })
+    expect(fake.ffmpeg[0]?.output).toBe(`${cachePathFor(directory, 'only', 'smooth')}.part`)
+    // The picture is decoded by the encoder, whatever the codec.
+    expect(fake.ffmpeg[0]?.args).toContain('libx264')
+    expect(fake.ffmpeg[0]?.args).not.toContain('-vn')
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'smooth')
+    fake.ffmpeg[0]?.child.finish(0)
+    await jobs.settled()
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({
+      state: 'playable',
+      via: 'smooth',
+      url: '/lingualab/media/S01E01/.lingualab/only.smooth.mp4',
+      smooth: { revert: true },
+    })
+  })
+
+  it('keeps the sound playing from the cache while the smooth version is made', async () => {
+    const directory = folder('S01E01', ['only.mkv'])
+    mkdirSync(join(directory, '.lingualab'))
+    writeFileSync(cachePathFor(directory, 'only', 'sound'), 'sound')
+    const future = new Date(Date.now() + 60_000)
+    utimesSync(cachePathFor(directory, 'only', 'sound'), future, future)
+    const { deps, jobs } = setup({ 'only.mkv': MKV_HEVC })
+    const started = await prepareVideo({ episode: 'S01E01', mode: 'smooth' }, deps)
+    expect(started).toMatchObject({ state: 'sound-ready', url: '/lingualab/media/S01E01/.lingualab/only.m4a', jobKind: 'smooth' })
+    expect(started.progress).not.toBeNull()
+    jobs.cancel()
+    await jobs.settled()
+  })
+})
+
+describe('going back to the original quality', () => {
+  /** A smooth file in the cache, newer than its source. */
+  function withSmooth(directory: string, stem: string): void {
+    mkdirSync(join(directory, '.lingualab'), { recursive: true })
+    writeFileSync(cachePathFor(directory, stem, 'smooth'), 'smooth')
+    const future = new Date(Date.now() + 60_000)
+    utimesSync(cachePathFor(directory, stem, 'smooth'), future, future)
+  }
+
+  it('deletes the smooth file and prepares a video that needed it again, through the same queue', async () => {
+    const directory = folder('S01E01', ['a.mkv'])
+    withSmooth(directory, 'a')
+    const { deps, fake, jobs } = setup({ 'a.mkv': MKV_H264_DTS })
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'smooth', smooth: { revert: true } })
+
+    const answer = await prepareVideo({ episode: 'S01E01', mode: 'original' }, deps)
+    expect(existsSync(cachePathFor(directory, 'a', 'smooth'))).toBe(false)
+    expect(answer).toMatchObject({ state: 'preparing', jobKind: 'video' })
+    expect(fake.ffmpeg[0]?.output).toBe(`${cachePathFor(directory, 'a', 'video')}.part`)
+    expect(fake.ffmpeg[0]?.args).toContain('copy')
+
+    writeFileSync(fake.ffmpeg[0]?.output ?? '', 'full-size')
+    fake.ffmpeg[0]?.child.finish(0)
+    await jobs.settled()
+    expect(await videoStatus('S01E01', undefined, deps)).toMatchObject({ via: 'prepared', smooth: { offer: true, revert: false } })
+  })
+
+  it('only deletes the smooth file for a source that plays as it is', async () => {
+    const directory = folder('S01E01', ['a.mp3', 'a.mp4'])
+    withSmooth(directory, 'a')
+    const { deps, fake } = setup({ 'a.mp4': MP4_DIRECT })
+    const answer = await prepareVideo({ episode: 'S01E01', mode: 'original' }, deps)
+    expect(existsSync(cachePathFor(directory, 'a', 'smooth'))).toBe(false)
+    expect(answer).toMatchObject({ ok: true, state: 'playable', via: 'direct', url: '/lingualab/media/S01E01/a.mp4' })
+    expect(fake.ffmpeg).toHaveLength(0)
+  })
+
+  it('returns a picture that could only ever be sound to the audio-only state', async () => {
+    const directory = folder('S01E01', ['only.mkv'])
+    withSmooth(directory, 'only')
+    const { deps, fake } = setup({ 'only.mkv': MKV_HEVC })
+    const answer = await prepareVideo({ episode: 'S01E01', mode: 'original' }, deps)
+    expect(existsSync(cachePathFor(directory, 'only', 'smooth'))).toBe(false)
+    expect(answer).toMatchObject({ ok: true, state: 'sound-only', smooth: { offer: true, revert: false } })
+    expect(fake.ffmpeg).toHaveLength(0)
+  })
+
+  it('does nothing when there is no smooth file, and never starts a job for it', async () => {
+    const directory = folder('S01E01', ['a.mkv'])
+    mkdirSync(join(directory, '.lingualab'))
+    writeFileSync(cachePathFor(directory, 'a', 'video'), 'prepared')
+    const future = new Date(Date.now() + 60_000)
+    utimesSync(cachePathFor(directory, 'a', 'video'), future, future)
+    const { deps, fake } = setup({ 'a.mkv': MKV_H264_DTS })
+    expect(await prepareVideo({ episode: 'S01E01', mode: 'original' }, deps)).toMatchObject({ ok: true, via: 'prepared' })
+    expect(fake.ffmpeg).toHaveLength(0)
+    expect(existsSync(cachePathFor(directory, 'a', 'video'))).toBe(true)
+  })
+
+  it('deletes nothing while a job runs', async () => {
+    const directory = folder('S01E01', ['a.mkv'])
+    withSmooth(directory, 'a')
+    folder('S01E02', ['b.mkv'])
+    const { deps, fake, jobs } = setup({ 'a.mkv': MKV_H264_DTS, 'b.mkv': MKV_H264_DTS })
+    await prepareVideo({ episode: 'S01E02', mode: 'video' }, deps)
+    const answer = await prepareVideo({ episode: 'S01E01', mode: 'original' }, deps)
+    expect(answer).toMatchObject({ ok: false, via: 'smooth' })
+    expect(answer.reason).toContain('正在准备')
+    expect(existsSync(cachePathFor(directory, 'a', 'smooth'))).toBe(true)
+    expect(fake.ffmpeg).toHaveLength(1)
+    jobs.cancel()
+    await jobs.settled()
   })
 })

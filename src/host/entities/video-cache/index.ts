@@ -5,6 +5,7 @@ export {
   cacheDirOf,
   cacheFileName,
   type CacheKind,
+  type CachedFile,
   cachePathFor,
   findCached,
   forgetDirect,

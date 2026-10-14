@@ -8,10 +8,12 @@ export {
   etaSeconds,
   isInformational,
   playSource,
+  producedNewFile,
   segmentKey,
   type CardKind,
   type PlaySource,
 } from './lib/source.ts'
 export { forgetShownCards, useFirstTimeCard, useVideo, type FirstTimeCard, type VideoState } from './model/useVideo.ts'
+export { estimateText, etaUnit, smoothControlOf, type EstimateText, type SmoothControl } from './lib/smooth.ts'
 export { isVideoFile } from './lib/local.ts'
 export { useLocalVideo, type LocalVideo, type LocalVideoOptions } from './model/useLocalVideo.ts'

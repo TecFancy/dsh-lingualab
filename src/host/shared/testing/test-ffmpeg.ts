@@ -13,6 +13,8 @@ import type { Child, Spawn } from '../ffmpeg/index.ts'
 export class FakeChild extends EventEmitter {
   readonly stdout = new PassThrough()
   readonly stderr = new PassThrough()
+  /** A process id, when the test asks for one: the job runner lowers the priority of a process it knows the id of. */
+  pid: number | undefined = undefined
   killed = false
 
   /** Like a real process: stopping it is not instant, and it closes with no exit code. */
@@ -55,11 +57,11 @@ export interface FakeSpawn {
 /**
  * Make the spawner.
  * @param probes - what `ffprobe` prints for a path: an object (as JSON), or `null` for a failure.
- * @param options - `failToStart` makes `ffmpeg` throw when started.
+ * @param options - `failToStart` makes `ffmpeg` throw when started; `pid` gives every `ffmpeg` process that id.
  */
 export function fakeSpawn(
   probes: (path: string) => object | null,
-  options: { readonly failToStart?: boolean } = {},
+  options: { readonly failToStart?: boolean; readonly pid?: number } = {},
 ): FakeSpawn {
   const ffmpeg: FfmpegCall[] = []
   const probed: string[] = []
@@ -76,6 +78,7 @@ export function fakeSpawn(
       return child as unknown as Child
     }
     if (options.failToStart === true) throw new Error('spawn ENOENT')
+    child.pid = options.pid
     ffmpeg.push({ command, args, child, output: args[args.length - 1] ?? '' })
     return child as unknown as Child
   }

@@ -7,6 +7,7 @@ import type { HostContext, WebRoute } from '../../../../host-context.ts'
 import {
   VIDEO_CANCEL_PATH,
   VIDEO_PATH,
+  VIDEO_PREPARE_MODES,
   VIDEO_PREPARE_PATH,
   type VideoCancelPayload,
   type VideoPrepareRequest,
@@ -51,7 +52,7 @@ export function videoRoute(ctx: HostContext, configured: () => string, ffmpegPat
  *
  * The third route that writes into the media folder, after the import and the subtitle timing, and it
  * writes the narrowest thing: files in the plugin's own hidden `.lingualab` folder, made by a process
- * the host starts itself. Admitted by `guarded` like every route; the body names a segment and a mode,
+ * the host starts itself (or deletes the smooth one, for `original`). Admitted by `guarded` like every route; the body names a segment and a mode,
  * never a path, and the host works out the rest from its own scan.
  */
 export function videoPrepareRoute(ctx: HostContext, configured: () => string, ffmpegPath: () => string, jobs: VideoJobs): WebRoute {
@@ -68,8 +69,8 @@ export function videoPrepareRoute(ctx: HostContext, configured: () => string, ff
         return
       }
       const request = (typeof body === 'object' && body !== null ? body : {}) as Partial<VideoPrepareRequest>
-      if (typeof request.episode !== 'string' || (request.mode !== 'video' && request.mode !== 'sound')) {
-        sendJson(res, 400, { ok: false, reason: '缺 episode，或者 mode 不是 video 或 sound' })
+      if (typeof request.episode !== 'string' || request.mode === undefined || !VIDEO_PREPARE_MODES.includes(request.mode)) {
+        sendJson(res, 400, { ok: false, reason: '缺 episode，或者 mode 不是 video、sound、smooth 或 original' })
         return
       }
       if (request.segment !== undefined && typeof request.segment !== 'string') {

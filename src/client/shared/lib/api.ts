@@ -367,6 +367,8 @@ const NO_VIDEO = (reason: string | null): VideoStatusPayload => ({
   mismatch: null,
   estimateBytes: null,
   progress: null,
+  jobKind: null,
+  smooth: { offer: false, estimateBytes: null, estimateSeconds: null, revert: false, error: null },
   installCommand: null,
 })
 

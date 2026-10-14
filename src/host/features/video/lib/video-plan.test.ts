@@ -6,9 +6,13 @@ import {
   ffmpegArgs,
   parseProbe,
   pickAudioStream,
+  planSmooth,
   planVideo,
   probeArgs,
   progressSeconds,
+  smoothEstimateBytes,
+  smoothEstimateSeconds,
+  smoothThreads,
   type PreparePlan,
   type ProbeResult,
 } from './video-plan.ts'
@@ -219,6 +223,96 @@ describe('the ffmpeg arguments', () => {
     const source = '/lib/a b; rm -rf x/$(evil).mkv'
     expect(ffmpegArgs(plan, source, '/out').filter((arg) => arg === source)).toHaveLength(1)
     expect(probeArgs(source)[probeArgs(source).length - 1]).toBe(source)
+  })
+})
+
+describe('planSmooth', () => {
+  it('plans any file that has a picture and a sound, the codec being no obstacle', () => {
+    const h264 = planSmooth(parseProbe(JSON.stringify(MKV_H264_DTS)) as ProbeResult)
+    expect(h264).toEqual({ kind: 'smooth', duration: 1379.42, videoIndex: 0, audioIndex: 1, videoCodec: 'h264', audioCodec: 'dts' })
+    // A picture a browser cannot decode is what the smooth version turns into a video.
+    expect(planSmooth(parseProbe(JSON.stringify(MKV_HEVC)) as ProbeResult)).toMatchObject({ kind: 'smooth', videoCodec: 'hevc', audioCodec: 'eac3' })
+    expect(planSmooth(parseProbe(JSON.stringify(MP4_DIRECT)) as ProbeResult)).toMatchObject({ kind: 'smooth', videoIndex: 0, audioIndex: 1 })
+  })
+
+  it('takes the same audio track as the other plans', () => {
+    const plan = planSmooth(
+      probeOf([
+        { index: 0, codec_type: 'video', codec_name: 'h264' },
+        { index: 1, codec_type: 'audio', codec_name: 'aac', tags: { language: 'spa' } },
+        { index: 2, codec_type: 'audio', codec_name: 'aac', tags: { language: 'eng' } },
+      ]),
+    )
+    expect(plan?.audioIndex).toBe(2)
+  })
+
+  it('has no plan without a sound, without a picture, or with only a cover image', () => {
+    expect(planSmooth(probeOf([{ index: 0, codec_type: 'video', codec_name: 'h264' }]))).toBeNull()
+    expect(planSmooth(probeOf([{ index: 0, codec_type: 'audio', codec_name: 'mp3' }]))).toBeNull()
+    const cover = { index: 1, codec_type: 'video', codec_name: 'mjpeg', disposition: { attached_pic: 1 } }
+    expect(planSmooth(probeOf([{ index: 0, codec_type: 'audio', codec_name: 'mp3' }, cover]))).toBeNull()
+    expect(planSmooth(probeOf([]))).toBeNull()
+  })
+})
+
+describe('the smooth estimates', () => {
+  it('weigh about 1.9 Mbps and take about 1/1.5 of the length', () => {
+    // 23 minutes: the episode the numbers were measured on.
+    expect(smoothEstimateBytes(1380)).toBe(327_750_000)
+    expect(smoothEstimateSeconds(1380)).toBe(920)
+    expect(estimateBytes(planSmooth(parseProbe(JSON.stringify(MKV_H264_DTS)) as ProbeResult) as PreparePlan, 1)).toBe(327_612_250)
+  })
+
+  it('are unknown when the length is', () => {
+    expect(smoothEstimateBytes(null)).toBeNull()
+    expect(smoothEstimateSeconds(null)).toBeNull()
+    expect(smoothEstimateBytes(0)).toBeNull()
+  })
+})
+
+describe('smoothThreads', () => {
+  it('leaves one core to the host, and never fewer than one thread', () => {
+    expect(smoothThreads(8)).toBe(7)
+    expect(smoothThreads(2)).toBe(1)
+    expect(smoothThreads(1)).toBe(1)
+    expect(smoothThreads(0)).toBe(1)
+    expect(smoothThreads(Number.NaN)).toBe(1)
+  })
+})
+
+describe('the smooth ffmpeg arguments', () => {
+  const plan = planSmooth(parseProbe(JSON.stringify(MKV_H264_DTS)) as ProbeResult) as PreparePlan
+  const joined = (threads?: number): string => ffmpegArgs(plan, '/in.mkv', '/out.smooth.mp4.part', threads).join(' ')
+
+  it('encodes H.264 at veryfast, CRF 23, capped at 1.8 Mbps with a 3.6 Mbit buffer, in 8-bit 4:2:0', () => {
+    expect(joined()).toContain('-c:v libx264 -preset veryfast -crf 23 -maxrate 1.8M -bufsize 3.6M -pix_fmt yuv420p')
+  })
+
+  it('caps the height at 720 lines without enlarging a smaller picture', () => {
+    const args = ffmpegArgs(plan, '/in.mkv', '/out')
+    // The comma inside min() is escaped, or the filter graph would read it as the end of the filter.
+    expect(args[args.indexOf('-vf') + 1]).toBe('scale=-2:min(720\\,ih)')
+  })
+
+  it('puts a keyframe every two seconds whatever the frame rate', () => {
+    const args = ffmpegArgs(plan, '/in.mkv', '/out')
+    expect(args[args.indexOf('-force_key_frames') + 1]).toBe('expr:gte(t,n_forced*2)')
+  })
+
+  it('makes stereo AAC at 128 kb/s of the chosen sound, and moves the index to the front', () => {
+    expect(joined()).toContain('-map 0:0 -map 0:1')
+    expect(joined()).toContain('-c:a aac -ac 2 -b:a 128000')
+    expect(joined()).toContain('-movflags +faststart -f mp4')
+    expect(ffmpegArgs(plan, '/in.mkv', '/out').at(-1)).toBe('/out')
+  })
+
+  it('passes the thread count it was given', () => {
+    expect(joined(3)).toContain('-threads 3')
+    expect(joined(0)).toContain('-threads 1')
+  })
+
+  it('copies nothing: the picture is always re-encoded', () => {
+    expect(ffmpegArgs(plan, '/in.mkv', '/out')).not.toContain('copy')
   })
 })
 

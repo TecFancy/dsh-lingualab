@@ -116,8 +116,10 @@ export const REVIEW_PATH = '/lingualab/review'
 export const VIDEO_PATH = '/lingualab/video'
 
 /**
- * Starting the one preparing job: `POST` with `episode`, `segment` and a `mode` (`video` or
- * `sound`). One job runs at a time; asking for another while one runs is answered `busy`.
+ * Starting the one preparing job: `POST` with `episode`, `segment` and a `mode` (`video`, `sound`,
+ * `smooth` or `original`). One job runs at a time; asking for another while one runs is answered `busy`.
+ * `smooth` re-encodes the picture for streaming; `original` deletes that file and goes back to the
+ * ordinary preparing.
  */
 export const VIDEO_PREPARE_PATH = '/lingualab/video-prepare'
 
@@ -165,8 +167,8 @@ export const NOTES_FILE = 'notes.md'
  * The video beside one segment (or one episode without segments), as the scan sees it.
  *
  * The scan does not probe, so `state` is what the files on disk say: `ready` when a prepared
- * `.mp4` is in the cache (or the file is already known to play as it is), `sound` when only the
- * sound was kept (`.m4a`), `unprepared` otherwise. The exact verdict, with the reason, comes from
+ * `.mp4` (or the smooth `.smooth.mp4`) is in the cache (or the file is already known to play as it is),
+ * `sound` when only the sound was kept (`.m4a`), `unprepared` otherwise. The exact verdict, with the reason, comes from
  * {@link VideoStatusPayload}.
  */
 export interface VideoRef {
@@ -601,6 +603,24 @@ export type VideoState =
   /** There is no video for this segment. */
   | 'none'
 
+/**
+ * What the smooth version offers for one segment: 「准备流畅版」, 「改回原画质」, and what went wrong last time.
+ *
+ * The smooth version re-encodes the picture for a slow link (H.264, 720 lines at most, about 1.9 Mbps) and works for
+ * any video that has a picture and a sound, including the ones whose picture a browser cannot decode.
+ */
+export interface VideoSmooth {
+  /** 「准备流畅版」 can be started: the host has `ffmpeg`, the file has a picture and a sound, no smooth file exists, no job runs for it. */
+  readonly offer: boolean
+  /** What the smooth file will weigh, and how long encoding it takes, roughly. `null` when the length is not known. */
+  readonly estimateBytes: number | null
+  readonly estimateSeconds: number | null
+  /** The smooth file is in the cache: 「改回原画质」 can be offered. */
+  readonly revert: boolean
+  /** Why the last smooth job for this segment failed, or `null`. */
+  readonly error: string | null
+}
+
 /** How far a preparing job has got. */
 export interface VideoProgress {
   /** 0 to 1. */
@@ -620,7 +640,7 @@ export interface VideoStatusPayload {
   readonly bytes: number | null
   /** What to play, for `playable` and `sound-ready`. */
   readonly url: string | null
-  readonly via: 'direct' | 'prepared' | null
+  readonly via: 'direct' | 'prepared' | 'smooth' | null
   readonly videoCodec: string | null
   readonly audioCodec: string | null
   /** The video's length in seconds, when probed. */
@@ -632,17 +652,34 @@ export interface VideoStatusPayload {
   readonly mismatch: number | null
   /** What the prepared file will weigh, roughly, in bytes. */
   readonly estimateBytes: number | null
+  /**
+   * How far the running job has got, or `null` when none runs for this segment. A smooth job runs while the
+   * current file keeps playing, so `progress` can be set in `playable`, not only in `preparing`.
+   */
   readonly progress: VideoProgress | null
+  /** What kind of file the running job (or the failed one `reason` is about) writes, or `null`. */
+  readonly jobKind: 'video' | 'sound' | 'smooth' | null
+  /** The smooth version's offers for this segment. */
+  readonly smooth: VideoSmooth
   /** The command that installs `ffmpeg` on this host, when `state` is `no-ffmpeg`. */
   readonly installCommand: string | null
 }
+
+/** What a prepare request asks for. */
+export type VideoPrepareMode = 'video' | 'sound' | 'smooth' | 'original'
+
+/** The modes, for a route that checks the one it was given. */
+export const VIDEO_PREPARE_MODES: readonly VideoPrepareMode[] = ['video', 'sound', 'smooth', 'original']
 
 /** `POST /lingualab/video-prepare` request body. */
 export interface VideoPrepareRequest {
   readonly episode: string
   readonly segment?: string
-  /** `video` keeps the picture and converts the sound; `sound` keeps only the sound. */
-  readonly mode: 'video' | 'sound'
+  /**
+   * `video` keeps the picture and converts the sound; `sound` keeps only the sound; `smooth` re-encodes the
+   * picture for streaming; `original` deletes the smooth file and prepares the file as it was before.
+   */
+  readonly mode: VideoPrepareMode
 }
 
 /** `POST /lingualab/video-cancel`. */

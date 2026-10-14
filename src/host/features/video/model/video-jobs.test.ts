@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cacheDirOf, cachePathFor } from '../../../entities/video-cache/index.ts'
 import { makeTempDir, fakeSpawn } from '../../../shared/testing/index.ts'
 import type { PreparePlan } from '../lib/video-plan.ts'
-import { createVideoJobs, type JobSpec } from './video-jobs.ts'
+import { createVideoJobs, realJobHost, type JobHost, type JobSpec } from './video-jobs.ts'
 
 let folder = ''
 
@@ -28,6 +28,14 @@ const REMUX: PreparePlan = {
   audioIndex: 1,
   videoCodec: 'h264',
   audioCodec: 'dts',
+}
+
+const SMOOTH: PreparePlan = { kind: 'smooth', duration: 100, videoIndex: 0, audioIndex: 1, videoCodec: 'h264', audioCodec: 'dts' }
+
+/** A machine that records whom it was asked to slow down. */
+function recordingHost(cores = 8): JobHost & { readonly lowered: number[] } {
+  const lowered: number[] = []
+  return { cores, lowered, lowerPriority: (pid) => lowered.push(pid) }
 }
 
 const SOUND: PreparePlan = { kind: 'audio-only', duration: 100, audioIndex: 1, videoCodec: 'hevc', audioCodec: 'eac3', reason: 'video-codec' }
@@ -220,5 +228,96 @@ describe('stale .part files', () => {
     expect(readdirSync(directory)).toEqual(['kept.mp4'])
     fake.ffmpeg[0]?.child.finish(1)
     await jobs.settled()
+  })
+})
+
+describe('the smooth version', () => {
+  it('writes <stem>.smooth.mp4 through a .part, and deletes the full-size prepared mp4 once it is in place', async () => {
+    mkdirSync(cacheDirOf(folder), { recursive: true })
+    writeFileSync(cachePathFor(folder, 'a', 'video'), 'full-size')
+    writeFileSync(cachePathFor(folder, 'a', 'sound'), 'sound')
+    const fake = fakeSpawn(() => null)
+    const jobs = createVideoJobs(fake.spawn, recordingHost())
+    jobs.start(spec(SMOOTH))
+    const call = fake.ffmpeg[0]
+    const final = cachePathFor(folder, 'a', 'smooth')
+    expect(final.endsWith(`a.smooth.mp4`)).toBe(true)
+    expect(call?.output).toBe(`${final}.part`)
+
+    // The full-size file stays until the smooth one is whole.
+    writeFileSync(call?.output ?? '', 'smooth')
+    expect(existsSync(cachePathFor(folder, 'a', 'video'))).toBe(true)
+    call?.child.finish(0)
+    await jobs.settled()
+
+    expect(readFileSync(final, 'utf8')).toBe('smooth')
+    expect(existsSync(`${final}.part`)).toBe(false)
+    expect(existsSync(cachePathFor(folder, 'a', 'video'))).toBe(false)
+    // The sound-only file is another thing, and the source is never touched.
+    expect(existsSync(cachePathFor(folder, 'a', 'sound'))).toBe(true)
+    expect(readFileSync(join(folder, 'a.mkv'), 'utf8')).toBe('video')
+    expect(jobs.current()).toMatchObject({ phase: 'done', kind: 'smooth', seconds: 100 })
+  })
+
+  it('keeps the full-size file when the job fails or is cancelled', async () => {
+    mkdirSync(cacheDirOf(folder), { recursive: true })
+    writeFileSync(cachePathFor(folder, 'a', 'video'), 'full-size')
+    const fake = fakeSpawn(() => null)
+    const jobs = createVideoJobs(fake.spawn, recordingHost())
+
+    jobs.start(spec(SMOOTH))
+    fake.ffmpeg[0]?.child.stderr.write('Error while encoding')
+    fake.ffmpeg[0]?.child.finish(1)
+    await jobs.settled()
+    expect(jobs.current()).toMatchObject({ phase: 'failed', kind: 'smooth', error: 'Error while encoding' })
+    expect(readFileSync(cachePathFor(folder, 'a', 'video'), 'utf8')).toBe('full-size')
+
+    jobs.start(spec(SMOOTH))
+    writeFileSync(fake.ffmpeg[1]?.output ?? '', 'half')
+    jobs.cancel()
+    await jobs.settled()
+    expect(readFileSync(cachePathFor(folder, 'a', 'video'), 'utf8')).toBe('full-size')
+    expect(readdirSync(cacheDirOf(folder))).toEqual(['a.mp4'])
+  })
+
+  it('runs ffmpeg at a lower priority with one thread fewer than there are cores', () => {
+    const fake = fakeSpawn(() => null, { pid: 4242 })
+    const host = recordingHost(8)
+    createVideoJobs(fake.spawn, host).start(spec(SMOOTH))
+    expect(host.lowered).toEqual([4242])
+    const args = fake.ffmpeg[0]?.args ?? []
+    expect(args[args.indexOf('-threads') + 1]).toBe('7')
+    expect(args).toContain('libx264')
+  })
+
+  it('leaves one thread on a machine with one core, and leaves the other jobs at the usual priority', () => {
+    const fake = fakeSpawn(() => null, { pid: 4242 })
+    const host = recordingHost(1)
+    const jobs = createVideoJobs(fake.spawn, host)
+    jobs.start(spec(SMOOTH))
+    expect(fake.ffmpeg[0]?.args[(fake.ffmpeg[0]?.args.indexOf('-threads') ?? 0) + 1]).toBe('1')
+    jobs.cancel()
+
+    const other = fakeSpawn(() => null, { pid: 99 })
+    const quiet = recordingHost()
+    createVideoJobs(other.spawn, quiet).start(spec(REMUX))
+    expect(quiet.lowered).toEqual([])
+  })
+
+  it('swallows a refusal to lower the priority: the real host only costs time then', () => {
+    // No process has this id, so the system refuses, and nothing may come of it.
+    expect(() => realJobHost.lowerPriority(2 ** 30)).not.toThrow()
+    expect(realJobHost.cores).toBeGreaterThanOrEqual(1)
+  })
+
+  it('says whether a job is running', async () => {
+    const fake = fakeSpawn(() => null)
+    const jobs = createVideoJobs(fake.spawn, recordingHost())
+    expect(jobs.busy()).toBe(false)
+    jobs.start(spec(SMOOTH))
+    expect(jobs.busy()).toBe(true)
+    fake.ffmpeg[0]?.child.finish(1)
+    await jobs.settled()
+    expect(jobs.busy()).toBe(false)
   })
 })
