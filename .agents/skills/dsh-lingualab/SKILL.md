@@ -150,6 +150,19 @@ node scripts/verify.mjs --list   # 看检查表
   别再加回画面上的 `@container ll-video (max-height)` 规则）；调时间面板在栏宽不到 648px 或栏高不到 780px 时是一行一个边缘的紧凑布局。文字长的按钮同时画长短两个文字
   （`dsh-lingualab-label-long` / `-short`），样式表挑一个，全文留作 `aria-label` 与 `title`。新增一个调时间时要隐藏的东西，加进
   `styles.ts` 末尾 `.is-timing` 那一段，别写成对面板的 `:has()`。
+  **画面在收起面板时也会让位**：播放中的画面舞台（`:not(.is-timing) .videostage.is-shown.has-screen`）的 `flex-basis` 是画面本来的高度
+  （份额、720px、高度上限三者最小，用 `--ll-pic-share` 与 `--ll-pic-h`，这两个变量舞台和画面都要有），`flex-shrink:1`，是 `ll-video` 尺寸容器；
+  舞台写了 `box-sizing:content-box`，别删，宿主若有全局 border-box 重置，基准值会少 20px。`usePictureRoom` 的开关是「画面在显示状态下播放」，
+  不再是面板在场；不到 120px 收起舞台的规则不带 `is-timing`，但句子舞台的 `flex:1 1 auto` 只在调时间时给，收起面板时句子不许缩到文字以下。
+  不到 160px 的画面不画角落的胶囊（`ll-video (max-height:159px)`，只管画面上画什么）。**量布局要按真实 Safari 的可见高度**：iPad 的状态栏加工具栏
+  占 74px（紧凑标签）到 110px（单独标签栏），所以 iPad mini 横屏是 1133 乘 670 与 634，Air 11 寸是 1180 乘 746 与 710，Pro 11 寸是 1194 乘 760 与 724，
+  Pro 13 寸是 1366 乘 950 与 914，不是整机分辨率；滚动条按 iPad 的悬浮式量（桌面 Chrome 的 15px 滚动条会多换一行）。
+- **舞台上的拖选走指针事件，不走鼠标事件**：iOS 的手指在拖动时不发任何鼠标事件（只在点一下之后补发合成的），所以 `mousedown`、`mouseenter`、
+  `mouseup` 的拖选在 iPad 上只剩单点能用；手指在滚动栏里拖是滚动，长按则是系统的文字选择。触摸指针还会被按下的那个元素隐式捕获，**别的单词永远收不到
+  进入事件**，所以不能靠每个词上的 `onMouseEnter`，要在 `pointermove` 里用 `document.elementFromPoint` 按坐标找词。`touch-action` 对非替换的行内元素
+  **不生效**（词是 `span`），所以写在整块英文 `.dsh-lingualab-stage-en:not(.is-masked)` 上，连同关掉文字选择与长按菜单；整句因此不能当滚动的起点，
+  舞台其余部分仍可以。拖选的逻辑是 `widgets/practice-stage/lib/word-drag.ts` 里不依赖 React 的纯模块，用假的指针源在 node 里测；
+  鼠标的 `mousedown` 仍要 `preventDefault`，否则文字选择会盖住选中的词组。点气泡外面关闭也挂在 `pointerdown` 上。
 - **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
   （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
   对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`
