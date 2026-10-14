@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The smooth-version control on the corner of the picture no longer cuts its text short with no way to read the rest. The
+  estimate is shorter (`~312 MB · ~16 min`, 「约 312 MB · 约 16 分钟」) so it fits at the default picture size, the estimate,
+  the progress and the 「流畅版」 label each carry a `title` with their full text, and the estimate's title keeps the word
+  "estimate" (`About 312 MB and about 16 min (estimate)`), as does the line on the cards.
+
 ## [0.11.0] - 2026-10-14
 
 ### Added

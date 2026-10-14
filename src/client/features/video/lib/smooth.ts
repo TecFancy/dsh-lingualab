@@ -34,9 +34,13 @@ export function wholeMinutes(seconds: number): number {
   return Math.max(1, Math.ceil(seconds / 60))
 }
 
-/** How the estimate is worded: the key of the string and its parameters. */
+/**
+ * How the estimate is worded: the key of the short string that sits in the corner, the key of the full sentence (with the
+ * word "estimate", for a tooltip or a card with room), and their shared parameters.
+ */
 export interface EstimateText {
   readonly key: 'smoothEstimate' | 'smoothEstimateShort' | 'smoothEstimateSize'
+  readonly titleKey: 'smoothEstimateTitle' | 'smoothEstimateShortTitle' | 'smoothEstimateSizeTitle'
   readonly params: Readonly<Record<string, string | number>>
 }
 
@@ -49,9 +53,9 @@ export interface EstimateText {
  */
 export function estimateText(bytes: number | null, seconds: number | null, size: string): EstimateText | null {
   if (bytes === null) return null
-  if (seconds === null) return { key: 'smoothEstimateSize', params: { size } }
-  if (seconds < 60) return { key: 'smoothEstimateShort', params: { size } }
-  return { key: 'smoothEstimate', params: { size, minutes: wholeMinutes(seconds) } }
+  if (seconds === null) return { key: 'smoothEstimateSize', titleKey: 'smoothEstimateSizeTitle', params: { size } }
+  if (seconds < 60) return { key: 'smoothEstimateShort', titleKey: 'smoothEstimateShortTitle', params: { size } }
+  return { key: 'smoothEstimate', titleKey: 'smoothEstimateTitle', params: { size, minutes: wholeMinutes(seconds) } }
 }
 
 /** The time left of a long job: seconds below two minutes, whole minutes after. */
