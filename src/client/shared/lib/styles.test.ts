@@ -78,6 +78,21 @@ describe('the stylesheet', () => {
     expect(STYLES).not.toContain('max-width:520px')
   })
 
+  it('gives the timing panel its full height from the first frame to the last, and moves only the card', () => {
+    // The layout steps once each way: no row that grows from nothing, so nothing above it is drawn at a size it does not keep.
+    const wrap = rule('.dsh-lingualab-timing-wrap')
+    expect(wrap).not.toContain('grid')
+    expect(wrap).not.toContain('transition')
+    expect(STYLES).not.toContain('grid-template-rows:0fr')
+    expect(STYLES).not.toContain('.dsh-lingualab-timing-wrap.is-open{')
+    expect(rule('.dsh-lingualab-timing-clip')).toContain('overflow:hidden')
+    // The card is what fades and lifts, from is-open, and the panel is out of the hit test until it is open.
+    expect(rule('.dsh-lingualab-timing')).toContain('opacity:0')
+    expect(rule('.dsh-lingualab-timing')).toContain('transition:opacity')
+    expect(rule('.dsh-lingualab-timing-wrap.is-open .dsh-lingualab-timing')).toContain('opacity:1')
+    expect(rule('.dsh-lingualab-timing-wrap:not(.is-open)')).toContain('pointer-events:none')
+  })
+
   it('folds the player card to the scrubber and one row, speed then previous, play and next, while timing', () => {
     const hidden = block('.dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints')
     expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed)')

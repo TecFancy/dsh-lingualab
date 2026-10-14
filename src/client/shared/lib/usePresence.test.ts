@@ -1,9 +1,30 @@
 // @vitest-environment node
+import { createElement, type ReactElement } from 'react'
+// @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
+import { renderToStaticMarkup as render } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { prefersReducedMotion, presenceDelay } from './usePresence.ts'
+import { prefersReducedMotion, presenceDelay, usePresence } from './usePresence.ts'
+
+const renderToStaticMarkup = render as (element: ReactElement) => string
+
+/** Draws what the hook answers, as `mounted/shown`. */
+function Probe({ open }: { readonly open: boolean }) {
+  const { mounted, shown } = usePresence(open, 240)
+  return createElement('span', null, `${String(mounted)}/${String(shown)}`)
+}
 
 // The hook itself needs a DOM to run in, and this repository tests without one (no jsdom, no
 // renderer), so what is checked here is the part that decides its timing.
+
+describe('usePresence', () => {
+  it('is mounted in the very render that is open, and not yet shown, so the closed look is painted first', () => {
+    expect(renderToStaticMarkup(createElement(Probe, { open: true }))).toBe('<span>true/false</span>')
+  })
+
+  it('is neither mounted nor shown while closed', () => {
+    expect(renderToStaticMarkup(createElement(Probe, { open: false }))).toBe('<span>false/false</span>')
+  })
+})
 
 describe('presenceDelay', () => {
   it('keeps the element for the length of the way out', () => {

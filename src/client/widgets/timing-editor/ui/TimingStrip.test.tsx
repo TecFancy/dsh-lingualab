@@ -58,10 +58,39 @@ function editor(patch: Partial<TimingEditor> = {}): TimingEditor {
   }
 }
 
-const html = (patch: Partial<TimingEditor> = {}): string =>
-  renderToStaticMarkup(<TimingStrip t={t} editor={editor(patch)} blocked={null} />)
+/** What the page's presence says: on the page and open by default; `mounted` and `shown` are the page's to give. */
+const html = (patch: Partial<TimingEditor> = {}, presence: { mounted?: boolean; shown?: boolean } = {}): string =>
+  renderToStaticMarkup(
+    <TimingStrip
+      t={t}
+      editor={editor(patch)}
+      blocked={null}
+      mounted={presence.mounted ?? true}
+      shown={presence.shown ?? true}
+    />,
+  )
 
 describe('the timing panel', () => {
+  it('is on the page when the page mounts it, and not otherwise', () => {
+    expect(html({}, { mounted: true })).toContain('dsh-lingualab-timing-wrap')
+    expect(html({}, { mounted: false, shown: false })).toBe('')
+    // Without a session held there is nothing to draw, even for a page that says it is mounted.
+    expect(html({ session: null }, { mounted: true })).toBe('')
+  })
+
+  it('takes its open look and its keys from the page, not from its own timer', () => {
+    const open = html({}, { shown: true })
+    expect(open).toContain('class="dsh-lingualab-timing-wrap is-open"')
+    expect(open).toContain('aria-hidden="false"')
+    expect(open).not.toContain('inert')
+    // Mounted but not shown (fading in, or on its way out): the same full-height wrap, closed look, out of reach.
+    const leaving = html({}, { mounted: true, shown: false })
+    expect(leaving).toContain('class="dsh-lingualab-timing-wrap"')
+    expect(leaving).not.toContain('is-open')
+    expect(leaving).toContain('aria-hidden="true"')
+    expect(leaving).toContain('inert=""')
+  })
+
   it('draws both labels of the playhead button and keeps the full one as its name', () => {
     const markup = html()
     expect(markup).toContain('<span class="dsh-lingualab-label-long">timingAtPlayhead</span>')

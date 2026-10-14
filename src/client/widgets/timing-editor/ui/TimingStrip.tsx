@@ -13,29 +13,37 @@
  * says where it goes, because that sentence is not on screen; the timeline draws the neighbour
  * where the push puts it.
  *
- * The panel opens and closes with a motion (a grid row growing from nothing, the card fading and
- * lifting in), so it stays mounted for the way out, drawn from the last session it held. While it
- * leaves it is inert: its buttons are not reachable and its keys are the page's again.
+ * The panel opens and closes with a motion, but only the card's look moves (it fades and lifts); the room
+ * it takes does not. Its row is at full height from the first frame it is mounted to the last, so the
+ * layout around it steps once each way and the picture above is never seen at a size it does not keep.
+ * That is why whether it is `mounted` and `shown` is the page's to say (one `usePresence` over
+ * `TIMING_EXIT_MS`, which the page also reads to keep the column in timing mode for as long as the
+ * panel is on the page), not the panel's own: two timers for one exit could part by a frame. The panel
+ * stays mounted for the way out, drawn from the last session it held. While it leaves it is inert:
+ * its buttons are not reachable and its keys are the page's again.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { RetimeEdge } from '../../../entities/cue/index.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock, formatClockMs } from '../../../shared/lib/format.ts'
-import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, ChevronIcon, CheckIcon, CloseIcon, UpIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 import { blockOf, percentAt, timelineWindow } from '../lib/timeline.ts'
 import { BIG_STEP_MS, STEP_MS, type TimingEditor, type TimingSession } from '../model/useTimingEditor.ts'
 
-/** How long the way out takes; the stylesheet's grid row and the card fade run for about this long. */
-const EXIT_MS = 240
+/** How long the way out takes; the card's fade and lift in the stylesheet run for about this long. */
+export const TIMING_EXIT_MS = 240
 
 export interface TimingStripProps {
   readonly t: Translate
   readonly editor: TimingEditor
   /** Why a save is not possible here, already translated, or `null`. */
   readonly blocked: string | null
+  /** Whether the panel is on the page: true while a sentence is edited and for `TIMING_EXIT_MS` after (see `usePresence`). */
+  readonly mounted: boolean
+  /** Whether the panel has its open look: false while it fades in and from the moment it starts to leave. */
+  readonly shown: boolean
 }
 
 /** What the panel draws from: the session, and the reason a save is blocked while it was open. */
@@ -138,10 +146,8 @@ function EdgeCard({ t, editor, session, which }: EdgeCardProps) {
   )
 }
 
-/** The panel; renders nothing while no sentence is being edited and the way out is over. */
-export function TimingStrip({ t, editor, blocked }: TimingStripProps) {
-  const open = editor.session !== null
-  const { mounted, shown } = usePresence(open, EXIT_MS)
+/** The panel; renders nothing until the page mounts it, which is while a sentence is edited and for the way out. */
+export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripProps) {
   const playing = useMediaPlayer((player) => player.isPlaying)
   const currentTime = useMediaPlayer((player) => player.currentTime)
   const root = useRef<HTMLDivElement>(null)
