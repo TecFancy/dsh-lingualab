@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-14
+
 ### Added
 
 - Record and compare, for shadowing. A microphone switch (「录下我说的」) joins the shadowing settings in 「更多」. With it on,
