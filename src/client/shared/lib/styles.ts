@@ -385,6 +385,14 @@ export const STYLES = `
   color:var(--dsw-alias-state-warn-primary,#f59e0b);
   background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 10%,transparent)}
 .dsh-lingualab-bar-btn:disabled{opacity:0.4;cursor:default}
+/* Shadowing's chip while it waits out a pause: a fill grows under the label for as long as the pause lasts (the
+   inline animation-duration), so whose turn it is and how much of it is left read from across the room. */
+.dsh-lingualab-bar-btn.is-shadow{position:relative;overflow:hidden}
+.dsh-lingualab-bar-btn.is-shadow>:not(.dsh-lingualab-wait-fill){position:relative}
+.dsh-lingualab-wait-fill{position:absolute;inset:0;transform-origin:left center;transform:scaleX(0);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 18%,transparent);
+  animation:ll-wait-fill linear forwards}
+@keyframes ll-wait-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .dsh-lingualab-time{flex:none;min-width:40px;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);
   font-variant-numeric:tabular-nums}
 .dsh-lingualab-time:last-child{text-align:right}
@@ -468,6 +476,8 @@ export const STYLES = `
 .dsh-lingualab-switch input:checked + .dsh-lingualab-switch-track .dsh-lingualab-switch-knob{transform:translateX(12px)}
 .dsh-lingualab-switch input:focus-visible + .dsh-lingualab-switch-track{
   outline:2px solid var(--dsw-alias-brand-primary,#0f1115);outline-offset:2px}
+/* A switch that is a row of the 「更多」 menu keeps the row's width and type size, its name on the left. */
+.dsh-lingualab-menu-row.dsh-lingualab-switch{display:flex;font-size:13px;color:inherit}
 .dsh-lingualab-list{position:relative;flex:1;min-width:0;min-height:0;overflow:auto;padding:8px}
 .dsh-lingualab-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:start;
   padding:9px 10px;margin-bottom:2px;cursor:pointer;border-radius:10px;transition:background var(--ll-fade),box-shadow var(--ll-fade)}

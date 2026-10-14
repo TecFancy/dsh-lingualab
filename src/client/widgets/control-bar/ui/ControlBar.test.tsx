@@ -7,7 +7,7 @@ import type { ReactElement } from 'react'
 // @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ControlBar } from './ControlBar.tsx'
+import { ControlBar, shadowChipKey } from './ControlBar.tsx'
 
 const renderToStaticMarkup = render as (element: ReactElement) => string
 
@@ -41,5 +41,11 @@ describe('the player card row', () => {
     expect(main.match(/dsh-lingualab-round/g)).toHaveLength(2)
     expect(main).toContain('dsh-lingualab-play')
     expect(main).not.toContain('dsh-lingualab-bar-btn')
+  })
+
+  it('names the shadowing chip by whose turn a pause gives, and by the mode otherwise', () => {
+    expect(shadowChipKey(null)).toBe('shadowShort')
+    expect(shadowChipKey({ index: 0, phase: 'speak', ms: 2500, until: 1 })).toBe('shadowSpeak')
+    expect(shadowChipKey({ index: 0, phase: 'look', ms: 2500, until: 1 })).toBe('shadowLook')
   })
 })

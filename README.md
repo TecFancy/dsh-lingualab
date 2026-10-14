@@ -123,8 +123,12 @@ place by being used every session. The progress bar spans the episode with a hai
 sentence start, shows the time and the sentence under the pointer on hover, and seeks once, on
 release, when dragged. Clicking an English word copies it or adds it to that sentence's note
 without stopping the audio; dragging across words, or `Shift`-clicking a second one, does the same
-for the phrase between them, and a second click on 「已记下」 takes it out again. **Shadowing** stops after each sentence with the English blurred, so
-you say it first and press `R` to check. Reaching the end shows a summary with the next episode,
+for the phrase between them, and a second click on 「已记下」 takes it out again. **Shadowing** stops after each sentence with the English blurred
+and uncovers it at the stop; `R` uncovers it any time. In 「更多」 it becomes a repeater's program: each sentence played
+one to three times, a speaking pause after every play (as long as the sentence, or one and a half times it, plus a
+second), and the next sentence by itself. With a pause set, the English stays covered until your first try is over,
+and the chip shows 「该你说」 with a fill for the time left; with auto-advance on as well, the page runs without a
+hand on it. Reaching the end shows a summary with the next episode,
 and the key caps under the player light up for the key the page just handled. Motion is off under
 the system's reduced-motion setting.
 
