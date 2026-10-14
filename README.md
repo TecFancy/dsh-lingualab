@@ -56,8 +56,8 @@ prepared. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP
 directly. Anything else is **prepared once, when the reader asks** (「准备视频」): `ffmpeg` copies the picture untouched and
 converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its index first, which
 takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit H.264) is not
-re-encoded; only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still be studied by
-ear. The prepared file lives in the hidden `<episode>/.lingualab/` folder, written as a `.part` and renamed into place;
+re-encoded by that; only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still be
+studied by ear (the smooth version below is what turns such a picture into a video that plays). The prepared file lives in the hidden `<episode>/.lingualab/` folder, written as a `.part` and renamed into place;
 the source is never modified and deleting the folder only means preparing again. It is one host job at a time, with
 progress and a 「取消」, and it needs `ffmpeg` and `ffprobe` on `PATH` or in the optional `ffmpegPath` config field (a
 folder holding both, or the path of either; a volatile field, so the Plugins page can set it with no restart). Without
@@ -70,6 +70,18 @@ and in the large state `R` shows the English of the current sentence on the pict
 five steps use it once: starting the blind-watch timer switches to large (with a 「撤销」 notice) and pausing it or
 marking the step done puts the previous state back. Videos only play inside the library: a video picked from elsewhere
 in the workspace plays only when it needs no preparing, the same boundary subtitle timing draws.
+
+**The smooth version** (「准备流畅版」) is for a link that cannot carry the picture as it came. It is started by hand for one
+episode or segment, from the corner of the playing picture or from the card of a video that has to be prepared or whose
+picture a browser cannot decode, with the estimated size and time next to it (about 1.9 Mbps, and about 1.5 times real time
+on the server; an estimate). `ffmpeg` re-encodes the picture as H.264 (`veryfast`, CRF 23, capped at 1.8 Mbps), 8-bit 4:2:0,
+at most 720 lines (a smaller picture keeps its size), a keyframe every 2 seconds, and the sound as stereo AAC at 128 kb/s,
+into `<episode>/.lingualab/<stem>.smooth.mp4` with its index first. It goes through the same one-at-a-time job, with the same
+progress and 「取消」, at a lower priority and with one thread fewer than the machine has cores; the picture keeps playing
+meanwhile, and a failed or cancelled job changes nothing. Once the file is in place the full-size prepared `<stem>.mp4` is
+deleted, a source that plays directly is never touched, and the page plays the smooth file, else the prepared one, else the
+source. 「改回原画质」 on the playing smooth picture deletes the file and prepares the video as it was before (a minute of
+remuxing; for a picture a browser cannot decode, back to the sound-only state).
 
 A segment with a video can also play it **from a file on the reader's own machine** (「用本地文件播放」, on the picture and on
 every video card, or drop the file on the stage): it plays in place of the served video, under the same session, without
@@ -196,7 +208,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | Route | Kind | What it answers |
 |---|---|---|
 | `GET /lingualab/library` | exact | Every episode folder and loose audio file, the open episode, and how much has been noted |
-| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio, subtitle and `mp4` or `webm` video bytes of a folder episode, and the prepared video and sound under `<episode>/.lingualab/<file>` (`mp4` and `m4a` only), `206` for a range request |
+| `GET`, `HEAD /lingualab/media/<episode>/<file>` | prefix | Audio, subtitle and `mp4` or `webm` video bytes of a folder episode, and the prepared, smooth and sound-only files under `<episode>/.lingualab/<file>` (`mp4` and `m4a` only), `206` for a range request |
 | `GET`, `HEAD /lingualab/file-media/<id>/<file>` | prefix | The same for a file episode, from the paths recorded when it was picked |
 | `GET`, `POST /lingualab/notes` | exact | One episode's phrases, read or replaced wholesale |
 | `GET /lingualab/review` | exact | Every kept sentence not graded 「记住了」 across the library, episode by episode in library order and in play order inside each; read only |
@@ -207,7 +219,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `POST /lingualab/import` | exact | Receive one dropped audio, video or subtitle file into an episode folder, never overwriting; needs the `x-lingualab-import: 1` header and an admitted session |
 | `POST /lingualab/subtitle-timing` | exact | Move one sentence's start and end in its subtitle file inside the library, with the shared edge of a neighbour it pushed: only those timecode lines change, `409` when the file is not the one the page read, a `.bak` of the original before the first write |
 | `GET /lingualab/video` | exact | What the host knows about one segment's video (`episode`, `segment` in the query): `playable` (with the URL), `prepare`, `preparing` (with progress), `sound-only`, `sound-ready`, `unplayable`, `no-ffmpeg` (with the install command), `failed` or `none`; the length difference from the audio when it is over a second |
-| `POST /lingualab/video-prepare` | exact | Start the one preparing job for a segment, `{ episode, segment?, mode: 'video' \| 'sound' }`, never a path; answers with the status after the start, or the reason (`busy`, no ffmpeg) |
+| `POST /lingualab/video-prepare` | exact | Start the one preparing job for a segment, `{ episode, segment?, mode: 'video' \| 'sound' \| 'smooth' \| 'original' }`, never a path (`smooth` re-encodes the picture for streaming, `original` deletes that file and prepares the video as it was); answers with the status after the start, or the reason (`busy`, no ffmpeg) |
 | `POST /lingualab/video-cancel` | exact | Stop the running preparing job and remove its `.part`; answers whether there was one |
 | `GET`, `POST /lingualab/progress` | exact | Listening positions and step ticks kept in `.lingualab-progress.json` at the library root; a `POST` merges the browser's entries (newest per episode wins) and answers with the merged table |
 
