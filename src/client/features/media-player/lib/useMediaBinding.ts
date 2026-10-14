@@ -56,6 +56,7 @@ export function useMediaBinding(
   const speed = useMediaPlayer(currentSpeed)
   const seekRequest = useMediaPlayer((state) => state.seekRequest)
   const seekToken = useMediaPlayer((state) => state.seekToken)
+  const shadowWait = useMediaPlayer((state) => state.shadowWait)
   /** The last seek request this element has been given, so a source change cannot re-apply one. */
   const appliedSeek = useRef(0)
   const loaded = useRef<Loaded<HTMLVideoElement> | null>(null)
@@ -118,6 +119,14 @@ export function useMediaBinding(
     appliedSeek.current = seekToken
     element.currentTime = seekRequest
   }, [seekToken, seekRequest, element])
+
+  // A shadowing pause runs out on a timeout. The store holds when it ends, so a pause that outlived the
+  // element (or the timeout a background tab delayed) is carried on as soon as the effect runs again.
+  useEffect(() => {
+    if (shadowWait === null) return
+    const timer = setTimeout(() => useMediaPlayer.getState().endShadowWait(), Math.max(0, shadowWait.until - Date.now()))
+    return () => clearTimeout(timer)
+  }, [shadowWait])
 
   // Browser events into the store.
   useEffect(() => {

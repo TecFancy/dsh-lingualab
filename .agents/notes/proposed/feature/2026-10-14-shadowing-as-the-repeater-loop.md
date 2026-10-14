@@ -94,6 +94,13 @@ reader turns it on.
 - **Where the controls live.** The 「跟读」 chip stays on the transport row; its settings go into
   「更多」 next to the lead-in, so the row does not grow. The step tracker's shadowing tip becomes true
   once recording ships.
+- **Pieces 1 and 2 are built (2026-10-15).** `planShadow` and `shadowPauseMs` live in
+  `features/media-player/lib/shadow.ts`; a pause is the store's `shadowWait` (the sentence, the phase and when it ends) and
+  the timeout that ends it is in `useMediaBinding`, so a pause outlives neither the program nor the page. Three choices were
+  made while building them. A pause is measured at the playback speed, because a sentence heard at half speed is said about
+  as slowly. During a pause the play button reads "pause" and pressing it ends the program at the sentence's start rather than
+  skipping the rest of the pause, because a reader who reaches for the button mid-run wants it to stop. Any other way of
+  starting or stopping playback (a row, a review, going home) also ends the program. The note stays proposed until 3 and 4 ship.
 - **To verify on a real iPad before calling 3 and 4 done.** `MediaRecorder` records `audio/mp4` in
   Safari; playback volume comes back after the microphone is stopped; the Media Session actions reach
   the page with AirPods; and the live site is served over HTTPS, because `getUserMedia` refuses an

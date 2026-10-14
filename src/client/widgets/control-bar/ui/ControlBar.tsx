@@ -5,16 +5,26 @@
  * sentence again" and "which sentence" are one thought. Only the controls used every
  * minute stay on the row: sentence steps, play, speed, loop-this-sentence, the
  * Chinese display, and the 「字幕」 popover that picks the files. Everything that is a setup step rather than a gesture (the A and
- * B marks, how many times an A-B loop repeats, the lead-in) lives in the 「更多」 menu, because a
+ * B marks, how many times an A-B loop repeats, how shadowing runs, the lead-in) lives in the 「更多」 menu, because a
  * row of thirteen controls was the reason a first-time reader did not know which one
  * to press.
  *
  * The modes are chips, not form controls: a chip says its state by being outlined,
- * which a `<select>` cannot do.
+ * which a `<select>` cannot do. While shadowing waits out a speaking pause, its chip says whose turn it
+ * is and fills as the pause runs, and the play button reads "pause": the program is still running.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { LEAD_IN_CHOICES, SPEED_PRESETS, useMediaPlayer } from '../../../features/media-player/index.ts'
+import {
+  LEAD_IN_CHOICES,
+  SHADOW_PAUSES,
+  SHADOW_PLAYS,
+  SPEED_PRESETS,
+  useMediaPlayer,
+  type ShadowPause,
+  type ShadowPlays,
+  type ShadowWait,
+} from '../../../features/media-player/index.ts'
 import { SUBTITLE_ZH_MODES, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import type { Picture } from '../../../features/settings/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
@@ -53,6 +63,13 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['A  B', 'keyMarks'],
   ['T', 'keyTiming'],
 ]
+
+/** The dictionary key of each speaking pause's name. */
+const PAUSE_KEYS: Readonly<Record<ShadowPause, string>> = {
+  off: 'shadowPauseOff',
+  same: 'shadowPauseSame',
+  long: 'shadowPauseLong',
+}
 
 /** Labels for the four Chinese display modes, in the order they are offered. */
 const ZH_MODE_KEYS: Readonly<Record<SubtitleZhMode, string>> = {
@@ -115,6 +132,9 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   const pointB = useMediaPlayer((state) => state.pointB)
   const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
   const leadIn = useMediaPlayer((state) => state.leadIn)
+  const program = useMediaPlayer((state) => state.shadow)
+  const wait = useMediaPlayer((state) => state.shadowWait)
+  const running = isPlaying || wait !== null
 
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
@@ -191,13 +211,17 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           </button>
           <button
             type="button"
-            className={`dsh-lingualab-bar-btn${shadow ? ' is-on' : ''}`}
+            className={`dsh-lingualab-bar-btn is-shadow${shadow ? ' is-on' : ''}${wait !== null ? ' is-waiting' : ''}`}
             onClick={() => store().setPauseAfterSentence(!shadow)}
             disabled={disabled}
             title={t('shadowHint')}
             aria-pressed={shadow}
           >
-            <MicIcon /> {t('shadowShort')}
+            {wait === null ? null : (
+              // Keyed on the pause, so the fill starts again for the next one.
+              <span key={wait.until} className="dsh-lingualab-wait-fill" style={{ animationDuration: `${String(wait.ms)}ms` }} aria-hidden />
+            )}
+            <MicIcon /> {t(shadowChipKey(wait))}
           </button>
         </div>
 
@@ -216,9 +240,9 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
             className="dsh-lingualab-play"
             onClick={() => store().toggle()}
             disabled={disabled}
-            title={isPlaying ? t('pause') : t('play')}
+            title={running ? t('pause') : t('play')}
           >
-            {isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
+            {running ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
           </button>
           <button
             type="button"
@@ -357,6 +381,51 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
                 </select>
               </label>
             ) : null}
+            {shadow ? (
+              <>
+                <div className="dsh-lingualab-menu-title">{t('shadowSection')}</div>
+                <label className="dsh-lingualab-menu-row">
+                  <span>{t('shadowPlays')}</span>
+                  <select
+                    className="dsh-lingualab-bar-btn"
+                    value={String(program.plays)}
+                    onChange={(event) => store().setShadow({ plays: Number(event.target.value) as ShadowPlays })}
+                  >
+                    {SHADOW_PLAYS.map((plays) => (
+                      <option key={plays} value={plays}>
+                        {`×${String(plays)}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="dsh-lingualab-menu-row" title={t('shadowPauseHint')}>
+                  <span>{t('shadowPause')}</span>
+                  <select
+                    className="dsh-lingualab-bar-btn"
+                    value={program.pause}
+                    onChange={(event) => store().setShadow({ pause: event.target.value as ShadowPause })}
+                  >
+                    {SHADOW_PAUSES.map((pause) => (
+                      <option key={pause} value={pause}>
+                        {t(PAUSE_KEYS[pause])}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="dsh-lingualab-menu-row dsh-lingualab-switch" title={t('shadowAdvanceHint')}>
+                  <span>{t('shadowAdvance')}</span>
+                  <input
+                    type="checkbox"
+                    className="dsh-lingualab-visually-hidden"
+                    checked={program.advance}
+                    onChange={(event) => store().setShadow({ advance: event.target.checked })}
+                  />
+                  <span className="dsh-lingualab-switch-track" aria-hidden>
+                    <span className="dsh-lingualab-switch-knob" />
+                  </span>
+                </label>
+              </>
+            ) : null}
             <label className="dsh-lingualab-menu-row" title={t('leadInHint')}>
               <span>{t('leadIn')}</span>
               <select
@@ -397,6 +466,12 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
     </div>
   )
 })
+
+/** What shadowing's chip says: its name, or whose turn the pause it is waiting out gives. */
+export function shadowChipKey(wait: ShadowWait | null): string {
+  if (wait === null) return 'shadowShort'
+  return wait.phase === 'speak' ? 'shadowSpeak' : 'shadowLook'
+}
 
 /** The next Chinese mode in the cycle: the chip shows one name and means "the next one". */
 export function nextZhMode(mode: SubtitleZhMode): SubtitleZhMode {
