@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-14
+
 ### Added
 
 - Shadowing runs as a repeater's program. With the 「跟读」 chip on, 「更多」 sets how many times each sentence plays (one to
