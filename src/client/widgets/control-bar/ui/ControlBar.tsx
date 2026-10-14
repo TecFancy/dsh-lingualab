@@ -173,7 +173,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
         <div className="dsh-lingualab-transport-side">
           <button
             type="button"
-            className="dsh-lingualab-bar-btn"
+            className="dsh-lingualab-bar-btn is-speed"
             onClick={() => store().nextSpeedWrapping()}
             disabled={disabled}
             title={t('speed')}
