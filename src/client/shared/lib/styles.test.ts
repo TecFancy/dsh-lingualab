@@ -95,7 +95,7 @@ describe('the stylesheet', () => {
     )
   })
 
-  it('gives a playing picture what is left while timing, as the biggest box of its shape, and draws none under 120px', () => {
+  it('gives a playing picture what is left while timing, as the biggest box of its shape', () => {
     const stage = rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen')
     expect(stage).toContain('flex:1 1 0')
     expect(stage).toContain('min-height:0')
@@ -111,7 +111,28 @@ describe('the stylesheet', () => {
     // A card or a chip standing in for a picture, and the pills on the picture, are not drawn while timing.
     expect(STYLES).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown:not(.has-screen){display:none}')
     expect(block('.dsh-lingualab-practice.is-timing .dsh-lingualab-picture-local')).toContain('.dsh-lingualab-picture-smooth{display:none}')
-    expect(block('@container ll-video (max-height:119px)')).toContain('.dsh-lingualab-picture{display:none}')
+  })
+
+  it('collapses the picture stage and lets the sentence stage take and centre the room when the page says it is squeezed', () => {
+    const squeezed = '.dsh-lingualab-practice.is-timing.is-picture-squeezed'
+    // The picture's stage takes no space at all, not a box with nothing drawn in it.
+    expect(rule(`${squeezed} .dsh-lingualab-videostage.is-shown.has-screen`)).toContain('display:none')
+    // The sentence stage grows into the room, and its text stays centred in it (the base rule centres it).
+    expect(rule(`${squeezed} .dsh-lingualab-stage`)).toContain('flex:1 1 auto')
+    expect(rule('.dsh-lingualab-stage')).toContain('justify-content:center')
+    // It comes after the rules it overrides, at the same specificity or more.
+    expect(STYLES.indexOf(`${squeezed} .dsh-lingualab-stage{`)).toBeGreaterThan(
+      STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-stage{'),
+    )
+    expect(STYLES.indexOf(`${squeezed} .dsh-lingualab-videostage.is-shown.has-screen{`)).toBeGreaterThan(
+      STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen{'),
+    )
+  })
+
+  it('leaves the decision to draw no picture to the page, not to a container query on the picture', () => {
+    expect(STYLES).not.toContain('@container ll-video (max-height')
+    // The large picture still has its own container, and is not touched by the squeezed rules.
+    expect(STYLES).not.toContain('.is-picture-squeezed .dsh-lingualab-videostage.is-large')
   })
 
   it('keeps the large picture as the part that takes what is left, with its floor, and does not hide it', () => {

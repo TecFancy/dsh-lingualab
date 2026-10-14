@@ -1144,8 +1144,13 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
      button, the key hints and any open menu are hidden, and all of it is back when the panel closes;
    - the lines either side of the sentence go and the sentence is not stretched, so it is as tall as its text;
    - a picture that plays takes whatever is left, as the biggest box of the video's shape that fits (the largest box 720px
-     wide), and is not drawn under 120px of height (the video keeps playing, as for an audio file). A card or a chip standing
-     in for a picture is not drawn at all; the corner pills of a picture (a local file, the smooth version) are not either.
+     wide). A card or a chip standing in for a picture is not drawn at all; the corner pills of a picture (a local file, the
+     smooth version) are not either.
+   - when what is left is under 120px (the page measures it, see usePictureRoom, and puts is-picture-squeezed on the column;
+     128px brings the picture back), the picture's stage is not there at all and the sentence stage takes the room instead,
+     with its text centred in it, so the space around the sentence is breathing room and not an empty box above it. The video
+     keeps playing, as for an audio file. A size container cannot shrink itself when its child is not drawn, which is why this
+     is decided by a measurement and not by a container query on the picture.
    The large picture is already the part that takes what is left (it is the stage), so it keeps its place and its 160px floor
    instead of vanishing: the reader asked for it, and the sentence is not on the stage to take its room. */
 .dsh-lingualab-practice.is-timing .dsh-lingualab-stage-side{display:none}
@@ -1164,9 +1169,11 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   max-height:none;width:min(100cqw,720px,calc(100cqh * var(--ll-video-ratio,1.7778)));aspect-ratio:var(--ll-video-ratio,1.7778)}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-picture-local,
 .dsh-lingualab-practice.is-timing .dsh-lingualab-picture-smooth{display:none}
-@container ll-video (max-height:119px){
-  .dsh-lingualab-picture{display:none}
-}
+/* No fallback container query on the picture's own height under 120px (there was one, at 119px): the page measures before
+   the first paint, and a second rule with its own idea of the edge (a rounded pixel apart) would leave the empty box behind
+   exactly where the two disagree. */
+.dsh-lingualab-practice.is-timing.is-picture-squeezed .dsh-lingualab-videostage.is-shown.has-screen{display:none}
+.dsh-lingualab-practice.is-timing.is-picture-squeezed .dsh-lingualab-stage{flex:1 1 auto}
 
 /* A touch screen: no keyboard to describe, and fingers need 44px. The small pills on the picture keep their look and get a
    hit area of 44px by an invisible margin around them. The player card's buttons are 44px for real, and the card grows by

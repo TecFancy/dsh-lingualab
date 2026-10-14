@@ -106,6 +106,7 @@ import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
+import { usePictureRoom } from '../lib/usePictureRoom.ts'
 
 /** Which view the page shows. */
 type View = 'home' | 'practice'
@@ -691,6 +692,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     onSaved: onTimingSaved,
     onStale: onTimingStale,
   })
+  // Whether the picture that plays under the timing panel has the room it needs. The scroller is in state, not a ref, so
+  // the measuring starts when the practice view puts it on the page.
+  const [practiceMain, setPracticeMain] = useState<HTMLDivElement | null>(null)
+  const pictureFits = usePictureRoom(practiceMain, timing.session !== null)
 
   /** Open the strip for the sentence on stage; layers close, because the strip takes the keyboard. */
   const openTiming = useCallback((): void => {
@@ -1311,7 +1316,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           </div>
 
           <div className="dsh-lingualab-body">
-            <div className={`dsh-lingualab-practice${timing.session === null ? '' : ' is-timing'}`}>
+            <div
+              className={`dsh-lingualab-practice${timing.session === null ? '' : ' is-timing'}${pictureFits ? '' : ' is-picture-squeezed'}`}
+            >
               {shownNotice === null ? null : <VideoNotice notice={shownNotice} onAction={onNoticeAction} />}
               {review !== null && reviewOn && reviewItem !== null ? (
                 <ReviewStrip
@@ -1326,7 +1333,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   onExit={endReview}
                 />
               ) : null}
-              <div className="dsh-lingualab-practice-main">
+              <div className="dsh-lingualab-practice-main" ref={setPracticeMain}>
                 <VideoStage
                   t={t}
                   mediaRef={binding.attach}
