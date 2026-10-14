@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-14
+
 ### Fixed
 
 - The smooth-version control on the corner of the picture no longer cuts its text short with no way to read the rest. The
