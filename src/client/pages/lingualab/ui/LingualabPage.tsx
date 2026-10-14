@@ -106,6 +106,7 @@ import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
 import { TIMING_EXIT_MS, TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
+import { useCardFit } from '../lib/useCardFit.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
 
 /** Which view the page shows. */
@@ -872,6 +873,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // What the card in the video's place needs, and the memory of whether it was shown in full already.
   const card = cardOf(video.status, video.failedUrl)
   const firstTimeCard = useFirstTimeCard(card !== null && isInformational(card) ? JSON.stringify([segmentKey(episodeId, segmentId), card]) : null)
+  // A card steps down (compact, lean, one line, gone) until the column has nothing to scroll, as the picture gives way by flex.
+  useCardFit(practiceMain, card !== null && !videoPlays)
 
   // The length warning: a video that is longer or shorter than the audio the subtitles were timed against. The reader's
   // own file is held against the served video (or the audio file, when that was never probed) first; one that matches

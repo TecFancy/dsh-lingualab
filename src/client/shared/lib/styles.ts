@@ -1159,6 +1159,51 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture-smooth{display:none}
 }
 
+/* A card that stands in for a picture gives way to the sentence and the player card in steps, as the picture does by flex. A card is
+   text and buttons of a height the stylesheet cannot work out from the column, so the page tries the steps (useCardFit, which puts
+   one is-card-* class on the scroller, the whole card having none) and keeps the first at which the scroller has nothing to scroll.
+   Compact tightens the card (padding, gaps, a smaller icon). Lean drops its secondary parts (the icon, the sentence that explains,
+   the notes, the offers, the reader's own file) and keeps what it says and what to press, the body at two lines at most. Line is one
+   row: the title, what the card is about (the file, or the progress bar and its percentage) and the button, each cut with an
+   ellipsis where the row is short. Hidden leaves no stage at all, as for a squeezed picture. A touch screen keeps its 44px buttons,
+   which are a min-height, so no step makes one smaller than a finger. */
+.dsh-lingualab-practice-main.is-card-compact .dsh-lingualab-videocard,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard{min-height:0;gap:6px;padding:12px 14px}
+.dsh-lingualab-practice-main.is-card-compact .dsh-lingualab-videocard-icon{width:28px;height:28px}
+.dsh-lingualab-practice-main.is-card-compact .dsh-lingualab-videocard .dsh-lingualab-spacer,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard-icon,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard-sub:not(.is-mono),
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard-note,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-smoothoffer,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-localactions,
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard .dsh-lingualab-spacer{display:none}
+.dsh-lingualab-practice-main.is-card-lean .dsh-lingualab-videocard-body{display:-webkit-box;-webkit-box-orient:vertical;
+  -webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videostage.has-card{padding-top:10px}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard{min-height:0;flex-direction:row;flex-wrap:nowrap;align-items:center;
+  gap:12px;padding:6px 12px}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-icon,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-body,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-sub:not(.is-mono),
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-note,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard .dsh-lingualab-error,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-row>:nth-child(2),
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-actions .is-ghost,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-smoothoffer,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-localactions,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard .dsh-lingualab-spacer{display:none}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-title{flex:0 1 auto;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-sub,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-row,
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-code{flex:1 1 80px;min-width:0;padding:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard-code code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  word-break:normal}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard .dsh-lingualab-bar.is-thick{flex:1 1 40px;min-width:40px;margin-top:0}
+.dsh-lingualab-practice-main.is-card-line .dsh-lingualab-videocard>.dsh-lingualab-btn:not(.is-small){height:30px;font-size:13px}
+.dsh-lingualab-practice-main.is-card-hidden .dsh-lingualab-videostage.has-card{display:none}
+
 /* Adjusting timing is a mode (the page sets is-timing on the column while the panel has a sentence). Everything that is not
    the sentence, the panel and the way to play it steps back, so they fit a column that is only 631px tall:
    - the player card is one row, the scrubber and "speed | previous, play, next" (about 124px instead of 264); every other

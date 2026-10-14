@@ -146,10 +146,12 @@ export function VideoStage({
   // The label that opens the full card again (or the picture, from the hidden state).
   const label = card === null || playing || fullCard ? null : isInformational(card) ? 'unplayable' : 'prepare'
   const empty = !showScreen && !fullCard && !chip && label === null
+  // A card is drawn. The page asks the layout whether it fits and steps it down when it does not (the stylesheet's `is-card-*`).
+  const hasCard = fullCard && card !== null && status !== null
 
   return (
     <div
-      className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}${showScreen ? ' has-screen' : ''}`}
+      className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}${showScreen ? ' has-screen' : ''}${hasCard ? ' has-card' : ''}`}
       // A video file let go on the stage is the reader's choice to play it. The event stops here whatever was dropped,
       // so nothing else (the page's own catch-all, a browser that would open the file) acts on it.
       onDragOver={(event) => {
@@ -234,7 +236,7 @@ export function VideoStage({
         ) : null}
       </div>
 
-      {fullCard && card !== null && status !== null ? (
+      {hasCard ? (
         <Card
           t={t}
           kind={card}

@@ -210,6 +210,37 @@ describe('no picture to play', () => {
     })
   }
 
+  it('says whether a card is drawn, so the page can step it down in a short column', () => {
+    expect(html({ playing: false, card: 'prepare', status: status('prepare') })).toContain('dsh-lingualab-videostage is-shown has-card')
+    expect(html({ playing: false, card: 'unplayable', cardOpen: true, status: status('unplayable') })).toContain('has-card')
+    // A picture, a chip, a label, an empty stage and a card with nothing to say are not a card.
+    expect(html()).not.toContain('has-card')
+    expect(html({ picture: 'hidden' })).not.toContain('has-card')
+    expect(html({ playing: false, picture: 'hidden', card: 'prepare', status: status('prepare') })).not.toContain('has-card')
+    expect(html({ playing: false, card: 'unplayable', cardOpen: false, status: status('unplayable') })).not.toContain('has-card')
+    expect(html({ playing: false, card: null, status: null })).not.toContain('has-card')
+    expect(html({ playing: false, card: 'prepare', status: null })).not.toContain('has-card')
+  })
+
+  it('draws the parts a step down drops under the classes the stylesheet names, so the steps can find them', () => {
+    const prepare = html({ playing: false, card: 'prepare', status: status('prepare', { smooth: { ...status('prepare').smooth, offer: true } }), local: local() })
+    for (const part of [
+      'dsh-lingualab-videocard-icon',
+      'dsh-lingualab-videocard-title',
+      'dsh-lingualab-videocard-sub is-mono',
+      'dsh-lingualab-videocard-body',
+      'dsh-lingualab-videocard-note',
+      'dsh-lingualab-smoothoffer',
+      'dsh-lingualab-localactions',
+      'dsh-lingualab-spacer',
+    ]) {
+      expect(prepare).toContain(part)
+    }
+    expect(html({ playing: false, card: 'preparing', status: status('preparing', { progress: { fraction: 0.4, seconds: 40, total: 100 } }) })).toContain(
+      'dsh-lingualab-bar is-thick',
+    )
+  })
+
   it('says what the prepare card is about: the file, the size and why', () => {
     const markup = html({ playing: false, card: 'prepare', status: status('prepare') })
     expect(markup).toContain('a.mkv · 1.1 GB')
