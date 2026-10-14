@@ -47,10 +47,11 @@ transcript is a width container for the one rule about the transcript.
   height the lines either side of the sentence go, the picture is capped at 30% of the height (it was 42% of the window's, a
   cap that did not follow the column) and the stage gives up some padding. The picture's width is the smallest of its share,
   720px and what the cap allows at 16:9, so a cap makes it smaller and keeps its shape.
-- **Adjusting timing is a mode.** While the timing panel holds a sentence the page sets `is-timing` on the column. It is a
-  class on purpose, and not a `:has()` of the panel: the one state that decides it sets it, a test can see it without a layout
-  engine, and it does not depend on the panel being mounted (the panel stays mounted for the way out). Everything that is not
-  the sentence, the panel and the way to play it steps back:
+- **Adjusting timing is a mode.** While the timing panel is on the page (it holds a sentence, and stays for its way out) the
+  page sets `is-timing` on the column. It is a class on purpose, and not a `:has()` of the panel: the page's one presence
+  state decides it for the column and the panel alike, and a test can see it without a layout engine. Only the layout follows
+  that presence; behaviour (the keys, the stage's button) follows the session. Everything that is not the sentence, the panel
+  and the way to play it steps back:
   - The player card folds to the scrubber and one row, "speed | previous, play, next", about 124px instead of 264. Every other
     button, the key hints and any open menu are hidden by class, not unmounted, so all of it is back when the panel closes.
     The speed button carries `is-speed` to be the one kept, and the row is a three-column grid again at every width, because
@@ -75,7 +76,7 @@ transcript is a width container for the one rule about the transcript.
     the sentence sits in the middle of the room, which reads as breathing room around it and not as a hole above it. The
     `<video>` keeps playing, as it does for an audio file. The measuring runs before the first paint, watches the scroller,
     the stage's lines (they are replaced on every sentence, so the watched set is rebuilt on each change) and the strip (its
-    panel opens as an animation, so the answer follows it), and is only on while the panel has a sentence and a picture
+    panel has its full height from its first frame, so the answer is final at once), and is only on while the panel has a sentence and a picture
     plays. Without `ResizeObserver` the picture is taken to fit. The earlier container query at 119px is gone: a second rule with
     its own idea of the edge, a rounded pixel away, would bring the empty box back exactly where the two disagree.
   - A large picture keeps what it had. It is already the part that takes what is left (it is the whole stage, and its
@@ -144,10 +145,17 @@ transcript is a width container for the one rule about the transcript.
   collapsed, and the sentence stage takes the 80px or so that is left and centres the sentence in it; nothing scrolls either.
   This used to leave an empty box above the sentence, because a picture container cannot know how much room is left before
   it is laid out; the measurement is what knows.
-- **The picture changes at most once while the panel opens.** The panel grows a grid row from nothing, so the room left for the
-  picture only shrinks, and it is hidden once when it crosses 120px (and back only at 128px). When the panel opens the picture first jumps from its
-  usual size to the biggest box that fits (the room has no panel in it yet) and then shrinks. Closing puts the usual layout
-  back at once while the panel finishes leaving.
+- **The layout steps once in each direction, and only the card's look moves.** The timing panel takes its full height in the
+  commit that sets `is-timing` and keeps it until the commit that removes it; what fades and lifts is the card inside it. So
+  the picture lands at its final size, or is squeezed away, in the first frame, and `usePictureRoom` decides once from the
+  final heights (a picture that crosses 120px is hidden once, and comes back only at 128px). Until v0.11.5 the panel grew a
+  grid row from nothing: the picture first jumped to the biggest box that fits, shrank over 240ms, and beside a two-line
+  sentence was squeezed away at the end; and closing put the usual layout back at once while the row was still shrinking, so
+  the layout moved twice. Closing now runs in the reverse order: the card fades out while the column stays in timing mode,
+  and the column leaves it in the same commit that unmounts the panel. Both follow one `usePresence` in the page (the panel
+  takes `mounted` and `shown` as props, and the page reads the exit time from the panel's slice), so two timers cannot part
+  by a frame. The keys and the stage's button follow the session, which ends at once: while the card fades the keys are the
+  page's again and the panel is inert.
 - **A long sentence still scrolls where it must.** Two lines of English and one of Chinese need about 250px of stage; in a column
   that cannot hold the sentence, the panel and the card (under about 570px tall), the scroller takes the rest.
 - **The player card's buttons are 32px with a pointer and 44px with a finger.** Making them 44px for a mouse would add two

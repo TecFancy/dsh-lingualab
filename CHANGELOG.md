@@ -19,6 +19,17 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The picture no longer jumps when the timing panel opens and closes. The panel used to grow a grid row from nothing, so
+  in the first frame the player card had already folded but the panel was still 0 px tall, and the picture appeared very
+  large, shrank over a quarter of a second and, beside a two-line sentence, was squeezed away at the end; closing put the
+  usual layout back at once while the panel was still leaving. The layout now steps once in each direction: the panel
+  takes its full height in the same commit that puts the column in timing mode, only the card fades and lifts, and on the
+  way out the card fades while the layout stays put, then the column leaves timing mode in the commit that unmounts the
+  panel. Both follow one presence in the page, so they cannot part by a frame. The keys are the page's again as soon as
+  the panel starts to leave, and it is inert while it does.
+
 ## [0.11.4] - 2026-10-14
 
 ### Fixed
