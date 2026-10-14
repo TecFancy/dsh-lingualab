@@ -150,6 +150,12 @@ node scripts/verify.mjs --list   # 看检查表
   别再加回画面上的 `@container ll-video (max-height)` 规则）；调时间面板在栏宽不到 648px 或栏高不到 780px 时是一行一个边缘的紧凑布局。文字长的按钮同时画长短两个文字
   （`dsh-lingualab-label-long` / `-short`），样式表挑一个，全文留作 `aria-label` 与 `title`。新增一个调时间时要隐藏的东西，加进
   `styles.ts` 末尾 `.is-timing` 那一段，别写成对面板的 `:has()`。
+- **舞台上的拖选走指针事件，不走鼠标事件**：iOS 的手指在拖动时不发任何鼠标事件（只在点一下之后补发合成的），所以 `mousedown`、`mouseenter`、
+  `mouseup` 的拖选在 iPad 上只剩单点能用；手指在滚动栏里拖是滚动，长按则是系统的文字选择。触摸指针还会被按下的那个元素隐式捕获，**别的单词永远收不到
+  进入事件**，所以不能靠每个词上的 `onMouseEnter`，要在 `pointermove` 里用 `document.elementFromPoint` 按坐标找词。`touch-action` 对非替换的行内元素
+  **不生效**（词是 `span`），所以写在整块英文 `.dsh-lingualab-stage-en:not(.is-masked)` 上，连同关掉文字选择与长按菜单；整句因此不能当滚动的起点，
+  舞台其余部分仍可以。拖选的逻辑是 `widgets/practice-stage/lib/word-drag.ts` 里不依赖 React 的纯模块，用假的指针源在 node 里测；
+  鼠标的 `mousedown` 仍要 `preventDefault`，否则文字选择会盖住选中的词组。点气泡外面关闭也挂在 `pointerdown` 上。
 - **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
   （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
   对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`

@@ -196,6 +196,16 @@ describe('the stylesheet', () => {
     expect(narrow).toContain('.dsh-lingualab-switch .dsh-lingualab-label-short{display:inline}')
   })
 
+  it('lets a finger drag across the words of the sentence without scrolling or selecting, and leaves a masked sentence alone', () => {
+    // touch-action does not apply to non-replaced inline elements, so it is on the block, not on the words.
+    const english = rule('.dsh-lingualab-stage-en:not(.is-masked)')
+    expect(english).toContain('touch-action:none')
+    expect(english).toContain('-webkit-user-select:none')
+    expect(english).toContain('user-select:none')
+    expect(english).toContain('-webkit-touch-callout:none')
+    expect(rule('.dsh-lingualab-stage-en .is-word')).not.toContain('touch-action')
+  })
+
   it('gives a touch screen no key hints and 44px targets', () => {
     const touch = block('@media (hover:none) and (pointer:coarse)')
     for (const selector of ['.dsh-lingualab-page kbd', '.dsh-lingualab-keyhints', '.dsh-lingualab-timing-hints', '.dsh-lingualab-timing-keys']) {

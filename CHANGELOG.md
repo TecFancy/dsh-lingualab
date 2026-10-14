@@ -19,6 +19,17 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- Dragging a finger across several English words on the stage now picks the phrase, as dragging a mouse does. The drag
+  used mouse events only, and iOS sends none while a finger moves, so on an iPad only a single tap worked, and a drag
+  scrolled the column or started a native text selection. The drag now follows pointer events and finds the word under
+  the finger from its coordinates (a touch pointer stays captured by the first word, so no other word is ever entered).
+  The sentence takes the touch for itself (`touch-action`, text selection and the long-press callout are off on it, and
+  `touch-action` is set on the block because it does not apply to inline words); the rest of the stage still scrolls.
+  A cancelled touch picks nothing, a second finger is ignored, and pressing outside the popover closes it by pointer
+  as well. A tap and `Shift`-click still work, and the mouse behaves as before.
+
 ## [0.11.5] - 2026-10-14
 
 ### Fixed
