@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-10-14
+
 ### Fixed
 
 - The practice view fits at the heights a real iPad in Safari has, where Safari's status bar and toolbar take 74 to 110 px
