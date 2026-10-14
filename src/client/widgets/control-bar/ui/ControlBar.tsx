@@ -23,6 +23,7 @@ import {
   SHADOW_PLAYS,
   SPEED_PRESETS,
   canRecord,
+  primeTakeAudio,
   useMediaPlayer,
   type Compare,
   type ShadowPause,
@@ -237,7 +238,11 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
             <button
               type="button"
               className="dsh-lingualab-bar-btn"
-              onClick={() => store().compareTake()}
+              onClick={() => {
+                // The take plays on an element that has to have played inside a gesture: this is one.
+                primeTakeAudio()
+                store().compareTake()
+              }}
               disabled={disabled || !hasTake}
               title={hasTake ? t('compareHint') : t('compareNone')}
             >
@@ -259,7 +264,12 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           <button
             type="button"
             className="dsh-lingualab-play"
-            onClick={() => store().toggle()}
+            onClick={() => {
+              // A reader whose recording was already on from last time may start here; the take element must
+              // be unlocked inside a gesture, and this is the one.
+              if (program.record) primeTakeAudio()
+              store().toggle()
+            }}
             disabled={disabled}
             title={running ? t('pause') : t('play')}
           >
@@ -455,7 +465,11 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
                     className="dsh-lingualab-visually-hidden"
                     checked={program.record}
                     disabled={!micSupported && !program.record}
-                    onChange={(event) => store().setRecord(event.target.checked)}
+                    onChange={(event) => {
+                      // Turning recording on is a gesture: unlock the take element now, for the takes to come.
+                      if (event.target.checked) primeTakeAudio()
+                      store().setRecord(event.target.checked)
+                    }}
                   />
                   <span className="dsh-lingualab-switch-track" aria-hidden>
                     <span className="dsh-lingualab-switch-knob" />

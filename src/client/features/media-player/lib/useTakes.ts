@@ -6,6 +6,10 @@
  * the store drops the pause or the comparison, the effect below is cleaned up, and the recording stops or the
  * take goes quiet. Nothing here decides anything; the order of things is the store's and `planShadow`'s.
  *
+ * The take is played on one shared `Audio` element that a gesture unlocked earlier (see `take-player.ts`): iOS
+ * refuses sound from an element that was never played inside a gesture, and this effect runs long after the last
+ * touch. The page and the control bar call `primeTakeAudio` from the gestures that can lead here.
+ *
  * Called once, from {@link useMediaBinding}, beside the timeout that ends a pause.
  */
 import { useEffect } from 'react'
@@ -39,7 +43,8 @@ export function useTakes(): void {
     })
   }, [recordFor, recordPauseId])
 
-  // The take, once the sentence before it has played and the recording of it has been handed in.
+  // The take, once the sentence before it has played and the recording of it has been handed in. It plays on the
+  // shared element, which stays put between takes.
   const takeFor = compare?.stage === 'take' ? compare.index : null
   const take = takeFor === null ? undefined : takes[takeFor]
   useEffect(() => {

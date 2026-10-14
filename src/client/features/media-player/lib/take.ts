@@ -1,7 +1,7 @@
 /**
  * The takes a reader has recorded, as the player keeps them.
  *
- * A take is the reader's own voice saying one sentence, kept as an object URL so a short-lived `Audio` element can
+ * A take is the reader's own voice saying one sentence, kept as an object URL so the shared take `Audio` element can
  * play it. It lives in memory for the open episode (or segment) and nowhere else: not on disk, not on the host,
  * not scored. Whatever replaces or drops a take must revoke its URL, which is why these helpers say what went stale
  * instead of leaving each caller to remember.

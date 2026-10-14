@@ -39,7 +39,7 @@ import { splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
-import { useMediaBinding, useMediaPlayer, type MicNotice } from '../../../features/media-player/index.ts'
+import { primeTakeAudio, useMediaBinding, useMediaPlayer, type MicNotice } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
 import {
   continueSegment,
@@ -364,6 +364,23 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   useEffect(() => {
     if (library.loading) return
     containerRef.current?.focus({ preventScroll: true })
+  }, [library.loading, view])
+
+  // The reader's take plays on one shared audio element, and iOS only lets it play without a gesture if it was
+  // played inside one earlier. A reader whose recording was already on from last time may start with a gesture that
+  // is none of the buttons that unlock it, so any press or key on the panel does, until it is done. On the panel
+  // container in the capture phase, never on `window` or `document`: the host's keys are not ours.
+  useEffect(() => {
+    const panel = containerRef.current
+    if (panel === null) return
+    const unlock = (): void => {
+      if (useMediaPlayer.getState().shadow.record) primeTakeAudio()
+    }
+    const events = ['pointerup', 'click', 'keydown'] as const
+    for (const name of events) panel.addEventListener(name, unlock, true)
+    return () => {
+      for (const name of events) panel.removeEventListener(name, unlock, true)
+    }
   }, [library.loading, view])
 
   /** What the position is stored under: the episode's id, or its segment's key. */
@@ -1035,6 +1052,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         case ' ':
           handled()
           flash('space')
+          if (store().shadow.record) primeTakeAudio()
           store().toggle()
           return
         case 'ArrowLeft':
@@ -1102,6 +1120,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           // Plays the sentence and then the reader's take of it; a sentence with no take has nothing to play, and the key is spent on it anyway.
           handled()
           flash('d')
+          primeTakeAudio()
           store().compareTake()
           return
         case 'v':

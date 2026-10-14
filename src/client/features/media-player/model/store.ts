@@ -33,7 +33,7 @@
  *
  * **Recording and comparing.** With the microphone on, a speaking pause is recorded (the hook in `useTakes` owns the
  * recorder; `capturing` says one is live) and when the pause ends the program hands over to a comparison: the
- * sentence once more through the source, then the take through a short-lived audio element while the source waits
+ * sentence once more through the source, then the take through the shared take audio element while the source waits
  * at the sentence's start. `compare` is that step, and it is part of the program like a pause is: `IDLE_PROGRAM`
  * drops it, which stops the take, so the 对比 key and every other way of moving playback end it cleanly. The takes
  * are the last recording of each sentence, in memory only, dropped (and their URLs revoked) with the cue list.
