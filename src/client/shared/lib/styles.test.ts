@@ -224,6 +224,48 @@ describe('the stylesheet', () => {
     expect(STYLES).toContain('.dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start')
   })
 
+  it('steps a card that stands in for a picture down on the class the page puts on the scroller, never on a query or a :has()', () => {
+    const scroller = '.dsh-lingualab-practice-main'
+    // Each step is a class of the scroller (the page's measurement, useCardFit), the whole card having none.
+    expect(rule(`${scroller}.is-card-compact .dsh-lingualab-videocard-icon`)).toContain('width:28px')
+    expect(STYLES).not.toContain('.is-card-full')
+    expect(rule(`${scroller}.is-card-hidden .dsh-lingualab-videostage.has-card`)).toContain('display:none')
+    // Every step drops the card's minimum height (the whole card keeps it on a tall column, where it fits), and none sets a
+    // min-height on a button, so the touch rule's 44px holds in every step.
+    expect(rule(`${scroller}.is-card-lean .dsh-lingualab-videocard`)).toContain('min-height:0')
+    expect(rule(`${scroller}.is-card-line .dsh-lingualab-videocard`)).toContain('min-height:0')
+    expect(rule(`${scroller}.is-card-line .dsh-lingualab-videocard>.dsh-lingualab-btn:not(.is-small)`)).not.toContain('min-height')
+    expect(STYLES).toContain('.dsh-lingualab-videocard .dsh-lingualab-btn{min-height:44px}')
+  })
+
+  it('keeps what a card is about and what to press when it drops its secondary parts, and one row when it is a line', () => {
+    const scroller = '.dsh-lingualab-practice-main'
+    const dropped = STYLES.slice(STYLES.indexOf(`${scroller}.is-card-compact .dsh-lingualab-videocard .dsh-lingualab-spacer,`))
+    const leanDrops = dropped.slice(0, dropped.indexOf('{display:none}'))
+    for (const part of ['-videocard-icon', '-videocard-note', '-smoothoffer', '-localactions', '-videocard-sub:not(.is-mono)']) {
+      expect(leanDrops).toContain(`${scroller}.is-card-lean .dsh-lingualab${part}`)
+    }
+    // The title, the file line, the body (at two lines), the progress and the buttons are still there in the lean step.
+    expect(leanDrops).not.toContain('-videocard-title')
+    expect(leanDrops).not.toContain('-bar')
+    expect(leanDrops).not.toContain('.dsh-lingualab-btn')
+    expect(rule(`${scroller}.is-card-lean .dsh-lingualab-videocard-body`)).toContain('-webkit-line-clamp:2')
+    // A line is one row that does not wrap, with the progress bar inline and the dismissing buttons gone.
+    const line = rule(`${scroller}.is-card-line .dsh-lingualab-videocard`)
+    expect(line).toContain('flex-direction:row')
+    expect(line).toContain('flex-wrap:nowrap')
+    expect(rule(`${scroller}.is-card-line .dsh-lingualab-videocard .dsh-lingualab-bar.is-thick`)).toContain('flex:1 1 40px')
+    expect(STYLES).toContain(`${scroller}.is-card-line .dsh-lingualab-actions .is-ghost`)
+  })
+
+  it('puts the card steps after the card and the short-column rules they refine, and leaves the timing and picture rules alone', () => {
+    const first = STYLES.indexOf('.dsh-lingualab-practice-main.is-card-compact')
+    expect(first).toBeGreaterThan(STYLES.indexOf('@container ll-practice (max-height:700px)'))
+    expect(first).toBeGreaterThan(STYLES.indexOf('.dsh-lingualab-videocard{'))
+    // The timing mode already keeps a card off the stage, and the picture has its own squeeze: the steps only name a card stage.
+    for (const match of STYLES.matchAll(/\.is-card-[a-z]+[^{,]*/g)) expect(match[0]).not.toMatch(/has-screen|is-picture-squeezed|is-timing/)
+  })
+
   it('turns the follow switch into its short word where the transcript is 260px wide', () => {
     const narrow = block('@container ll-body (max-width:820px)')
     expect(narrow).toContain('.dsh-lingualab-transcript{width:260px}')

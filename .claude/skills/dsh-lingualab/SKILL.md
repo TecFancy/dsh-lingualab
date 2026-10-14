@@ -157,6 +157,13 @@ node scripts/verify.mjs --list   # 看检查表
   不到 160px 的画面不画角落的胶囊（`ll-video (max-height:159px)`，只管画面上画什么）。**量布局要按真实 Safari 的可见高度**：iPad 的状态栏加工具栏
   占 74px（紧凑标签）到 110px（单独标签栏），所以 iPad mini 横屏是 1133 乘 670 与 634，Air 11 寸是 1180 乘 746 与 710，Pro 11 寸是 1194 乘 760 与 724，
   Pro 13 寸是 1366 乘 950 与 914，不是整机分辨率；滚动条按 iPad 的悬浮式量（桌面 Chrome 的 15px 滚动条会多换一行）。
+  **代替画面的卡片也会让位，而且是分步的**：卡片是一段文字加按钮，高度随它是哪张、带不带流畅版与本地文件而变，样式表算不出来，所以由页面试出来。
+  `useCardFit(practiceMain, card !== null && !videoPlays)` 每次从完整的卡片开始，依次给滚动容器 `.dsh-lingualab-practice-main` 加
+  `is-card-compact`（收紧）、`is-card-lean`（去掉图标、说明、备注、流畅版与本地文件，正文最多两行）、`is-card-line`（一行）、`is-card-hidden`（整个舞台不画），
+  看 `scrollHeight` 是否还大于 `clientHeight`，第一个不再滚动的就是答案；都不行就留 `line`，因为藏起卡片也解决不了，准备视频的入口得留着。选择与类名的逻辑是
+  `card-fit.ts` 里的纯函数，测试也在那里。类名由钩子直接设在这个元素上，React 从不写它的 class，所以没有状态也不重渲染；`VideoStage` 画着卡片时给舞台加
+  `has-card`，钩子靠它找卡片，调时间期间舞台是 `display:none`，钩子就不量。每次都从头试，所以答案只看空间与卡片，不看上一步，不需要滞回。每一步各画什么在
+  `styles.ts` 里 `.is-card-*` 那一段，新增卡片内容时想好它在哪一步消失；按钮的 44px 是 `min-height`，任何一步都不许设按钮的 `min-height`。
 - **舞台上的拖选走指针事件，不走鼠标事件**：iOS 的手指在拖动时不发任何鼠标事件（只在点一下之后补发合成的），所以 `mousedown`、`mouseenter`、
   `mouseup` 的拖选在 iPad 上只剩单点能用；手指在滚动栏里拖是滚动，长按则是系统的文字选择。触摸指针还会被按下的那个元素隐式捕获，**别的单词永远收不到
   进入事件**，所以不能靠每个词上的 `onMouseEnter`，要在 `pointermove` 里用 `document.elementFromPoint` 按坐标找词。`touch-action` 对非替换的行内元素

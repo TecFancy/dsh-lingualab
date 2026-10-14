@@ -73,6 +73,30 @@ transcript is a width container for the one rule about the transcript.
   (`ll-video (max-height:159px)`, the one query on the stage's height; it is about what is drawn on the picture and never
   about whether the picture is drawn), because they need about that much to keep clear of each other, as screenshots at 231
   by 130 showed.
+- **A card that stands in for a picture gives way in steps, found by trying them.** A card is text and buttons, and its height
+  depends on which card it is and what it carries (a smooth-version offer, the reader's own file): the plain prepare card is
+  249px (342px on a tall column) where a 1133 by 634 column leaves 96px, so there is no basis to compute from the column as
+  there is for the picture. `useCardFit` (in the page slice; the choice and the classes are pure functions in `card-fit.ts`)
+  puts one class on the scroller, from the whole card to nothing, and keeps the first step at which the scroller has nothing to
+  scroll (`scrollHeight` not above `clientHeight`, whole pixels):
+  - the whole card has no class and is the stylesheet's own look, so a card that fits is drawn exactly as before;
+  - `is-card-compact` tightens it (12px padding, 6px gaps, a 28px icon);
+  - `is-card-lean` drops the secondary parts (the icon, the sentence that explains, the notes, the smooth-version offer and the
+    reader's own file) and keeps what the card says and what to press, with the body at two lines at most (about 125 to 170px);
+  - `is-card-line` is one row that does not wrap: the title, what the card is about (the file, or the progress bar with its
+    percentage) and the button, each cut with an ellipsis where the row is short (44px, and 58px on touch, where the button is
+    44px);
+  - `is-card-hidden` leaves no stage at all, as for a squeezed picture.
+
+  Each trial starts from the whole card, so the answer depends on the room and the card and never on the step before. No band
+  of hysteresis is needed, as it is for the picture (whose own box would be what it measures): a column dragged along an edge
+  changes step at one height in both directions. The class is set on the scroller, which React never writes a class to, so the
+  hook has no state and causes no render; the trial is synchronous and runs before paint, so only the answer is drawn. When no
+  step fits, the sentence or the timing panel is what is too tall and hiding the card would not help, so one line stays and the
+  way to prepare the video stays on screen. `VideoStage` marks the stage that holds a card with `has-card`, which is the hook's
+  handle on it (and the stylesheet's, for the hidden step), so the widgets stay unaware of the page. While the timing panel is
+  open the card is not drawn and nothing is measured. A touch screen keeps its 44px buttons in every step, because that is a
+  `min-height` that no step sets.
 - **Adjusting timing is a mode.** While the timing panel is on the page (it holds a sentence, and stays for its way out) the
   page sets `is-timing` on the column. It is a class on purpose, and not a `:has()` of the panel: the page's one presence
   state decides it for the column and the panel alike, and a test can see it without a layout engine. Only the layout follows
@@ -166,6 +190,14 @@ transcript is a width container for the one rule about the transcript.
   today. Left out; the picture steps aside there instead.
 - **Hide the picture whenever the column is short.** That was the mistake of v0.11.2 for timing; a picture of 130 to 200px is
   what an iPad has the room for.
+- **Let the card shrink by flex, as the picture does.** A flex basis needs a size to start from, and a card has none that the column
+  can give (it is as tall as its content), so the stage would shrink below its content and clip the button; the picture can
+  shrink because it is a box of a known shape, and the card is not.
+- **Hide the card, as the picture is hidden, the moment the column is short.** The card is the only way to ask for the video
+  to be prepared, and the picture is what a column can do without; hiding the card removes the button, so it is the last step.
+- **Choose the step from the column's height with container queries.** The sentence is one to three lines (about 40px each) and
+  the player card wraps by width, so the height of the column says little about the room the card has. The trial reads the room
+  itself.
 
 
 
@@ -201,9 +233,21 @@ transcript is a width container for the one rule about the transcript.
   pointer (picture 307 by 173, was 337 by 189 with 17px of scrolling), 1440 by 900 with the sidebar at 56px and a two-line
   sentence (548 by 308 and 540 by 304 on touch, was 557 by 314 with 6 and 10px of scrolling). The timing mode and the
   audio file are identical in all 720 states, and the large picture at the five sizes it was measured at.
-- **The cards that stand in for a picture still scroll in a short column.** The card that asks to prepare a video, for one, is
-  a page of text, a file line and two buttons (about 340px), and needs 67 to 173px more than a 1133 by 634 or 670 column has.
-  It is drawn until the video is prepared, and the card below stays where it is; it was not part of this change.
+- **The cards that stand in for a picture fit too.** They did not before: with a two-line sentence, a pointer and the sidebar open the
+  prepare card (249px, a page of text, a file line and two buttons) needed 153px more than the 1133 by 634 column has (117 at 1133 by
+  670, 82 at 1180 by 710, 43 at 1194 by 724), the other cards 126 to 169px more at 1133 by 634, and the cards that also carry the
+  smooth-version offer and the reader's own file (up to 430px) up to 334px more; at 1440 by 900 the plain cards fit and only the ones
+  with an extra scrolled (by up to 86px, 128px on touch). Measured in a browser as the sizes above were (the real components, the
+  real stylesheet and the real hook, overlay scrollbars, the touch block applied for touch), over 2016 states against the code
+  before the change (the seven cards, plain and with both extras, one to three lines of English, pointer and touch, the sidebar at 56
+  and 280px, twelve sizes from 1133 by 634 to 1920 by 1080): 847 fitted before and are now the same to the tenth of a pixel, with no
+  class on the scroller, and 1169 scrolled before and none does now. Another 840 states (portrait sizes and 1133 by 744, with every
+  combination of the two extras) scroll in none either. With the plain cards, a two-line sentence and the sidebar open: at 1133 by
+  634 every card is one line (44px, 58px on touch); at 1133 by 670 one line, or lean for some of the cards; at 1180 by 710 lean
+  (125 to 170px), or compact for the progress card on touch; at 1194 by 724 compact for the prepare and progress cards (199px and
+  184px) and lean for the rest; at 1440 by 900 the whole card, 342px as before. The hidden step only shows where not even a line
+  fits (about 500px of height and less); when the sentence alone is too tall, as at three lines there, one line stays and the scroller scrolls
+  as it always did for a sentence that cannot fit. Not on a device: the harness is Chrome's engine, and the font is not SF Pro.
 - **Timing at 1024 by 700 with the host sidebar open fits.** The column is 483 by 651. With a one-line sentence the card is
   126px, the sentence 135px, the panel 205px (233px on touch) and the picture 269 by 151 (219 by 123 on touch); nothing
   scrolls. With a two-line sentence the sentence is 214px and the picture does not fit, so it is not drawn, its stage is

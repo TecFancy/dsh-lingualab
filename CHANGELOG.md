@@ -19,6 +19,19 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The card that stands in for a picture (prepare the video, preparing, ffmpeg missing, only the sound, cannot play, failed) no
+  longer pushes the sentence and the player card off a short column. At 1133 by 634 (an iPad mini in Safari) the prepare card alone
+  needed 153 px more than the column has, so the part above the player card scrolled, and with the smooth-version offer and the
+  reader's own file on it the shortfall was up to 334 px (at 1440 by 900 only the cards with such an extra scrolled, by up to
+  86 px). The card now gives way in steps until nothing scrolls: compact (tighter), lean (without the icon, the explanation, the
+  notes, the offers and the local file, the body at two lines), one line (the title, the file or the progress bar, and the
+  button; 44 px, or 58 px on touch) and, where not even that fits, not drawn. The page tries the steps before paint, from the
+  whole card each time, and keeps the first that fits, so a column dragged along an edge changes step at one height in both
+  directions. Checked in a browser over 2016 states against the previous code: the 847 that fitted are unchanged to the tenth of
+  a pixel (the 1440 by 900 card is still 342 px), and the 1169 that scrolled do not any more.
+
 ## [0.11.6] - 2026-10-14
 
 ### Fixed
