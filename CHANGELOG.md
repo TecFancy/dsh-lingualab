@@ -19,6 +19,23 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-14
+
+### Added
+
+- Record and compare, for shadowing. A microphone switch (「录下我说的」) joins the shadowing settings in 「更多」. With it on,
+  each speaking pause is recorded with `MediaRecorder`; when the pause ends the sentence plays once more and then your own
+  take, and the program goes on as it would have. A 「对比」 button on the row and the `D` key play that pair again for the
+  sentence on stage. Recording lives inside a speaking pause, so turning the switch on while the pause is off sets it to the
+  sentence's own length, and turning the pause off turns the switch off. The last take of each sentence is kept in memory
+  for the open episode or segment and dropped, with its object URL revoked, when it closes: never written to disk, never sent
+  to the host, never scored. A take plays through its own shared `Audio` element, unlocked inside a gesture (the switch,
+  the 「对比」 button, play, Space, `D`, or any press on the panel while recording is on) because iOS refuses sound from an
+  element never played in one, while the source waits at the sentence's start, so the one media element stays the only timeline; the microphone stream is stopped after every take; the
+  recording format is picked with `MediaRecorder.isTypeSupported` (WebM in Chrome, MP4 in Safari). A browser that cannot
+  record, a refused permission or a busy microphone turns the switch off with a short message and leaves the program as it
+  was. The default is off, so nothing changes until the switch is turned on.
+
 ## [0.12.0] - 2026-10-14
 
 ### Added

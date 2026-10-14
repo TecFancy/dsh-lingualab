@@ -101,9 +101,36 @@ reader turns it on.
   as slowly. During a pause the play button reads "pause" and pressing it ends the program at the sentence's start rather than
   skipping the rest of the pause, because a reader who reaches for the button mid-run wants it to stop. Any other way of
   starting or stopping playback (a row, a review, going home) also ends the program. The note stays proposed until 3 and 4 ship.
+- **Piece 3 is built (2026-10-15).** The microphone switch is `record` in `ShadowSettings`. Recording only exists inside a
+  speaking pause, so the setting is kept in step with the pause instead of being disabled when the pause is off (a dead
+  end the reader has to back out of): turning the switch on while the pause is off sets it to the sentence's own length,
+  and turning the pause off turns the switch off (`mergeShadow`, one place, tested). A recorded pause hands over to a
+  comparison through `planShadow` (`compare` goes in, `{ do: 'compare' }` comes out). The store's `compare` state then plays
+  the sentence through the source, and a take through the shared take `Audio` element while the source waits at the
+  sentence's start, and then asks `planShadow` again as if the pause had just ended, so the comparison is not one of the
+  plays and the program goes on exactly as it would have. `compare` is cleared by `IDLE_PROGRAM` like a pause, which is what
+  stops a recording or a take when the reader plays, steps, seeks or loops. The browser code is in
+  `features/media-player/lib/recorder.ts` (`MediaRecorder` and `getUserMedia` behind an environment object, tested with
+  fakes) and is driven by one hook, `useTakes`, so the store stays free of browser objects. The key is `D`, the first letter of the
+  button's pinyin name (`C` is the Chinese display). The last take of each sentence lives in the store and is dropped with the cue list, on going home and
+  when the page unmounts; an epoch counter discards a recording that finishes after that, so it cannot land in the next
+  episode. A pause the reader cuts short keeps what was said so far, and a take under 0.4 seconds is thrown away so a stray
+  press does not replace a good one. The permission prompt comes when the switch is turned on (a probe that gives the
+  microphone straight back), not in the middle of the first pause; a recording whose permission arrives after its pause is
+  over is discarded; any failure switches the switch off with a short notice and leaves the program as it was. A take plays
+  at normal speed whatever the source's speed. The take element is one shared element, not the short-lived one per take
+  that the proposal above describes, and it is unlocked inside a gesture: iOS Safari lets an element with sound play outside
+  a gesture only if that same element was played inside one earlier, and the hands-free program plays each take long
+  after the last touch, so a fresh element per take would be refused every time. `primeTakeAudio` plays a silent clip on the
+  element and counts as done only when the browser accepted it, so a refused try is repeated at the next gesture. It is called
+  from the microphone switch, the 「对比」 button, the play button, the Space and `D` keys, and from a capture-phase
+  listener on the panel container (never `window` or `document`) for a reader whose recording was already on from last
+  time; the play button, Space and the container listener only do it while recording is on. A take then only changes the
+  element's `src`, and releasing it clears the handlers and the source but keeps the element. The note stays proposed until
+  4 ships.
 - **To verify on a real iPad before calling 3 and 4 done.** `MediaRecorder` records `audio/mp4` in
-  Safari; playback volume comes back after the microphone is stopped; the Media Session actions reach
-  the page with AirPods; and the live site is served over HTTPS, because `getUserMedia` refuses an
+  Safari; playback volume comes back after the microphone is stopped; takes play hands-free;
+  the Media Session actions reach the page with AirPods; and the live site is served over HTTPS, because `getUserMedia` refuses an
   insecure origin (localhost is exempt).
 
 Related: [the first version ships without a waveform, video or shadowing scores](../../implemented/simplification/2026-10-08-v1-without-waveform.md),

@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { currentSpeed, useMediaPlayer } from '../model/store.ts'
 import { swapStart, type Loaded } from './swap.ts'
+import { useTakes } from './useTakes.ts'
 
 /** `MediaError.code` values that mean the file cannot be decoded, as opposed to a network hiccup. */
 const MEDIA_ERR_DECODE = 3
@@ -57,6 +58,8 @@ export function useMediaBinding(
   const seekRequest = useMediaPlayer((state) => state.seekRequest)
   const seekToken = useMediaPlayer((state) => state.seekToken)
   const shadowWait = useMediaPlayer((state) => state.shadowWait)
+  // Recording the speaking pauses and playing the takes back; the take has its own element, not this one.
+  useTakes()
   /** The last seek request this element has been given, so a source change cannot re-apply one. */
   const appliedSeek = useRef(0)
   const loaded = useRef<Loaded<HTMLVideoElement> | null>(null)

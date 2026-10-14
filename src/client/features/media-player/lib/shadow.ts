@@ -10,6 +10,10 @@
  * and is uncovered from the second play on. With one play it is uncovered when that pause ends; with
  * auto-advance it then stays on screen for one more pause (the look), so it is read before the next sentence
  * covers it again.
+ *
+ * With the microphone on, a speaking pause that was recorded is followed by a comparison before the program goes on:
+ * the sentence once more, then the reader's own take. The comparison is not one of the plays; it is a step the
+ * pause hands over to, and once it is done the program asks again as if the pause had just run out.
  */
 
 /** How many times each sentence plays. */
@@ -28,10 +32,15 @@ export interface ShadowSettings {
   readonly pause: ShadowPause
   /** Go on to the next sentence by itself once this one is done. */
   readonly advance: boolean
+  /**
+   * Record each speaking pause with the microphone and compare it afterwards. Only a pause can be recorded, so
+   * this is never on while `pause` is `off` (see {@link mergeShadow}, which keeps the two in step).
+   */
+  readonly record: boolean
 }
 
 /** Today's shadowing: one play, stop, wait for the reader. */
-export const DEFAULT_SHADOW: ShadowSettings = { plays: 1, pause: 'off', advance: false }
+export const DEFAULT_SHADOW: ShadowSettings = { plays: 1, pause: 'off', advance: false, record: false }
 
 /** What a pause is for: saying the sentence, or reading it once it is uncovered before the next one. */
 export type ShadowPhase = 'speak' | 'look'
@@ -45,6 +54,11 @@ export interface ShadowInput {
   readonly settings: ShadowSettings
   /** Whether this is the last sentence, which has no next one to go on to. */
   readonly last: boolean
+  /**
+   * Whether the speaking pause that just ran out was recorded and its comparison has not been played yet.
+   * Left out (or false) when there is nothing to compare, or once the comparison is over.
+   */
+  readonly compare?: boolean
 }
 
 /** What the store should do, and whether the sentence's English is uncovered while it does it. */
@@ -53,15 +67,18 @@ export type ShadowPlan =
   | { readonly do: 'replay'; readonly reveal: boolean }
   /** Stop at the sentence's start and wait out a pause of this kind. */
   | { readonly do: 'wait'; readonly phase: ShadowPhase; readonly reveal: boolean }
+  /** Play the sentence once more, uncovered, then the reader's take; the program asks again when that is over. */
+  | { readonly do: 'compare' }
   /** Go on to the next sentence and play it, covered. */
   | { readonly do: 'advance' }
   /** Stop at the sentence's start, uncovered, and wait for the reader. */
   | { readonly do: 'stop' }
 
 /** Decide what comes after a play ends or a pause runs out. */
-export function planShadow({ played, after, settings, last }: ShadowInput): ShadowPlan {
+export function planShadow({ played, after, settings, last, compare = false }: ShadowInput): ShadowPlan {
   const pausing = settings.pause !== 'off'
   const onward = settings.advance && !last
+  if (after === 'speak' && compare) return { do: 'compare' }
   if (after === null && pausing) return { do: 'wait', phase: 'speak', reveal: played >= 2 }
   // A play ended with no pause to wait, or the speaking pause ran out: the same moment.
   if (after !== 'look') {
@@ -94,9 +111,25 @@ export function shadowPauseMs(seconds: number, speed: number, pause: ShadowPause
 export function parseShadowSettings(raw: unknown): ShadowSettings {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_SHADOW
   const value = raw as Record<string, unknown>
+  const pause = SHADOW_PAUSES.find((offered) => offered === value.pause) ?? DEFAULT_SHADOW.pause
   return {
     plays: SHADOW_PLAYS.find((plays) => plays === value.plays) ?? DEFAULT_SHADOW.plays,
-    pause: SHADOW_PAUSES.find((pause) => pause === value.pause) ?? DEFAULT_SHADOW.pause,
+    pause,
     advance: value.advance === true,
+    // Recording lives inside a speaking pause: with no pause there is nothing to record.
+    record: value.record === true && pause !== 'off',
   }
+}
+
+/**
+ * Change some of the settings, keeping recording and the pause consistent.
+ *
+ * Turning the microphone on when there is no pause sets the pause to the sentence's own length, because a reader
+ * who asked to be recorded has asked for time to speak, and a switch that refuses is a dead end. Turning the
+ * pause off turns the microphone off with it (the parse does that), and the switch shows it.
+ */
+export function mergeShadow(current: ShadowSettings, patch: Partial<ShadowSettings>): ShadowSettings {
+  const raised: Partial<ShadowSettings> =
+    patch.record === true && patch.pause === undefined && current.pause === 'off' ? { ...patch, pause: 'same' } : patch
+  return parseShadowSettings({ ...current, ...raised })
 }
