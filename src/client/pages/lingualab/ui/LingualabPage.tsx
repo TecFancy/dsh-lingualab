@@ -39,7 +39,7 @@ import { splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
-import { useMediaBinding, useMediaPlayer } from '../../../features/media-player/index.ts'
+import { primeTakeAudio, useMediaBinding, useMediaPlayer, type MicNotice } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
 import {
   continueSegment,
@@ -134,6 +134,14 @@ const FLASH_MS = 260
 /** How long the 「视频准备好了」 and 「盲看开始计时」 notices stay; the length warning stays until it is dismissed. */
 const NOTICE_MS = 7000
 
+/** The dictionary key of what each microphone problem says. */
+const MIC_NOTICE_KEYS: Readonly<Record<MicNotice, string>> = {
+  unsupported: 'micUnsupported',
+  denied: 'micDenied',
+  unavailable: 'micUnavailable',
+  blocked: 'micBlocked',
+}
+
 /**
  * Where a kept sentence starts in the cue list on screen.
  *
@@ -214,6 +222,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const revealed = useMediaPlayer((state) => state.revealed)
   const finished = useMediaPlayer((state) => state.finished)
   const finishCount = useMediaPlayer((state) => state.finishCount)
+  /** Whether the sentence on stage has a take of the reader's own, which the 「对比」 key plays. */
+  const hasTake = useMediaPlayer((state) => state.takes[state.activeIndex] !== undefined)
+  const micNotice = useMediaPlayer((state) => state.micNotice)
   const cues = library.cues
 
   const episode = library.episode
@@ -355,6 +366,23 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     containerRef.current?.focus({ preventScroll: true })
   }, [library.loading, view])
 
+  // The reader's take plays on one shared audio element, and iOS only lets it play without a gesture if it was
+  // played inside one earlier. A reader whose recording was already on from last time may start with a gesture that
+  // is none of the buttons that unlock it, so any press or key on the panel does, until it is done. On the panel
+  // container in the capture phase, never on `window` or `document`: the host's keys are not ours.
+  useEffect(() => {
+    const panel = containerRef.current
+    if (panel === null) return
+    const unlock = (): void => {
+      if (useMediaPlayer.getState().shadow.record) primeTakeAudio()
+    }
+    const events = ['pointerup', 'click', 'keydown'] as const
+    for (const name of events) panel.addEventListener(name, unlock, true)
+    return () => {
+      for (const name of events) panel.removeEventListener(name, unlock, true)
+    }
+  }, [library.loading, view])
+
   /** What the position is stored under: the episode's id, or its segment's key. */
   const positionKey = episodeId === null ? null : progressKeyOf(episodeId, segmentId)
 
@@ -411,6 +439,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     // read again once it has landed, so it does not show the sentence just graded.
     void notes.flush().then(reviewList.reload)
     useMediaPlayer.getState().setPlaying(false)
+    // The takes belong to the episode that was open: going home closes it.
+    useMediaPlayer.getState().dropTakes()
     setProgress(readAllProgress())
     setLayer('none')
     setStepsOpen(false)
@@ -848,6 +878,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     const timer = setTimeout(() => setNotice(null), NOTICE_MS)
     return () => clearTimeout(timer)
   }, [notice])
+  // So does the one about the microphone, which the store keeps until it has been said.
+  useEffect(() => {
+    if (micNotice === null) return
+    const timer = setTimeout(() => useMediaPlayer.getState().clearMicNotice(), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [micNotice])
 
   /**
    * The blind-watch step's timer started or stopped (the step tracker says so; opening its drawer says nothing).
@@ -897,10 +933,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     (notice.kind === 'ready' && local.url !== null)
       ? null
       : notice
-  const shownNotice = liveNotice ?? mismatchNotice
+  // A microphone that could not be used, or a take the browser would not play, comes before the rest: the reader has just acted on it.
+  const micData: VideoNoticeData | null =
+    micNotice === null ? null : { kind: 'warn', text: t(MIC_NOTICE_KEYS[micNotice]), action: t('cardGotIt') }
+  const shownNotice = micData ?? liveNotice ?? mismatchNotice
   const onNoticeAction = (): void => {
     if (shownNotice === null) return
-    if (shownNotice.kind === 'blind') {
+    if (shownNotice === micData) {
+      useMediaPlayer.getState().clearMicNotice()
+    } else if (shownNotice.kind === 'blind') {
       useSettings.getState().setPicture(pictureRestore ?? 'shown')
       setNotice(null)
     } else if (shownNotice.kind === 'mismatch' && mismatchKey !== null) {
@@ -1011,6 +1052,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         case ' ':
           handled()
           flash('space')
+          if (store().shadow.record) primeTakeAudio()
           store().toggle()
           return
         case 'ArrowLeft':
@@ -1072,6 +1114,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           handled()
           flash('r')
           store().reveal(store().activeIndex)
+          return
+        case 'd':
+        case 'D':
+          // Plays the sentence and then the reader's take of it; a sentence with no take has nothing to play, and the key is spent on it anyway.
+          handled()
+          flash('d')
+          primeTakeAudio()
+          store().compareTake()
           return
         case 'v':
         case 'V':
@@ -1417,7 +1467,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   subtitles={subtitleControl}
                   disabled={!canPlay || cues.length === 0}
                 />
-                <KeyHints t={t} flash={flashed} active={focused} video={hasVideoFile} />
+                <KeyHints t={t} flash={flashed} active={focused} video={hasVideoFile} compare={hasTake} />
               </div>
               {library.error !== null && cues.length === 0 && hasAudio ? (
                 <div className="dsh-lingualab-error" style={{ textAlign: 'center' }}>

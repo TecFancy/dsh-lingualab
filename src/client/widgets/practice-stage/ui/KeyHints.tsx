@@ -28,6 +28,9 @@ const HINTS: readonly Hint[] = [
 /** The picture key, shown only while the segment has a video, and placed before the reveal the way the design has it. */
 const PICTURE_HINT: Hint = { id: 'v', caps: ['V'], label: 'hintPicture' }
 
+/** The comparison key, shown only while the sentence on stage has a take of the reader's, after the reveal. */
+const COMPARE_HINT: Hint = { id: 'd', caps: ['D'], label: 'hintCompare' }
+
 export interface KeyHintsProps {
   readonly t: Translate
   /** The hint id to light up right now, or `null`. */
@@ -36,11 +39,14 @@ export interface KeyHintsProps {
   readonly active: boolean
   /** Whether the segment has a video, which adds the 「V 画面」 cap. */
   readonly video?: boolean
+  /** Whether the sentence on stage has a take to compare, which adds the 「D 对比」 cap. */
+  readonly compare?: boolean
 }
 
 /** The caps row. */
-export function KeyHints({ t, flash, active, video = false }: KeyHintsProps) {
-  const hints = video ? [...HINTS.slice(0, 5), PICTURE_HINT, ...HINTS.slice(5)] : HINTS
+export function KeyHints({ t, flash, active, video = false, compare = false }: KeyHintsProps) {
+  const base = video ? [...HINTS.slice(0, 5), PICTURE_HINT, ...HINTS.slice(5)] : HINTS
+  const hints = compare ? [...base, COMPARE_HINT] : base
   return (
     <div className={`dsh-lingualab-keyhints${active ? '' : ' is-idle'}`}>
       {hints.map((hint) => (

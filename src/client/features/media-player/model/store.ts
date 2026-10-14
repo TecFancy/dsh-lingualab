@@ -30,12 +30,20 @@
  * A pause is a state, not a timer: the store records which sentence it belongs to and when it ends,
  * the media binding owns the timeout, and anything the reader does (play or pause, a step, a seek,
  * a loop) drops the pause and starts the sentence's count again, so no stray timeout acts later.
+ *
+ * **Recording and comparing.** With the microphone on, a speaking pause is recorded (the hook in `useTakes` owns the
+ * recorder; `capturing` says one is live) and when the pause ends the program hands over to a comparison: the
+ * sentence once more through the source, then the take through the shared take audio element while the source waits
+ * at the sentence's start. `compare` is that step, and it is part of the program like a pause is: `IDLE_PROGRAM`
+ * drops it, which stops the take, so the 对比 key and every other way of moving playback end it cleanly. The takes
+ * are the last recording of each sentence, in memory only, dropped (and their URLs revoked) with the cue list.
  */
 import { create } from 'zustand'
 import { findActiveCue, type Cue } from '../../../entities/cue/index.ts'
 import { loopWindow, planLoop, stepCueIndex, type LoopMode } from '../lib/loop.ts'
 import {
   DEFAULT_SHADOW,
+  mergeShadow,
   parseShadowSettings,
   planShadow,
   shadowPauseMs,
@@ -43,6 +51,8 @@ import {
   type ShadowPlan,
   type ShadowSettings,
 } from '../lib/shadow.ts'
+import { probeMic, type MicFailure } from '../lib/recorder.ts'
+import { NO_TAKES, allTakes, putTake, revokeTake, type MicNotice, type Take, type Takes } from '../lib/take.ts'
 
 /** Ten steps, all of them pitch-preserving. Ported from the repealed repeater app. */
 export const SPEED_PRESETS: readonly number[] = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.15, 1.25, 1.5, 2]
@@ -88,8 +98,19 @@ export interface ShadowWait {
   readonly until: number
 }
 
-/** No program in progress: the sentence's count starts again and no pause is pending. */
-const IDLE_PROGRAM = { shadowPlayed: 0, shadowWait: null } as const
+/**
+ * The comparison of a sentence with the reader's take: the sentence plays again (`original`), then the take (`take`).
+ * It is made when a recorded speaking pause ends (`program`, which carries on afterwards as the pause would have) or
+ * when the reader asks for it (`stop`, which leaves everything as it was, stopped at the sentence's start).
+ */
+export interface Compare {
+  readonly index: number
+  readonly stage: 'original' | 'take'
+  readonly then: 'program' | 'stop'
+}
+
+/** No program in progress: the sentence's count starts again and no pause or comparison is pending. */
+const IDLE_PROGRAM = { shadowPlayed: 0, shadowWait: null, compare: null } as const
 
 /** How far before a run-up's start a position still counts as the run-up (a seek lands a little early). */
 const RUN_UP_SLACK_S = 0.25
@@ -169,6 +190,16 @@ export interface MediaPlayerState {
   readonly shadowPlayed: number
   /** The pause shadowing is waiting out, or `null`. The media is paused while it runs. */
   readonly shadowWait: ShadowWait | null
+  /** The comparison under way, or `null`. */
+  readonly compare: Compare | null
+  /** The last take of each sentence of the open episode or segment. Memory only. */
+  readonly takes: Takes
+  /** Bumped whenever the takes are dropped, so a recording that finishes afterwards is not filed under the new ones. */
+  readonly takesEpoch: number
+  /** How many recordings have the microphone open or are still finishing; a comparison waits for them. */
+  readonly capturing: number
+  /** Why the microphone, or a take, did not work, until the page has said so. */
+  readonly micNotice: MicNotice | null
 
   reset: (cues: readonly Cue[]) => void
   setPlaying: (playing: boolean) => void
@@ -184,6 +215,22 @@ export interface MediaPlayerState {
   setLeadIn: (seconds: number) => void
   /** Change some of the shadowing settings, and remember them. */
   setShadow: (settings: Partial<ShadowSettings>) => void
+  /** Switch recording on or off. Switching it on asks for the microphone now, and goes off again if it is refused. */
+  setRecord: (on: boolean) => void
+  /** The microphone could not be used: recording switches itself off, and the reason is left for the page to say. */
+  micFailed: (reason: MicFailure) => void
+  /** The page has said why. */
+  clearMicNotice: () => void
+  /** A recording has the microphone open. */
+  captureStarted: () => void
+  /** A recording ended: its take (or `null` when it was too short to keep) for a sentence, from the epoch it began in. */
+  captureFinished: (index: number, take: Take | null, epoch: number) => void
+  /** Let go of every take: the episode or segment they belong to closed. */
+  dropTakes: () => void
+  /** Play the sentence on stage, then the reader's last take of it. Does nothing without a take. */
+  compareTake: () => void
+  /** The take is over (or cannot play): the comparison ends, and the program goes on if it was waiting for it. */
+  endCompare: () => void
   /** The pending pause ran out: carry the program on (called by the media binding's timeout). */
   endShadowWait: () => void
   onTime: (time: number) => void
@@ -241,6 +288,16 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
         })
         return
       }
+      case 'compare':
+        // The sentence again, uncovered: the reader has had their try. The take follows when it ends.
+        state.seekCue(index)
+        set({
+          isPlaying: true,
+          shadowPlayed: played,
+          revealed: index,
+          compare: { index, stage: 'original', then: 'program' },
+        })
+        return
       case 'advance':
         // A step plays the next sentence, covered, because shadowing is on.
         state.stepCue(1)
@@ -249,6 +306,25 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
         set({ isPlaying: false, revealed: index })
         state.seekCue(index)
     }
+  }
+
+  /** Let go of every take, and of any recording that has not finished. */
+  const releaseTakes = (): void => {
+    const state = get()
+    allTakes(state.takes).forEach(revokeTake)
+    set({ takes: NO_TAKES, takesEpoch: state.takesEpoch + 1 })
+  }
+
+  /**
+   * The sentence of a comparison has played to its end: put the source back at the sentence's start, paused, and
+   * let the take play. The program's count is kept, since the jump drops it.
+   */
+  const finishOriginal = (compare: Compare): void => {
+    const state = get()
+    const played = state.shadowPlayed
+    set({ isPlaying: false })
+    state.seekCue(compare.index)
+    set({ shadowPlayed: played, compare: { ...compare, stage: 'take' } })
   }
 
   return {
@@ -276,11 +352,18 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
     shadow: readShadow(),
     shadowPlayed: 0,
     shadowWait: null,
+    compare: null,
+    takes: NO_TAKES,
+    takesEpoch: 0,
+    capturing: 0,
+    micNotice: null,
 
     // A new episode starts with no loop and the default repeat count. The speed is
     // deliberately *not* reset: it is a preference about how the reader listens, not
     // a property of the material, and re-picking it every episode would be noise.
-    reset: (cues) =>
+    reset: (cues) => {
+      // The takes were of another list of sentences: their indexes mean nothing against this one.
+      releaseTakes()
       set((state) => ({
         cues,
         activeIndex: findActiveCue(cues, 0),
@@ -301,7 +384,8 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
         editWindow: null,
         runUp: null,
         ...IDLE_PROGRAM,
-      })),
+      }))
+    },
 
     // Starting to play covers the English again in shadow mode: the reveal belongs to one pass. Playing or
     // stopping from outside the program (a row, a review, going home) also ends any pause it was waiting out.
@@ -317,21 +401,33 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
 
     // The element's nded event: playback stopped because there was nothing left, which is
     // not the same as the reader pressing pause, and the page answers it with a summary.
-    markFinished: () => set((state) => ({ isPlaying: false, finished: true, finishCount: state.finishCount + 1, ...IDLE_PROGRAM })),
+    markFinished: () => {
+      const compare = get().compare
+      // The last sentence's comparison reaches the end of the audio before the clock reports the end of the
+      // sentence: that is the original having played, not the episode being over.
+      if (compare?.stage === 'original') {
+        finishOriginal(compare)
+        return
+      }
+      set((state) => ({ isPlaying: false, finished: true, finishCount: state.finishCount + 1, ...IDLE_PROGRAM }))
+    },
 
     reveal: (index) => set({ revealed: index }),
 
     // A pause belongs to a running program, so the button reads "pause" through it, and pressing it ends
     // the program there: the playhead is already back at the sentence's start, and the next press plays it afresh.
+    // A comparison is the same, except that its first half is playing, and that stops with it.
     toggle: () =>
       set((state) =>
-        state.shadowWait !== null
-          ? IDLE_PROGRAM
-          : {
-              isPlaying: !state.isPlaying,
-              finished: false,
-              revealed: state.isPlaying ? state.revealed : -1,
-            },
+        state.compare !== null
+          ? { isPlaying: false, finished: false, ...IDLE_PROGRAM }
+          : state.shadowWait !== null
+            ? IDLE_PROGRAM
+            : {
+                isPlaying: !state.isPlaying,
+                finished: false,
+                revealed: state.isPlaying ? state.revealed : -1,
+              },
       ),
 
     seek: (time) =>
@@ -402,6 +498,18 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
         }
         set({ runUp: null })
       }
+      const compare = state.compare
+      if (compare !== null) {
+        // A comparison owns the clock: its sentence plays once and the end of it is the only thing that matters,
+        // so no loop wraps and no pause starts under it. The take plays with the source stopped.
+        const cue = cues[compare.index]
+        if (compare.stage === 'original' && state.isPlaying && cue !== undefined && time >= cue.end) {
+          finishOriginal(compare)
+          return
+        }
+        set({ currentTime: time, activeIndex: compare.index })
+        return
+      }
       const heard = state.cues[state.activeIndex]
       if (
         state.pauseAfterSentence &&
@@ -458,13 +566,77 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
     },
 
     setShadow: (settings) => {
-      const shadow = parseShadowSettings({ ...get().shadow, ...settings })
+      const shadow = mergeShadow(get().shadow, settings)
       set({ shadow })
       try {
         globalThis.localStorage.setItem(SHADOW_KEY, JSON.stringify(shadow))
       } catch {
         // As with the lead-in: it still applies, it is just not remembered.
       }
+    },
+
+    setRecord: (on) => {
+      get().setShadow({ record: on })
+      if (!on) return
+      void probeMic().then((result) => {
+        if (!result.ok) get().micFailed(result.reason)
+      })
+    },
+
+    micFailed: (reason) => {
+      // Said once, and only while recording is still what the reader asked for.
+      if (!get().shadow.record) return
+      get().setShadow({ record: false })
+      set({ micNotice: reason })
+    },
+
+    clearMicNotice: () => set({ micNotice: null }),
+
+    captureStarted: () => set((state) => ({ capturing: state.capturing + 1 })),
+
+    captureFinished: (index, take, epoch) => {
+      const state = get()
+      const capturing = Math.max(0, state.capturing - 1)
+      if (take === null) {
+        set({ capturing })
+        return
+      }
+      if (epoch !== state.takesEpoch) {
+        // It was recorded for an episode that has since closed.
+        revokeTake(take)
+        set({ capturing })
+        return
+      }
+      const kept = putTake(state.takes, index, take)
+      kept.stale.forEach(revokeTake)
+      set({ capturing, takes: kept.takes })
+    },
+
+    dropTakes: () => releaseTakes(),
+
+    compareTake: () => {
+      const state = get()
+      const index = state.activeIndex
+      // The timing strip owns the clock while it is open, and a sentence with no take has nothing to compare.
+      if (state.editWindow !== null || state.takes[index] === undefined) return
+      // The jump ends whatever program was running, a pause and its recording included.
+      state.seekCue(index)
+      set({ isPlaying: true, finished: false, revealed: index, compare: { index, stage: 'original', then: 'stop' } })
+    },
+
+    endCompare: () => {
+      const state = get()
+      const compare = state.compare
+      if (compare === null) return
+      set({ compare: null })
+      if (compare.then !== 'program') return
+      // A sentence the reader has since left has nothing to carry on.
+      if (compare.index !== state.activeIndex) {
+        set(IDLE_PROGRAM)
+        return
+      }
+      const last = state.activeIndex >= state.cues.length - 1
+      applyShadow(planShadow({ played: state.shadowPlayed, after: 'speak', settings: state.shadow, last }), state.shadowPlayed)
     },
 
     endShadowWait: () => {
@@ -478,7 +650,9 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
         return
       }
       const last = state.activeIndex >= state.cues.length - 1
-      applyShadow(planShadow({ played: state.shadowPlayed, after: wait.phase, settings: state.shadow, last }), state.shadowPlayed)
+      // A recording of this pause that is open now is the reader's try at the sentence: it is compared first.
+      const compare = wait.phase === 'speak' && state.shadow.record && state.capturing > 0
+      applyShadow(planShadow({ played: state.shadowPlayed, after: wait.phase, settings: state.shadow, last, compare }), state.shadowPlayed)
     },
 
     clearGuard: () => set({ guard: null }),

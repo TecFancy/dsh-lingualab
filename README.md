@@ -128,7 +128,11 @@ and uncovers it at the stop; `R` uncovers it any time. In 「更多」 it become
 one to three times, a speaking pause after every play (as long as the sentence, or one and a half times it, plus a
 second), and the next sentence by itself. With a pause set, the English stays covered until your first try is over,
 and the chip shows 「该你说」 with a fill for the time left; with auto-advance on as well, the page runs without a
-hand on it. Reaching the end shows a summary with the next episode,
+hand on it. Turning on the microphone switch (「录下我说的」) there records each speaking pause: when it ends, the
+sentence plays once more and then your own take, and the 「对比」 button or `D` plays that pair again later. A take is
+kept in memory for the open episode only, and the last one of each sentence: never saved, never sent anywhere, never
+scored. Recording needs an HTTPS page (localhost counts) and a microphone the browser may use; if it cannot, the switch turns
+itself off with a message and the program carries on without it. Reaching the end shows a summary with the next episode,
 and the key caps under the player light up for the key the page just handled. Motion is off under
 the system's reduced-motion setting.
 
