@@ -148,7 +148,8 @@ describe('the large frame', () => {
   it('makes the stage a size container and the frame the biggest box of the video shape that fits, at most 1100px wide', () => {
     expect(rule('.dsh-lingualab-videostage.is-large')).toContain('container-type:size')
     expect(rule('.dsh-lingualab-videostage.is-large')).toContain('flex:1')
-    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('min-height:0')
+    // A floor, not zero: with the timing panel open the frame stays a picture and the column's scroller takes the rest.
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('min-height:160px')
     const frame = rule('.dsh-lingualab-videostage.is-large .dsh-lingualab-picture')
     expect(frame).toContain('aspect-ratio:var(--ll-video-ratio,1.7778)')
     // The old frame filled the stage's height, which is what left the bars; nothing may stretch it again.
@@ -162,9 +163,14 @@ describe('the large frame', () => {
     expect(rule('.dsh-lingualab-videostage.is-shown')).toBe('.dsh-lingualab-videostage.is-shown{padding:20px 12px 0')
     expect(rule('.dsh-lingualab-videostage.is-hidden')).toBe('.dsh-lingualab-videostage.is-hidden{padding:14px 12px 0')
     const base = rule('.dsh-lingualab-picture')
-    expect(base).toContain('width:min(64%,720px)')
+    // 64% of the column and 720px at most, and 42% of the column's height (42vh where container units are unknown); the
+    // responsive rules change the two variables, so the width follows a height cap at 16:9.
+    expect(base).toContain('--ll-pic-w:64%')
+    expect(base).toContain('--ll-pic-h:42vh')
+    expect(base).toContain('width:min(var(--ll-pic-w),720px,calc(var(--ll-pic-h) * 16 / 9))')
     expect(base).toContain('aspect-ratio:16/9')
-    expect(base).toContain('max-height:42vh')
+    expect(base).toContain('max-height:var(--ll-pic-h)')
+    expect(STYLES).toContain('{.dsh-lingualab-picture{--ll-pic-h:42cqh}}')
   })
 
   it('puts the badge, the peek button and the caption on the frame, not on the stage', () => {

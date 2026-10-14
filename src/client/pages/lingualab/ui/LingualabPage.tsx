@@ -1326,65 +1326,67 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                   onExit={endReview}
                 />
               ) : null}
-              <VideoStage
-                t={t}
-                mediaRef={binding.attach}
-                picture={picture}
-                playing={videoPlays}
-                status={video.status}
-                card={card}
-                cardOpen={firstTimeCard.open}
-                hasAudioFile={audioFile !== null}
-                busy={video.busy}
-                eta={video.eta}
-                caption={picture === 'large' && source.picture && revealed === activeIndex && stageLines !== null ? stageLines.english : null}
-                onPeek={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                onPrepare={video.prepare}
-                onCancel={video.cancel}
-                onCardShow={firstTimeCard.show}
-                onCardHide={firstTimeCard.hide}
-                onShowPicture={() => useSettings.getState().setPicture('shown')}
-                local={
-                  hasVideoFile
-                    ? {
-                        name: local.name,
-                        remembered: local.remembered,
-                        canPick: local.canRemember,
-                        onPick: local.pick,
-                        onFile: local.use,
-                        onResume: local.resume,
-                        onForget: local.forget,
-                        onStop: local.stop,
-                      }
-                    : null
-                }
-              />
-              {stageHidden ? null : (
-                <Stage
+              <div className="dsh-lingualab-practice-main">
+                <VideoStage
                   t={t}
-                  cues={cues}
-                  activeIndex={activeIndex}
-                  zhMode={zhMode}
-                  masked={masked}
-                  onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                  onToggleWord={toggleWord}
-                  hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
-                  loading={library.cuesLoading}
-                  hasAudio={hasAudio}
-                  onRetime={() => (timing.session === null ? openTiming() : timing.close())}
-                  retiming={timing.session !== null}
+                  mediaRef={binding.attach}
+                  picture={picture}
+                  playing={videoPlays}
+                  status={video.status}
+                  card={card}
+                  cardOpen={firstTimeCard.open}
+                  hasAudioFile={audioFile !== null}
+                  busy={video.busy}
+                  eta={video.eta}
+                  caption={picture === 'large' && source.picture && revealed === activeIndex && stageLines !== null ? stageLines.english : null}
+                  onPeek={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
+                  onPrepare={video.prepare}
+                  onCancel={video.cancel}
+                  onCardShow={firstTimeCard.show}
+                  onCardHide={firstTimeCard.hide}
+                  onShowPicture={() => useSettings.getState().setPicture('shown')}
+                  local={
+                    hasVideoFile
+                      ? {
+                          name: local.name,
+                          remembered: local.remembered,
+                          canPick: local.canRemember,
+                          onPick: local.pick,
+                          onFile: local.use,
+                          onResume: local.resume,
+                          onForget: local.forget,
+                          onStop: local.stop,
+                        }
+                      : null
+                  }
                 />
-              )}
-              <TimingStrip
-                t={t}
-                editor={timing}
-                blocked={
-                  timingBlocked ??
-                  (timing.session !== null && (timing.session.cue.origin === undefined || library.tracks.english === null)
-                    ? t('timingNoSource')
-                    : null)
-                }
-              />
+                {stageHidden ? null : (
+                  <Stage
+                    t={t}
+                    cues={cues}
+                    activeIndex={activeIndex}
+                    zhMode={zhMode}
+                    masked={masked}
+                    onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
+                    onToggleWord={toggleWord}
+                    hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
+                    loading={library.cuesLoading}
+                    hasAudio={hasAudio}
+                    onRetime={() => (timing.session === null ? openTiming() : timing.close())}
+                    retiming={timing.session !== null}
+                  />
+                )}
+                <TimingStrip
+                  t={t}
+                  editor={timing}
+                  blocked={
+                    timingBlocked ??
+                    (timing.session !== null && (timing.session.cue.origin === undefined || library.tracks.english === null)
+                      ? t('timingNoSource')
+                      : null)
+                  }
+                />
+              </div>
               <div className="dsh-lingualab-deck">
                 <ControlBar
                   ref={controlBar}

@@ -173,9 +173,14 @@ export const STYLES = `
 .dsh-lingualab-link:hover{text-decoration:underline}
 
 /* ── practice: a stage on the left, the transcript on the right ─ */
-.dsh-lingualab-body{flex:1;min-height:0;display:flex}
+.dsh-lingualab-body{flex:1;min-height:0;display:flex;container:ll-body/inline-size}
 .dsh-lingualab-practice{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;
-  padding:0 24px 20px}
+  padding:0 24px 20px;container:ll-practice/size}
+/* Everything above the player card. It is the part that scrolls when the column is too short for the picture, the
+   sentence and the timing panel at once, so the card with the play button never leaves the screen. The side margins give
+   the panel's shadow room inside the scroller. */
+.dsh-lingualab-practice-main{flex:1;min-height:0;display:flex;flex-direction:column;margin:0 -24px;padding:0 24px;
+  overflow-x:hidden;overflow-y:auto}
 .dsh-lingualab-top-heading{display:flex;flex-direction:column;min-width:0;line-height:1.25;padding:0 4px}
 .dsh-lingualab-top-heading .dsh-lingualab-top-title{padding:0}
 .dsh-lingualab-top-sub{font-size:11.5px;color:var(--dsw-alias-label-secondary,#61666b);font-variant-numeric:tabular-nums}
@@ -183,7 +188,7 @@ export const STYLES = `
   font-weight:600;color:var(--dsw-alias-brand-primary,#0f1115);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 12%,transparent)}
 
-.dsh-lingualab-stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+.dsh-lingualab-stage{flex:1 0 auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:14px;padding:20px 12px;text-align:center}
 .dsh-lingualab-stage-meta{display:flex;align-items:center;gap:10px;font-size:12px;
   color:var(--dsw-alias-label-secondary,#61666b);font-variant-numeric:tabular-nums}
@@ -318,8 +323,8 @@ export const STYLES = `
   transition:background var(--ll-fade)}
 .dsh-lingualab-timing-step button:hover{background:var(--ll-hover)}
 .dsh-lingualab-timing-step button+button{border-left:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
-.dsh-lingualab-timing-ghost{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;
-  margin-left:-8px;border:0;border-radius:6px;background:none;cursor:pointer;font:inherit;font-size:12px;
+.dsh-lingualab-timing-ghost{--ll-ghost-pad:8px;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:26px;
+  padding:0 var(--ll-ghost-pad);margin-left:calc(var(--ll-ghost-pad) * -1);border:0;border-radius:6px;background:none;cursor:pointer;font:inherit;font-size:12px;
   color:var(--dsw-alias-label-secondary,#61666b);transition:background var(--ll-fade),color var(--ll-fade)}
 .dsh-lingualab-timing-ghost:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-page .dsh-lingualab-timing-ghost kbd{height:16px;min-width:16px;padding:0 4px;font-size:11px;font-weight:500;
@@ -707,12 +712,6 @@ export const STYLES = `
   transition:background var(--ll-fade)}
 .dsh-lingualab-toast-undo:hover{background:color-mix(in srgb,var(--dsw-alias-bg-base,#fff) 16%,transparent)}
 @keyframes ll-toast-in{from{transform:translate(-50%,8px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
-@media (max-width:860px){
-  .dsh-lingualab-transcript{width:260px}
-  .dsh-lingualab-grades .dsh-lingualab-grade-btn kbd{display:none}
-  .dsh-lingualab-transport-row{grid-template-columns:1fr;justify-items:center}
-  .dsh-lingualab-transport-side.is-end{justify-content:center}
-}
 /* ── layers: browse, media folder, steps ─────────────────────── */
 .dsh-lingualab-mask{position:absolute;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;
   padding:44px 24px;background:var(--ll-mask)}
@@ -933,9 +932,13 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-videostage.is-empty{display:none}
 .dsh-lingualab-videostage.is-shown{padding:20px 12px 0}
 .dsh-lingualab-videostage.is-hidden{padding:14px 12px 0}
-.dsh-lingualab-videostage.is-large{flex:1;min-height:0;padding:16px 0 8px;justify-content:center;container-type:size}
-.dsh-lingualab-picture{position:relative;flex:none;box-sizing:border-box;width:min(64%,720px);min-width:min(100%,300px);
-  aspect-ratio:16/9;max-height:42vh;border-radius:12px;overflow:hidden;background:#0e100f}
+.dsh-lingualab-videostage.is-large{flex:1;min-height:160px;padding:16px 0 8px;justify-content:center;container-type:size}
+/* The picture's width is the smallest of its share of the column, 720px and what its height cap allows at 16:9, so a cap
+   makes it smaller and keeps its shape. The cap and the share are variables for the responsive rules at the end. */
+.dsh-lingualab-picture{--ll-pic-w:64%;--ll-pic-h:42vh;position:relative;flex:none;box-sizing:border-box;
+  width:min(var(--ll-pic-w),720px,calc(var(--ll-pic-h) * 16 / 9));min-width:min(100%,300px);
+  aspect-ratio:16/9;max-height:var(--ll-pic-h);border-radius:12px;overflow:hidden;background:#0e100f}
+@supports (height:1cqh){.dsh-lingualab-picture{--ll-pic-h:42cqh}}
 .dsh-lingualab-picture.is-off{display:none}
 /* Large: the frame hugs the picture. The stage is a size container, so the frame can be the biggest box of the video's own
    shape that fits in it (at most 1100px wide, centred): the width is the smallest of the stage's width, 1100px and its
@@ -998,9 +1001,10 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-smooth-pill .dsh-lingualab-smooth-text:first-child{padding-left:10px}
 .dsh-lingualab-smooth-problem{max-width:100%;padding:2px 8px;border-radius:6px;font-size:11.5px;color:#fff;background:rgba(160,20,20,0.72)}
 .dsh-lingualab-smoothoffer{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:2px}
-.dsh-lingualab-videocard{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;width:min(64%,720px);
+.dsh-lingualab-videocard{--ll-pic-w:64%;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;width:min(var(--ll-pic-w),720px);
   min-width:min(100%,300px);min-height:min(342px,42vh);padding:18px;border-radius:12px;text-align:left;
   background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+@supports (height:1cqh){.dsh-lingualab-videocard{min-height:min(342px,42cqh)}}
 .dsh-lingualab-videocard-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:none;
   border-radius:10px;color:var(--dsw-alias-brand-primary,#0f1115);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 12%,transparent)}
@@ -1056,4 +1060,86 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-card{border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));border-radius:12px;
   background:var(--dsw-alias-bg-layer-1,transparent);padding:12px 14px}
 .dsh-lingualab-counter{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);font-variant-numeric:tabular-nums}
+
+/* ── responsive: the size of the room, not of the window ─────────────────────────────────────────
+   The host's sidebar takes 56px or 280px, and the transcript takes a third of what is left, so the window's width says
+   little about the room the practice column has (an iPad in landscape with the sidebar open gives it 440 to 630px, and a
+   desktop window at 1440 gives it about 765). The column is a size container (ll-practice, and ll-body for the row the
+   transcript shares with it), and every rule about what is in it asks the column. A size query measures the content box,
+   which is the column less its 24px side padding and 20px bottom padding, and the thresholds below are in those terms.
+   They come from measuring the column at iPad sizes (379 to 582 wide, 631 to 1111 tall) and a desktop (717 by 831);
+   none of them applies at the desktop size while the timing panel is closed. These rules override the ones above at the
+   same specificity, so they stay last. */
+
+/* A narrow row: the transcript gives back some width, and the grade buttons drop their key caps. */
+@container ll-body (max-width:820px){
+  .dsh-lingualab-transcript{width:260px}
+  .dsh-lingualab-grades .dsh-lingualab-grade-btn kbd{display:none}
+}
+
+/* Narrow column (600px and less): the picture and the cards use the whole column, and the pills on the picture may wrap,
+   because a tooltip does not exist on a touch screen and a cut-off word cannot be read. */
+@container ll-practice (max-width:600px){
+  .dsh-lingualab-picture,.dsh-lingualab-videocard{--ll-pic-w:100%}
+  .dsh-lingualab-smooth-pill{height:auto;min-height:26px;flex-wrap:wrap;border-radius:13px}
+  .dsh-lingualab-smooth-text{white-space:normal;overflow:visible;padding:3px 10px 3px 4px}
+  /* The player card's row: the sentence buttons first, then every other button in one centred, wrapping flow, instead of
+     three columns of 160px that wrap into four lines each. */
+  .dsh-lingualab-transport-row{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 6px}
+  .dsh-lingualab-transport-side{display:contents}
+  .dsh-lingualab-transport-main{order:-1;flex:0 0 100%;justify-content:center}
+}
+
+/* The two edge cards of the timing panel stack below 520px, where a card has less than the 226px its value and its step
+   buttons need. A stacked card keeps its three parts in two rows: the label, then the value, the step buttons and the
+   playhead button side by side, and below 440px (where they no longer fit) the playhead button takes a row of its own. */
+@container ll-practice (max-width:520px){
+  .dsh-lingualab-timing-edges{grid-template-columns:1fr}
+  .dsh-lingualab-timing-edge{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 8px}
+  .dsh-lingualab-timing-edge-head{grid-column:1/-1}
+  .dsh-lingualab-timing-ghost{margin-left:0}
+}
+@container ll-practice (max-width:440px){
+  .dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start;margin-left:calc(var(--ll-ghost-pad) * -1)}
+  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-videostage.is-shown{display:none}
+}
+
+/* Short column (700px and less, the iPad in landscape): the lines either side of the sentence go first, then the
+   picture's height cap drops from 42% of the column to 30%, the stage and the timing panel give up some padding, and the
+   timing panel's mini timeline (the one part of it that is only to look at) goes. */
+@container ll-practice (max-height:700px){
+  .dsh-lingualab-stage-side{display:none}
+  .dsh-lingualab-picture{--ll-pic-h:30cqh}
+  .dsh-lingualab-videocard{min-height:0}
+  .dsh-lingualab-stage{padding-block:12px}
+  .dsh-lingualab-timing{gap:8px;padding:10px 14px 8px}
+  .dsh-lingualab-timing-line{display:none}
+}
+
+/* While the timing panel is open (310 to 400px tall, with the player card's 170 to 260 under it) the neighbouring lines
+   go, and in a column shorter than 1000px a shown picture steps aside: it keeps playing, only the picture is not drawn.
+   Taller, it fits as a strip, the column's height less 880px. A large picture is the whole stage and keeps its place; the
+   scroller takes whatever still does not fit. */
+.dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-stage-side{display:none}
+@container ll-practice (max-height:1000px){
+  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-videostage.is-shown{display:none}
+}
+@container ll-practice (min-height:1001px){
+  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-picture{--ll-pic-h:calc(100cqh - 880px)}
+}
+
+/* A touch screen: no keyboard to describe, and fingers need 44px. The small pills on the picture keep their look and get a
+   hit area of 44px by an invisible margin around them. */
+@media (hover:none) and (pointer:coarse){
+  .dsh-lingualab-page kbd,.dsh-lingualab-keyhints,.dsh-lingualab-timing-hints,.dsh-lingualab-timing-keys,
+  .dsh-lingualab-menu-keys,.dsh-lingualab-editor-hint,.dsh-lingualab-keys{display:none}
+  .dsh-lingualab-timing-step button{width:44px;height:44px}
+  .dsh-lingualab-timing-ghost{--ll-ghost-pad:12px;height:44px}
+  .dsh-lingualab-timing-foot .dsh-lingualab-btn{height:44px}
+  .dsh-lingualab-videocard .dsh-lingualab-btn{min-height:44px}
+  .dsh-lingualab-videochip.is-button,.dsh-lingualab-stage-time,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn{position:relative}
+  .dsh-lingualab-picture-local-btn::after,.dsh-lingualab-picture-peek::after,.dsh-lingualab-videochip.is-button::after,
+  .dsh-lingualab-stage-time::after,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn::after{content:'';position:absolute;
+    inset:-9px -4px}
+}
 `
