@@ -208,6 +208,8 @@ export const STYLES = `
 .dsh-lingualab-stage-en{--ll-word-tint:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 14%,transparent)}
 .dsh-lingualab-stage-en .is-word{cursor:pointer;border-radius:.18em;
   transition:background var(--ll-fade),color var(--ll-fade),box-shadow var(--ll-fade),border-radius var(--ll-fade)}
+/* A finger drags across the words to pick a phrase, so the block must not scroll or select under it. touch-action does not apply to the non-replaced inline words, so it is set on this block. */
+.dsh-lingualab-stage-en:not(.is-masked){touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 /* The gaps of a picked phrase carry no class until the phrase is picked, so the fade is set on
    every plain span of the sentence: the band fades out with its words instead of snapping off. */
 .dsh-lingualab-stage-en>span{transition:background var(--ll-fade)}
