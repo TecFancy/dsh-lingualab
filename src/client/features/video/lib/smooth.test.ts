@@ -49,12 +49,12 @@ describe('smoothControlOf', () => {
 
 describe('estimateText', () => {
   it('words the size and the time, in whole minutes', () => {
-    expect(estimateText(330_000_000, 920, '315 MB')).toEqual({ key: 'smoothEstimate', params: { size: '315 MB', minutes: 16 } })
+    expect(estimateText(330_000_000, 920, '315 MB')).toEqual({ key: 'smoothEstimate', titleKey: 'smoothEstimateTitle', params: { size: '315 MB', minutes: 16 } })
   })
 
   it('says "under a minute" for a short video, and gives the size alone when the length is unknown', () => {
-    expect(estimateText(1_000_000, 30, '1 MB')).toEqual({ key: 'smoothEstimateShort', params: { size: '1 MB' } })
-    expect(estimateText(1_000_000, null, '1 MB')).toEqual({ key: 'smoothEstimateSize', params: { size: '1 MB' } })
+    expect(estimateText(1_000_000, 30, '1 MB')).toEqual({ key: 'smoothEstimateShort', titleKey: 'smoothEstimateShortTitle', params: { size: '1 MB' } })
+    expect(estimateText(1_000_000, null, '1 MB')).toEqual({ key: 'smoothEstimateSize', titleKey: 'smoothEstimateSizeTitle', params: { size: '1 MB' } })
   })
 
   it('has nothing to say without a size', () => {
