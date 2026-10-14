@@ -393,6 +393,9 @@ export const STYLES = `
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 18%,transparent);
   animation:ll-wait-fill linear forwards}
 @keyframes ll-wait-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* While the microphone is recording the chip carries a small pulsing dot, so the reader can see it is listening. */
+.dsh-lingualab-bar-btn.is-recording::before{content:'';position:relative;flex:none;width:7px;height:7px;border-radius:999px;
+  background:var(--dsw-alias-state-error-primary,#ec1313);animation:ll-pulse 1.6s ease-in-out infinite}
 .dsh-lingualab-time{flex:none;min-width:40px;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);
   font-variant-numeric:tabular-nums}
 .dsh-lingualab-time:last-child{text-align:right}
@@ -478,6 +481,7 @@ export const STYLES = `
   outline:2px solid var(--dsw-alias-brand-primary,#0f1115);outline-offset:2px}
 /* A switch that is a row of the 「更多」 menu keeps the row's width and type size, its name on the left. */
 .dsh-lingualab-menu-row.dsh-lingualab-switch{display:flex;font-size:13px;color:inherit}
+.dsh-lingualab-switch input:disabled + .dsh-lingualab-switch-track{opacity:0.4}
 .dsh-lingualab-list{position:relative;flex:1;min-width:0;min-height:0;overflow:auto;padding:8px}
 .dsh-lingualab-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:start;
   padding:9px 10px;margin-bottom:2px;cursor:pointer;border-radius:10px;transition:background var(--ll-fade),box-shadow var(--ll-fade)}

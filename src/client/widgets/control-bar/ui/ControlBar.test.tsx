@@ -48,4 +48,13 @@ describe('the player card row', () => {
     expect(shadowChipKey({ index: 0, phase: 'speak', ms: 2500, until: 1 })).toBe('shadowSpeak')
     expect(shadowChipKey({ index: 0, phase: 'look', ms: 2500, until: 1 })).toBe('shadowLook')
   })
+
+  it('says it is comparing while the sentence and then the take play, over any pause', () => {
+    expect(shadowChipKey(null, { index: 0, stage: 'original', then: 'program' })).toBe('shadowCompare')
+    expect(shadowChipKey(null, { index: 0, stage: 'take', then: 'stop' })).toBe('shadowCompare')
+  })
+
+  it('has no comparison button until recording is on or a take exists', () => {
+    expect(html()).not.toContain('>compare<')
+  })
 })

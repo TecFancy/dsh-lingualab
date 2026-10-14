@@ -11,7 +11,9 @@
  *
  * The modes are chips, not form controls: a chip says its state by being outlined,
  * which a `<select>` cannot do. While shadowing waits out a speaking pause, its chip says whose turn it
- * is and fills as the pause runs, and the play button reads "pause": the program is still running.
+ * is and fills as the pause runs, and the play button reads "pause": the program is still running. With the
+ * microphone on the chip carries a red dot while it records, and says 「对比」 while the sentence and then the
+ * reader's take play; a 「对比」 button beside it plays that pair again for the sentence on stage.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -20,7 +22,9 @@ import {
   SHADOW_PAUSES,
   SHADOW_PLAYS,
   SPEED_PRESETS,
+  canRecord,
   useMediaPlayer,
+  type Compare,
   type ShadowPause,
   type ShadowPlays,
   type ShadowWait,
@@ -58,6 +62,7 @@ const SHORTCUTS: readonly (readonly [string, string])[] = [
   ['N', 'keyColumn'],
   ['C', 'keyChinese'],
   ['R', 'keyReveal'],
+  ['D', 'keyCompare'],
   ['V', 'keyPicture'],
   ['[  ]', 'keySpeed'],
   ['A  B', 'keyMarks'],
@@ -134,7 +139,12 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   const leadIn = useMediaPlayer((state) => state.leadIn)
   const program = useMediaPlayer((state) => state.shadow)
   const wait = useMediaPlayer((state) => state.shadowWait)
-  const running = isPlaying || wait !== null
+  const comparing = useMediaPlayer((state) => state.compare)
+  const capturing = useMediaPlayer((state) => state.capturing > 0)
+  const hasTake = useMediaPlayer((state) => state.takes[state.activeIndex] !== undefined)
+  const running = isPlaying || wait !== null || comparing !== null
+  // The switch is off-limits only where recording cannot work; a refusal is found out when it is turned on.
+  const micSupported = canRecord()
 
   const [menu, setMenu] = useState(false)
   const holder = useRef<HTMLSpanElement>(null)
@@ -211,7 +221,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           </button>
           <button
             type="button"
-            className={`dsh-lingualab-bar-btn is-shadow${shadow ? ' is-on' : ''}${wait !== null ? ' is-waiting' : ''}`}
+            className={`dsh-lingualab-bar-btn is-shadow${shadow ? ' is-on' : ''}${wait !== null ? ' is-waiting' : ''}${capturing ? ' is-recording' : ''}`}
             onClick={() => store().setPauseAfterSentence(!shadow)}
             disabled={disabled}
             title={t('shadowHint')}
@@ -221,8 +231,19 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
               // Keyed on the pause, so the fill starts again for the next one.
               <span key={wait.until} className="dsh-lingualab-wait-fill" style={{ animationDuration: `${String(wait.ms)}ms` }} aria-hidden />
             )}
-            <MicIcon /> {t(shadowChipKey(wait))}
+            <MicIcon /> {t(shadowChipKey(wait, comparing))}
           </button>
+          {(shadow && program.record) || hasTake ? (
+            <button
+              type="button"
+              className="dsh-lingualab-bar-btn"
+              onClick={() => store().compareTake()}
+              disabled={disabled || !hasTake}
+              title={hasTake ? t('compareHint') : t('compareNone')}
+            >
+              {t('compare')}
+            </button>
+          ) : null}
         </div>
 
         <div className="dsh-lingualab-transport-main">
@@ -424,6 +445,22 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
                     <span className="dsh-lingualab-switch-knob" />
                   </span>
                 </label>
+                <label
+                  className="dsh-lingualab-menu-row dsh-lingualab-switch"
+                  title={micSupported ? t('shadowRecordHint') : t('micUnsupported')}
+                >
+                  <span>{t('shadowRecord')}</span>
+                  <input
+                    type="checkbox"
+                    className="dsh-lingualab-visually-hidden"
+                    checked={program.record}
+                    disabled={!micSupported && !program.record}
+                    onChange={(event) => store().setRecord(event.target.checked)}
+                  />
+                  <span className="dsh-lingualab-switch-track" aria-hidden>
+                    <span className="dsh-lingualab-switch-knob" />
+                  </span>
+                </label>
               </>
             ) : null}
             <label className="dsh-lingualab-menu-row" title={t('leadInHint')}>
@@ -467,8 +504,9 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   )
 })
 
-/** What shadowing's chip says: its name, or whose turn the pause it is waiting out gives. */
-export function shadowChipKey(wait: ShadowWait | null): string {
+/** What shadowing's chip says: its name, whose turn the pause it is waiting out gives, or that it is comparing. */
+export function shadowChipKey(wait: ShadowWait | null, comparing: Compare | null = null): string {
+  if (comparing !== null) return 'shadowCompare'
   if (wait === null) return 'shadowShort'
   return wait.phase === 'speak' ? 'shadowSpeak' : 'shadowLook'
 }
