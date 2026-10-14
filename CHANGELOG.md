@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-14
+
 ### Fixed
 
 - The practice view no longer breaks on an iPad. It used to ask the window's width, but the host's sidebar and the
