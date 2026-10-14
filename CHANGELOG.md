@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.7] - 2026-10-14
+
 ### Fixed
 
 - The card that stands in for a picture (prepare the video, preparing, ffmpeg missing, only the sound, cannot play, failed) no
