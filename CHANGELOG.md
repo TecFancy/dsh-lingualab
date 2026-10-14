@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-10-14
+
 ### Changed
 
 - Adjusting a sentence's timing is now a mode of the practice view (the page sets `is-timing` on the practice column
