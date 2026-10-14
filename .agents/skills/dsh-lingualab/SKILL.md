@@ -191,7 +191,9 @@ node scripts/verify.mjs --list   # 看检查表
   与 AGENTS.md，稿里是写死的色值和 Inter，落地只用宿主 token。
 - **练习页的几个行为各有出处，别拆**：进度条（`Scrubber`）拖动期间只在松手时 seek 一次；
   跟读模式（store 的 `pauseAfterSentence` 与 `revealed`）在 `onTime` 里判断，只对刚播完的那一句生效，
-  有循环时让循环管结尾；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），拖选或 `Shift` 点选的词组
+  有循环时让循环管结尾；播完之后做什么交给纯函数 `planShadow`（`features/media-player/lib/shadow.ts`），复述停顿是
+  store 里的 `shadowWait` 状态，计时器在 `useMediaBinding` 里，读者的任何操作（`toggle`、`seek`、切句、循环、`setPlaying`）
+  都经 `IDLE_PROGRAM` 清掉它，新增会动播放的入口时也要清，否则过期的停顿会在别处接着放；点词气泡把词写进备注的 `[word]`（`features/notes/lib/words.ts`），拖选或 `Shift` 点选的词组
   也是一个 `[her skirt]`，再点「已记下」就去掉，不新增笔记字段；复习（`features/review`）是练习页的一种模式，
   英文用跟读的同一套遮挡，复习期间不写听到哪里；
   听完小结靠 store 的 `finishCount`，卡片按次数关闭，不按剧集。`reset` **不能**清掉 `duration`，字幕

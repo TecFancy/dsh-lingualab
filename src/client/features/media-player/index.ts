@@ -7,6 +7,8 @@ export {
   useMediaPlayer,
   type EditWindow,
   type MediaPlayerState,
+  type ShadowWait,
 } from './model/store.ts'
 export { useMediaBinding, type MediaBinding } from './lib/useMediaBinding.ts'
 export { loopWindow, planLoop, stepCueIndex, type LoopDecision, type LoopMode } from './lib/loop.ts'
+export { SHADOW_PAUSES, SHADOW_PLAYS, type ShadowPause, type ShadowPlays, type ShadowSettings } from './lib/shadow.ts'

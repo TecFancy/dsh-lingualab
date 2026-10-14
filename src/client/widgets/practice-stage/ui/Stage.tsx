@@ -15,9 +15,10 @@
  *     `[her skirt]`. Once kept, the popover's 「已记下」 takes it out again. The drag runs on
  *     pointer events, since a finger on iOS sends no mouse events while it moves (see
  *     `../lib/word-drag.ts`).
- *   · **Shadowing hides the English.** While the pause-after-sentence mode is on, the
- *     line is blurred until the sentence has ended (or you press R), so the first thing
- *     you do is say it from what you heard, and the text is the answer key.
+ *   · **Shadowing hides the English.** While shadowing is on, the line is blurred until
+ *     the program uncovers it (at the stop, or after the first speaking pause when one is
+ *     set) or you press R, so the first thing you do is say it from what you heard, and the
+ *     text is the answer key.
  *   · **Nothing is a blank.** No subtitles, no audio, the opening before the first sentence
  *     and "finished" each get a message that says what to do next, because an empty stage
  *     looks like a crash.

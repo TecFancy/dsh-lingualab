@@ -24,10 +24,25 @@
  * that one active until the start is reached: otherwise the previous sentence
  * would be the one looped, or the one shadowing pauses after. A seek to a plain
  * time (the scrubber, a bookmark) and the timing strip never get a lead-in.
+ *
+ * **The shadowing program.** With shadowing on and no loop, the end of a sentence is handed to
+ * {@link planShadow}: play it again, wait out a speaking pause, go on to the next one, or stop.
+ * A pause is a state, not a timer: the store records which sentence it belongs to and when it ends,
+ * the media binding owns the timeout, and anything the reader does (play or pause, a step, a seek,
+ * a loop) drops the pause and starts the sentence's count again, so no stray timeout acts later.
  */
 import { create } from 'zustand'
 import { findActiveCue, type Cue } from '../../../entities/cue/index.ts'
 import { loopWindow, planLoop, stepCueIndex, type LoopMode } from '../lib/loop.ts'
+import {
+  DEFAULT_SHADOW,
+  parseShadowSettings,
+  planShadow,
+  shadowPauseMs,
+  type ShadowPhase,
+  type ShadowPlan,
+  type ShadowSettings,
+} from '../lib/shadow.ts'
 
 /** Ten steps, all of them pitch-preserving. Ported from the repealed repeater app. */
 export const SPEED_PRESETS: readonly number[] = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.15, 1.25, 1.5, 2]
@@ -49,6 +64,32 @@ export const LEAD_IN_CHOICES: readonly number[] = [0, 0.1, 0.2, 0.3, 0.5]
 
 /** Where the chosen lead-in is remembered, per browser. */
 const LEAD_IN_KEY = 'dsh-lingualab:lead-in'
+
+/** Where the shadowing settings are remembered, per browser. */
+const SHADOW_KEY = 'dsh-lingualab:shadow'
+
+/** The shadowing settings this browser chose last, or the defaults. */
+function readShadow(): ShadowSettings {
+  try {
+    const stored = globalThis.localStorage.getItem(SHADOW_KEY)
+    return stored === null ? DEFAULT_SHADOW : parseShadowSettings(JSON.parse(stored))
+  } catch {
+    return DEFAULT_SHADOW
+  }
+}
+
+/** A speaking pause (or the look after it) that shadowing is waiting out. */
+export interface ShadowWait {
+  /** The sentence it belongs to. */
+  readonly index: number
+  readonly phase: ShadowPhase
+  /** How long it lasts, and when it ends (`Date.now()` milliseconds). */
+  readonly ms: number
+  readonly until: number
+}
+
+/** No program in progress: the sentence's count starts again and no pause is pending. */
+const IDLE_PROGRAM = { shadowPlayed: 0, shadowWait: null } as const
 
 /** How far before a run-up's start a position still counts as the run-up (a seek lands a little early). */
 const RUN_UP_SLACK_S = 0.25
@@ -122,6 +163,12 @@ export interface MediaPlayerState {
   readonly leadIn: number
   /** The sentence the playhead is running up to through a lead-in, or `null`. */
   readonly runUp: RunUp | null
+  /** How shadowing runs: plays per sentence, the speaking pause, auto-advance. Remembered per browser. */
+  readonly shadow: ShadowSettings
+  /** Plays of the active sentence the shadowing program has finished. */
+  readonly shadowPlayed: number
+  /** The pause shadowing is waiting out, or `null`. The media is paused while it runs. */
+  readonly shadowWait: ShadowWait | null
 
   reset: (cues: readonly Cue[]) => void
   setPlaying: (playing: boolean) => void
@@ -135,6 +182,10 @@ export interface MediaPlayerState {
   /** Jump to a time that is a sentence's start as a sentence (with the lead-in), or as a plain time when it is not one. */
   seekCueAt: (time: number) => void
   setLeadIn: (seconds: number) => void
+  /** Change some of the shadowing settings, and remember them. */
+  setShadow: (settings: Partial<ShadowSettings>) => void
+  /** The pending pause ran out: carry the program on (called by the media binding's timeout). */
+  endShadowWait: () => void
   onTime: (time: number) => void
   clearGuard: () => void
   setDuration: (duration: number) => void
@@ -162,268 +213,345 @@ function clampSpeed(index: number): number {
   return Math.min(SPEED_PRESETS.length - 1, Math.max(0, Math.trunc(index)))
 }
 
-export const useMediaPlayer = create<MediaPlayerState>((set, get) => ({
-  cues: [],
-  activeIndex: -1,
-  isPlaying: false,
-  currentTime: 0,
-  duration: 0,
-  speedIndex: DEFAULT_SPEED_INDEX,
-  loopMode: 'none',
-  repeats: DEFAULT_REPEATS,
-  playsDone: 0,
-  pointA: null,
-  pointB: null,
-  seekRequest: null,
-  seekToken: 0,
-  guard: null,
-  pauseAfterSentence: false,
-  finished: false,
-  finishCount: 0,
-  revealed: -1,
-  editWindow: null,
-  leadIn: readLeadIn(),
-  runUp: null,
-
-  // A new episode starts with no loop and the default repeat count. The speed is
-  // deliberately *not* reset: it is a preference about how the reader listens, not
-  // a property of the material, and re-picking it every episode would be noise.
-  reset: (cues) =>
-    set((state) => ({
-      cues,
-      activeIndex: findActiveCue(cues, 0),
-      isPlaying: false,
-      currentTime: 0,
-      // Not zeroed: the length belongs to the audio source, and the subtitles usually finish
-      // loading after the audio's metadata has already said how long it is.
-      loopMode: 'none',
-      repeats: DEFAULT_REPEATS,
-      playsDone: 0,
-      pointA: null,
-      pointB: null,
-      seekRequest: null,
-      seekToken: state.seekToken + 1,
-      guard: null,
-      finished: false,
-      revealed: -1,
-      editWindow: null,
-      runUp: null,
-    })),
-
-  // Starting to play covers the English again in shadow mode: the reveal belongs to one pass.
-  setPlaying: (playing) =>
-    set((state) => ({
-      isPlaying: playing,
-      finished: playing ? false : state.finished,
-      revealed: playing ? -1 : state.revealed,
-    })),
-
-  setPauseAfterSentence: (on) => set({ pauseAfterSentence: on }),
-
-  // The element's nded event: playback stopped because there was nothing left, which is
-  // not the same as the reader pressing pause, and the page answers it with a summary.
-  markFinished: () => set((state) => ({ isPlaying: false, finished: true, finishCount: state.finishCount + 1 })),
-
-  reveal: (index) => set({ revealed: index }),
-
-  toggle: () =>
-    set((state) => ({
-      isPlaying: !state.isPlaying,
-      finished: false,
-      revealed: state.isPlaying ? state.revealed : -1,
-    })),
-
-  seek: (time) =>
-    set((state) => ({
-      seekRequest: Math.max(0, time),
-      seekToken: state.seekToken + 1,
-      currentTime: Math.max(0, time),
-      activeIndex: state.editWindow?.index ?? findActiveCue(state.cues, time),
-      guard: { target: Math.max(0, time), expiresAt: Date.now() + SEEK_GUARD_MS },
-      finished: false,
-      runUp: null,
-    })),
-
-  seekCue: (index) => {
+export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
+  /**
+   * Carry out one step of the shadowing program on the active sentence.
+   *
+   * @param played Plays of the sentence finished, which a replay and a pause keep counting from.
+   */
+  const applyShadow = (plan: ShadowPlan, played: number): void => {
     const state = get()
+    const index = state.activeIndex
     const cue = state.cues[index]
     if (cue === undefined) return
-    const from = Math.max(0, cue.start - state.leadIn)
-    state.seek(from)
-    if (from < cue.start) set({ activeIndex: state.editWindow?.index ?? index, runUp: { index, at: cue.start } })
-  },
-
-  seekCueAt: (time) => {
-    const state = get()
-    const index = findActiveCue(state.cues, time)
-    const cue = state.cues[index]
-    if (cue !== undefined && Math.abs(cue.start - time) < 0.001) state.seekCue(index)
-    else state.seek(time)
-  },
-
-  setLeadIn: (seconds) => {
-    const leadIn = LEAD_IN_CHOICES.includes(seconds) ? seconds : 0
-    set({ leadIn })
-    try {
-      globalThis.localStorage.setItem(LEAD_IN_KEY, String(leadIn))
-    } catch {
-      // A browser without storage still plays with the lead-in; it is just not remembered.
-    }
-  },
-
-  onTime: (time) => {
-    const { guard, cues } = get()
-    if (guard !== null) {
-      // Every position reported before the seek lands is stale, including one that
-      // happens to sit near the target. Waiting for `seeked` is the only signal
-      // that distinguishes "the element moved" from "the element has not moved yet".
-      if (Date.now() <= guard.expiresAt) return
-      set({ guard: null })
-    }
-
-    const state = get()
-    const edit = state.editWindow
-    if (edit !== null) {
-      if (state.isPlaying && time >= edit.end - 0.01) {
-        get().seek(edit.start)
+    switch (plan.do) {
+      case 'replay':
+        // The jump drops the program's count, so it is put back after it.
+        state.seekCue(index)
+        set({ isPlaying: true, shadowPlayed: played, revealed: plan.reveal ? index : -1 })
+        return
+      case 'wait': {
+        state.seekCue(index)
+        const ms = shadowPauseMs(cue.end - cue.start, currentSpeed(state), state.shadow.pause)
+        set({
+          isPlaying: false,
+          shadowPlayed: played,
+          revealed: plan.reveal ? index : -1,
+          shadowWait: { index, phase: plan.phase, ms, until: Date.now() + ms },
+        })
         return
       }
-      set({ currentTime: time, activeIndex: edit.index })
-      return
+      case 'advance':
+        // A step plays the next sentence, covered, because shadowing is on.
+        state.stepCue(1)
+        return
+      case 'stop':
+        set({ isPlaying: false, revealed: index })
+        state.seekCue(index)
     }
-    const runUp = state.runUp
-    if (runUp !== null) {
-      // Still before the sentence it is running up to: that sentence stays the one playing.
-      if (time < runUp.at && time >= runUp.at - state.leadIn - RUN_UP_SLACK_S) {
-        set({ currentTime: time, activeIndex: runUp.index })
+  }
+
+  return {
+    cues: [],
+    activeIndex: -1,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    speedIndex: DEFAULT_SPEED_INDEX,
+    loopMode: 'none',
+    repeats: DEFAULT_REPEATS,
+    playsDone: 0,
+    pointA: null,
+    pointB: null,
+    seekRequest: null,
+    seekToken: 0,
+    guard: null,
+    pauseAfterSentence: false,
+    finished: false,
+    finishCount: 0,
+    revealed: -1,
+    editWindow: null,
+    leadIn: readLeadIn(),
+    runUp: null,
+    shadow: readShadow(),
+    shadowPlayed: 0,
+    shadowWait: null,
+
+    // A new episode starts with no loop and the default repeat count. The speed is
+    // deliberately *not* reset: it is a preference about how the reader listens, not
+    // a property of the material, and re-picking it every episode would be noise.
+    reset: (cues) =>
+      set((state) => ({
+        cues,
+        activeIndex: findActiveCue(cues, 0),
+        isPlaying: false,
+        currentTime: 0,
+        // Not zeroed: the length belongs to the audio source, and the subtitles usually finish
+        // loading after the audio's metadata has already said how long it is.
+        loopMode: 'none',
+        repeats: DEFAULT_REPEATS,
+        playsDone: 0,
+        pointA: null,
+        pointB: null,
+        seekRequest: null,
+        seekToken: state.seekToken + 1,
+        guard: null,
+        finished: false,
+        revealed: -1,
+        editWindow: null,
+        runUp: null,
+        ...IDLE_PROGRAM,
+      })),
+
+    // Starting to play covers the English again in shadow mode: the reveal belongs to one pass. Playing or
+    // stopping from outside the program (a row, a review, going home) also ends any pause it was waiting out.
+    setPlaying: (playing) =>
+      set((state) => ({
+        isPlaying: playing,
+        finished: playing ? false : state.finished,
+        revealed: playing ? -1 : state.revealed,
+        ...IDLE_PROGRAM,
+      })),
+
+    setPauseAfterSentence: (on) => set({ pauseAfterSentence: on, ...IDLE_PROGRAM }),
+
+    // The element's nded event: playback stopped because there was nothing left, which is
+    // not the same as the reader pressing pause, and the page answers it with a summary.
+    markFinished: () => set((state) => ({ isPlaying: false, finished: true, finishCount: state.finishCount + 1, ...IDLE_PROGRAM })),
+
+    reveal: (index) => set({ revealed: index }),
+
+    // A pause belongs to a running program, so the button reads "pause" through it, and pressing it ends
+    // the program there: the playhead is already back at the sentence's start, and the next press plays it afresh.
+    toggle: () =>
+      set((state) =>
+        state.shadowWait !== null
+          ? IDLE_PROGRAM
+          : {
+              isPlaying: !state.isPlaying,
+              finished: false,
+              revealed: state.isPlaying ? state.revealed : -1,
+            },
+      ),
+
+    seek: (time) =>
+      set((state) => ({
+        seekRequest: Math.max(0, time),
+        seekToken: state.seekToken + 1,
+        currentTime: Math.max(0, time),
+        activeIndex: state.editWindow?.index ?? findActiveCue(state.cues, time),
+        guard: { target: Math.max(0, time), expiresAt: Date.now() + SEEK_GUARD_MS },
+        finished: false,
+        runUp: null,
+        ...IDLE_PROGRAM,
+      })),
+
+    seekCue: (index) => {
+      const state = get()
+      const cue = state.cues[index]
+      if (cue === undefined) return
+      const from = Math.max(0, cue.start - state.leadIn)
+      state.seek(from)
+      if (from < cue.start) set({ activeIndex: state.editWindow?.index ?? index, runUp: { index, at: cue.start } })
+    },
+
+    seekCueAt: (time) => {
+      const state = get()
+      const index = findActiveCue(state.cues, time)
+      const cue = state.cues[index]
+      if (cue !== undefined && Math.abs(cue.start - time) < 0.001) state.seekCue(index)
+      else state.seek(time)
+    },
+
+    setLeadIn: (seconds) => {
+      const leadIn = LEAD_IN_CHOICES.includes(seconds) ? seconds : 0
+      set({ leadIn })
+      try {
+        globalThis.localStorage.setItem(LEAD_IN_KEY, String(leadIn))
+      } catch {
+        // A browser without storage still plays with the lead-in; it is just not remembered.
+      }
+    },
+
+    onTime: (time) => {
+      const { guard, cues } = get()
+      if (guard !== null) {
+        // Every position reported before the seek lands is stale, including one that
+        // happens to sit near the target. Waiting for `seeked` is the only signal
+        // that distinguishes "the element moved" from "the element has not moved yet".
+        if (Date.now() <= guard.expiresAt) return
+        set({ guard: null })
+      }
+
+      const state = get()
+      const edit = state.editWindow
+      if (edit !== null) {
+        if (state.isPlaying && time >= edit.end - 0.01) {
+          get().seek(edit.start)
+          return
+        }
+        set({ currentTime: time, activeIndex: edit.index })
         return
       }
-      set({ runUp: null })
-    }
-    const heard = state.cues[state.activeIndex]
-    if (
-      state.pauseAfterSentence &&
-      state.loopMode === 'none' &&
-      state.isPlaying &&
-      heard !== undefined &&
-      time >= heard.end &&
-      // Only the sentence ending under the playhead. A reader who seeks into the silence
-      // after a sentence is not asking to be stopped for a sentence they skipped.
-      time < heard.end + SHADOW_WINDOW_S
-    ) {
-      // Judged on the sentence that was playing at the previous tick, not the one the
-      // position now falls in: a tick can land just inside the next sentence, and its
-      // start must not be what the reader hears first when they press play again.
-      // The sentence is over, so the English it hid is uncovered for the self-check.
-      set({ isPlaying: false, revealed: state.activeIndex })
-      get().seekCue(state.activeIndex)
-      return
-    }
-    const decision = planLoop({
-      time,
-      mode: state.loopMode,
-      cueStart: state.cues[state.activeIndex]?.start ?? null,
-      cueEnd: state.cues[state.activeIndex]?.end ?? null,
-      pointA: state.pointA,
-      pointB: state.pointB,
-      repeats: state.repeats,
-      playsDone: state.playsDone,
-    })
-
-    if (decision.stop) {
-      // Leave the playhead at the start of what was repeated rather than just past
-      // its end: pressing play again would otherwise re-trigger the same stop on
-      // the next tick and the button would look broken.
-      const window = loopWindow({
+      const runUp = state.runUp
+      if (runUp !== null) {
+        // Still before the sentence it is running up to: that sentence stays the one playing.
+        if (time < runUp.at && time >= runUp.at - state.leadIn - RUN_UP_SLACK_S) {
+          set({ currentTime: time, activeIndex: runUp.index })
+          return
+        }
+        set({ runUp: null })
+      }
+      const heard = state.cues[state.activeIndex]
+      if (
+        state.pauseAfterSentence &&
+        state.loopMode === 'none' &&
+        state.isPlaying &&
+        heard !== undefined &&
+        time >= heard.end &&
+        // Only the sentence ending under the playhead. A reader who seeks into the silence
+        // after a sentence is not asking to be stopped for a sentence they skipped.
+        time < heard.end + SHADOW_WINDOW_S
+      ) {
+        // Judged on the sentence that was playing at the previous tick, not the one the
+        // position now falls in: a tick can land just inside the next sentence, and its
+        // start must not be what the reader hears first when they press play again.
+        const played = state.shadowPlayed + 1
+        applyShadow(planShadow({ played, after: null, settings: state.shadow, last: state.activeIndex >= cues.length - 1 }), played)
+        return
+      }
+      const decision = planLoop({
+        time,
         mode: state.loopMode,
         cueStart: state.cues[state.activeIndex]?.start ?? null,
         cueEnd: state.cues[state.activeIndex]?.end ?? null,
         pointA: state.pointA,
         pointB: state.pointB,
+        repeats: state.repeats,
+        playsDone: state.playsDone,
       })
-      set({ isPlaying: false, playsDone: decision.playsDone })
-      if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
-      else if (window !== null) get().seek(window.start)
-      return
-    }
-    if (decision.seekTo !== null) {
-      // A sentence loop wraps to the sentence, lead-in and all; an A-B loop to its exact mark.
-      if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
-      else get().seek(decision.seekTo)
-      set({ playsDone: decision.playsDone })
-      return
-    }
-    set({ currentTime: time, activeIndex: findActiveCue(cues, time) })
-  },
 
-  clearGuard: () => set({ guard: null }),
+      if (decision.stop) {
+        // Leave the playhead at the start of what was repeated rather than just past
+        // its end: pressing play again would otherwise re-trigger the same stop on
+        // the next tick and the button would look broken.
+        const window = loopWindow({
+          mode: state.loopMode,
+          cueStart: state.cues[state.activeIndex]?.start ?? null,
+          cueEnd: state.cues[state.activeIndex]?.end ?? null,
+          pointA: state.pointA,
+          pointB: state.pointB,
+        })
+        set({ isPlaying: false, playsDone: decision.playsDone })
+        if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
+        else if (window !== null) get().seek(window.start)
+        return
+      }
+      if (decision.seekTo !== null) {
+        // A sentence loop wraps to the sentence, lead-in and all; an A-B loop to its exact mark.
+        if (state.loopMode === 'sentence') get().seekCue(state.activeIndex)
+        else get().seek(decision.seekTo)
+        set({ playsDone: decision.playsDone })
+        return
+      }
+      set({ currentTime: time, activeIndex: findActiveCue(cues, time) })
+    },
 
-  setDuration: (duration) => set({ duration: Number.isFinite(duration) ? duration : 0 }),
+    setShadow: (settings) => {
+      const shadow = parseShadowSettings({ ...get().shadow, ...settings })
+      set({ shadow })
+      try {
+        globalThis.localStorage.setItem(SHADOW_KEY, JSON.stringify(shadow))
+      } catch {
+        // As with the lead-in: it still applies, it is just not remembered.
+      }
+    },
 
-  setSpeedIndex: (index) => set({ speedIndex: clampSpeed(index) }),
+    endShadowWait: () => {
+      const state = get()
+      const wait = state.shadowWait
+      if (wait === null) return
+      set({ shadowWait: null })
+      // A pause left over from another sentence has nothing to carry on.
+      if (wait.index !== state.activeIndex) {
+        set(IDLE_PROGRAM)
+        return
+      }
+      const last = state.activeIndex >= state.cues.length - 1
+      applyShadow(planShadow({ played: state.shadowPlayed, after: wait.phase, settings: state.shadow, last }), state.shadowPlayed)
+    },
 
-  cycleSpeed: (delta) => set((state) => ({ speedIndex: clampSpeed(state.speedIndex + delta) })),
+    clearGuard: () => set({ guard: null }),
 
-  // The on-screen button has no "slower" twin, so it wraps instead of sticking at the top.
-  nextSpeedWrapping: () =>
-    set((state) => ({ speedIndex: (clampSpeed(state.speedIndex) + 1) % SPEED_PRESETS.length })),
+    setDuration: (duration) => set({ duration: Number.isFinite(duration) ? duration : 0 }),
 
-  setLoopMode: (mode) => set({ loopMode: mode, playsDone: 0, isPlaying: mode === 'none' ? get().isPlaying : true }),
+    setSpeedIndex: (index) => set({ speedIndex: clampSpeed(index) }),
 
-  loopSentence: (index) => {
-    const state = get()
-    const target = index ?? state.activeIndex
-    const cue = state.cues[target]
-    if (cue === undefined) return
-    // Looping another sentence (or this one, as practice) ends an edit of its edges.
-    set({ activeIndex: target, loopMode: 'sentence', playsDone: 0, editWindow: null })
-    get().seekCue(target)
-    set({ isPlaying: true })
-  },
+    cycleSpeed: (delta) => set((state) => ({ speedIndex: clampSpeed(state.speedIndex + delta) })),
 
-  toggleSentenceLoop: (index) => {
-    const state = get()
-    if (state.loopMode === 'sentence' && state.activeIndex === index) state.setLoopMode('none')
-    else state.loopSentence(index)
-  },
+    // The on-screen button has no "slower" twin, so it wraps instead of sticking at the top.
+    nextSpeedWrapping: () =>
+      set((state) => ({ speedIndex: (clampSpeed(state.speedIndex) + 1) % SPEED_PRESETS.length })),
 
-  setPoint: (which) => {
-    const state = get()
-    const time = state.currentTime
-    if (which === 'a') {
-      set({ pointA: time, loopMode: 'ab', playsDone: 0 })
-      return
-    }
-    // A B point that is not after the A point would make an empty window, so the
-    // pair is kept ordered instead of silently never looping.
-    if (state.pointA !== null && time <= state.pointA) return
-    set({ pointB: time, loopMode: 'ab', playsDone: 0 })
-  },
+    setLoopMode: (mode) =>
+      set({ loopMode: mode, playsDone: 0, isPlaying: mode === 'none' ? get().isPlaying : true, ...IDLE_PROGRAM }),
 
-  clearAB: () => set({ pointA: null, pointB: null, loopMode: 'none', playsDone: 0 }),
+    loopSentence: (index) => {
+      const state = get()
+      const target = index ?? state.activeIndex
+      const cue = state.cues[target]
+      if (cue === undefined) return
+      // Looping another sentence (or this one, as practice) ends an edit of its edges.
+      set({ activeIndex: target, loopMode: 'sentence', playsDone: 0, editWindow: null })
+      get().seekCue(target)
+      set({ isPlaying: true })
+    },
 
-  setRepeats: (repeats) => set({ repeats: Math.max(0, Math.trunc(repeats)), playsDone: 0 }),
+    toggleSentenceLoop: (index) => {
+      const state = get()
+      if (state.loopMode === 'sentence' && state.activeIndex === index) state.setLoopMode('none')
+      else state.loopSentence(index)
+    },
 
-  stepCue: (delta) => {
-    const state = get()
-    const next = stepCueIndex(state.activeIndex, delta, state.cues.length)
-    const cue = state.cues[next]
-    if (cue === undefined) return
-    // Moving to another sentence ends an edit: the window belongs to the one it was opened on.
-    set({ activeIndex: next, playsDone: 0, editWindow: null })
-    get().seekCue(next)
-    // Shadowing is one sentence at a time, so moving to another one means 'play it'.
-    if (state.pauseAfterSentence) set({ isPlaying: true })
-  },
+    setPoint: (which) => {
+      const state = get()
+      const time = state.currentTime
+      if (which === 'a') {
+        set({ pointA: time, loopMode: 'ab', playsDone: 0 })
+        return
+      }
+      // A B point that is not after the A point would make an empty window, so the
+      // pair is kept ordered instead of silently never looping.
+      if (state.pointA !== null && time <= state.pointA) return
+      set({ pointB: time, loopMode: 'ab', playsDone: 0 })
+    },
 
-  setEditWindow: (window) =>
-    set((state) => ({
-      editWindow: window,
-      activeIndex: window?.index ?? state.activeIndex,
-      // Passes counted while the edges moved are not passes of the sentence.
-      playsDone: 0,
-    })),
-}))
+    clearAB: () => set({ pointA: null, pointB: null, loopMode: 'none', playsDone: 0 }),
+
+    setRepeats: (repeats) => set({ repeats: Math.max(0, Math.trunc(repeats)), playsDone: 0 }),
+
+    stepCue: (delta) => {
+      const state = get()
+      const next = stepCueIndex(state.activeIndex, delta, state.cues.length)
+      const cue = state.cues[next]
+      if (cue === undefined) return
+      // Moving to another sentence ends an edit: the window belongs to the one it was opened on.
+      set({ activeIndex: next, playsDone: 0, editWindow: null })
+      get().seekCue(next)
+      // Shadowing is one sentence at a time, so moving to another one means 'play it'.
+      if (state.pauseAfterSentence) set({ isPlaying: true })
+    },
+
+    setEditWindow: (window) =>
+      set((state) => ({
+        editWindow: window,
+        activeIndex: window?.index ?? state.activeIndex,
+        // Passes counted while the edges moved are not passes of the sentence.
+        playsDone: 0,
+        ...IDLE_PROGRAM,
+      })),
+  }
+})
 
 /** The speed currently in effect. */
 export function currentSpeed(state: Pick<MediaPlayerState, 'speedIndex'>): number {

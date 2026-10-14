@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { SPEED_PRESETS, useMediaPlayer } from './store.ts'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { DEFAULT_SPEED_INDEX, SPEED_PRESETS, useMediaPlayer } from './store.ts'
 
 const cues = [
   { start: 10, end: 12, text: 'One' },
@@ -224,6 +224,102 @@ describe('shadow reveal', () => {
     useMediaPlayer.getState().stepCue(1)
     expect(useMediaPlayer.getState().activeIndex).toBe(1)
     expect(useMediaPlayer.getState().revealed).toBe(0)
+  })
+})
+
+describe('the shadowing program', () => {
+  /** Shadowing on with these settings, sentence one cued and playing. */
+  const start = (settings: Parameters<ReturnType<typeof useMediaPlayer.getState>['setShadow']>[0]): void => {
+    const store = useMediaPlayer.getState()
+    // The speed outlives an episode, and a pause is measured at it.
+    store.setSpeedIndex(DEFAULT_SPEED_INDEX)
+    store.setShadow({ plays: 1, pause: 'off', advance: false, ...settings })
+    store.setPauseAfterSentence(true)
+    store.seekCue(0)
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().setPlaying(true)
+  }
+  /** The sentence that is playing reaches its end. */
+  const end = (): void => {
+    const state = useMediaPlayer.getState()
+    useMediaPlayer.getState().clearGuard()
+    useMediaPlayer.getState().onTime((cues[state.activeIndex]?.end ?? 0) + 0.1)
+  }
+
+  afterEach(() => {
+    useMediaPlayer.getState().setShadow({ plays: 1, pause: 'off', advance: false })
+    useMediaPlayer.getState().setPauseAfterSentence(false)
+  })
+
+  it('replays a sentence covered the first time and uncovered the second, then stops', () => {
+    start({ plays: 2 })
+    expect(useMediaPlayer.getState().revealed).toBe(-1)
+    end()
+    expect(useMediaPlayer.getState()).toMatchObject({ isPlaying: true, revealed: 0, shadowPlayed: 1, seekRequest: 10 })
+    end()
+    expect(useMediaPlayer.getState()).toMatchObject({ isPlaying: false, revealed: 0, shadowPlayed: 0, shadowWait: null })
+  })
+
+  it('waits out a speaking pause as long as the sentence plus a second, covered, then carries on', () => {
+    start({ plays: 2, pause: 'same' })
+    end()
+    const waiting = useMediaPlayer.getState()
+    expect(waiting).toMatchObject({ isPlaying: false, revealed: -1, shadowPlayed: 1 })
+    expect(waiting.shadowWait).toMatchObject({ index: 0, phase: 'speak', ms: 3000 })
+    useMediaPlayer.getState().endShadowWait()
+    expect(useMediaPlayer.getState()).toMatchObject({ isPlaying: true, revealed: 0, shadowPlayed: 1, shadowWait: null })
+  })
+
+  it('goes on to the next sentence by itself, covered, after showing a single play for one more pause', () => {
+    start({ pause: 'same', advance: true })
+    end()
+    useMediaPlayer.getState().endShadowWait()
+    expect(useMediaPlayer.getState()).toMatchObject({ revealed: 0, isPlaying: false })
+    expect(useMediaPlayer.getState().shadowWait?.phase).toBe('look')
+    useMediaPlayer.getState().endShadowWait()
+    expect(useMediaPlayer.getState()).toMatchObject({ activeIndex: 1, isPlaying: true, shadowPlayed: 0, shadowWait: null })
+  })
+
+  it('ends a pause cleanly on play or pause, a step, a seek or a loop, so no stray timeout carries it on', () => {
+    for (const interrupt of [
+      () => useMediaPlayer.getState().toggle(),
+      () => useMediaPlayer.getState().stepCue(1),
+      () => useMediaPlayer.getState().seek(15),
+      () => useMediaPlayer.getState().loopSentence(0),
+      () => useMediaPlayer.getState().setPlaying(false),
+    ]) {
+      useMediaPlayer.getState().reset(cues)
+      start({ plays: 2, pause: 'long' })
+      end()
+      expect(useMediaPlayer.getState().shadowWait).not.toBeNull()
+      interrupt()
+      expect(useMediaPlayer.getState()).toMatchObject({ shadowWait: null, shadowPlayed: 0 })
+      // A timeout that fires anyway finds nothing to carry on.
+      const before = useMediaPlayer.getState().seekToken
+      useMediaPlayer.getState().endShadowWait()
+      expect(useMediaPlayer.getState().seekToken).toBe(before)
+    }
+  })
+
+  it('reads as running through a pause, and a press there stops at the sentence start instead of playing', () => {
+    start({ pause: 'same' })
+    end()
+    useMediaPlayer.getState().toggle()
+    expect(useMediaPlayer.getState()).toMatchObject({ isPlaying: false, seekRequest: 10 })
+    useMediaPlayer.getState().toggle()
+    expect(useMediaPlayer.getState()).toMatchObject({ isPlaying: true, revealed: -1 })
+  })
+
+  it('stops on the last sentence instead of going on', () => {
+    start({ advance: true })
+    useMediaPlayer.getState().stepCue(1)
+    end()
+    expect(useMediaPlayer.getState()).toMatchObject({ activeIndex: 1, isPlaying: false, revealed: 1 })
+  })
+
+  it('keeps only the settings it offers', () => {
+    useMediaPlayer.getState().setShadow({ plays: 9 as 1, pause: 'forever' as 'off' })
+    expect(useMediaPlayer.getState().shadow).toEqual({ plays: 1, pause: 'off', advance: false })
   })
 })
 

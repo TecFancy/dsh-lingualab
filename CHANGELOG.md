@@ -19,6 +19,22 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- Shadowing runs as a repeater's program. With the 「跟读」 chip on, 「更多」 sets how many times each sentence plays (one to
+  three), a speaking pause after every play (off, as long as the sentence, or one and a half times it, at the current speed,
+  plus a second) and whether to go on to the next sentence by itself. During a pause the media waits at the sentence's start,
+  the chip reads 「该你说」 and fills for the time left, and the play button reads "pause": pressing it, a step, a seek or a
+  loop ends the program there. With a pause and auto-advance on, the page runs without a hand on it. The defaults (one play, no
+  pause, no auto-advance) are the shadowing there was before. The settings are remembered in this browser.
+
+### Changed
+
+- Shadowing uncovers the English after one blind attempt. It stays covered through the first play and the pause after it,
+  and is uncovered from the second play on, or when the pause ends if there is one play; with auto-advance, a sentence
+  uncovered that way stays on screen for one more pause (「对一下」) before the next one covers it. Without a pause it is
+  uncovered at the stop, as before, and the chip's tooltip and the README now say so instead of "say it first, then press R".
+
 ## [0.11.7] - 2026-10-14
 
 ### Fixed
