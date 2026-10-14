@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { VideoState, VideoStatusPayload } from '../../../shared/protocol.ts'
-import { cardOf, etaSeconds, isInformational, playSource, segmentKey } from './source.ts'
+import { cardOf, etaSeconds, isInformational, playSource, producedNewFile, segmentKey } from './source.ts'
 
 /** A status in a state, with a URL where that state has one. */
 function status(state: VideoState, url: string | null = null): VideoStatusPayload {
@@ -18,6 +18,8 @@ function status(state: VideoState, url: string | null = null): VideoStatusPayloa
     mismatch: null,
     estimateBytes: null,
     progress: null,
+    jobKind: null,
+    smooth: { offer: false, estimateBytes: null, estimateSeconds: null, revert: false, error: null },
     installCommand: null,
   }
 }
@@ -121,6 +123,39 @@ describe('cardOf', () => {
   it('turns a video the browser could not decode into the unplayable card', () => {
     expect(cardOf(status('playable', '/v.mp4'), '/v.mp4')).toBe('unplayable')
     expect(cardOf(status('playable', '/v.mp4'), '/other.mp4')).toBeNull()
+  })
+
+  it('leaves a picture that plays alone while a smooth job runs: the corner carries the progress, not a card', () => {
+    const running = { ...status('playable', '/v.mp4'), jobKind: 'smooth' as const, progress: { fraction: 0.3, seconds: 3, total: 10 } }
+    expect(cardOf(running, null)).toBeNull()
+    expect(playSource('/a.mp3', running, null, false)).toEqual({ url: '/v.mp4', picture: true })
+  })
+
+  it('shows the progress as a card when nothing plays but the sound, or the picture that plays cannot be decoded', () => {
+    const progress = { fraction: 0.3, seconds: 3, total: 10 }
+    expect(cardOf({ ...status('sound-ready', '/s.m4a'), jobKind: 'smooth', progress }, null)).toBe('preparing')
+    expect(cardOf({ ...status('playable', '/v.mp4'), jobKind: 'smooth', progress }, '/v.mp4')).toBe('preparing')
+  })
+})
+
+describe('producedNewFile', () => {
+  const progress = { fraction: 0.5, seconds: 5, total: 10 }
+
+  it('is true when a job that was running left a different file playing', () => {
+    expect(producedNewFile(true, status('playable', '/smooth.mp4'), null)).toBe(true)
+    expect(producedNewFile(true, status('playable', '/smooth.mp4'), '/v.mp4')).toBe(true)
+    expect(producedNewFile(true, status('sound-ready', '/s.m4a'), null)).toBe(true)
+  })
+
+  it('is false when the same file plays after a smooth job was cancelled or failed', () => {
+    expect(producedNewFile(true, status('playable', '/v.mp4'), '/v.mp4')).toBe(false)
+  })
+
+  it('is false while the job still runs, when none ran, and when nothing plays after it', () => {
+    expect(producedNewFile(true, { ...status('playable', '/smooth.mp4'), progress }, '/v.mp4')).toBe(false)
+    expect(producedNewFile(false, status('playable', '/smooth.mp4'), '/v.mp4')).toBe(false)
+    expect(producedNewFile(true, status('prepare'), null)).toBe(false)
+    expect(producedNewFile(true, status('failed'), null)).toBe(false)
   })
 })
 

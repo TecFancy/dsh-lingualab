@@ -95,6 +95,8 @@ export function installCommandFor(platform: NodeJS.Platform): string {
 
 /** The part of a child process this plugin uses; a fake in tests. */
 export interface Child {
+  /** The process id, when it started; a test's fake has none. */
+  readonly pid?: number | undefined
   readonly stdout: Readable | null
   readonly stderr: Readable | null
   kill: () => void

@@ -81,7 +81,7 @@ import { formatClock } from '../../../shared/lib/format.ts'
 import { gradeForKey } from '../../../shared/lib/grades.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
-import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, NotePhrase, VideoStatusPayload } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
@@ -231,11 +231,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [dismissedMismatch, setDismissedMismatch] = useState<ReadonlySet<string>>(() => new Set())
   const refreshListing = library.refreshListing
   /** A preparing job just finished: say so, and let the listing's marks catch up. */
-  const onVideoReady = useCallback((): void => {
-    const at = useMediaPlayer.getState().currentTime
-    setNotice({ kind: 'ready', text: t('noticeReady', { time: formatClock(at) }), action: null })
-    refreshListing()
-  }, [t, refreshListing])
+  const onVideoReady = useCallback(
+    (ready: VideoStatusPayload): void => {
+      const at = useMediaPlayer.getState().currentTime
+      const text = t(ready.via === 'smooth' ? 'noticeReadySmooth' : 'noticeReady', { time: formatClock(at) })
+      setNotice({ kind: 'ready', text, action: null })
+      refreshListing()
+    },
+    [t, refreshListing],
+  )
   const video = useVideo(episodeId, segmentId, hasVideoFile, onVideoReady)
   /** A remembered local file could not be opened: not allowed, or gone. */
   const onLocalUnreadable = useCallback((): void => {

@@ -280,6 +280,11 @@ describe('the video routes', () => {
     writeFileSync(join(harness.root, 'E1', 'a.mp3'), 'x')
     const prepare = (await (await json('/lingualab/video-prepare', { episode: 'E1', mode: 'video' })).json()) as { ok: boolean; state: string }
     expect(prepare).toMatchObject({ ok: false, state: 'none' })
+    // The smooth version's two modes are taken as well, and answer the same for an episode with no video.
+    for (const mode of ['smooth', 'original']) {
+      const answer = (await (await json('/lingualab/video-prepare', { episode: 'E1', mode })).json()) as { ok: boolean; state: string }
+      expect(answer).toMatchObject({ ok: false, state: 'none' })
+    }
     const cancel = (await (await json('/lingualab/video-cancel', {})).json()) as { ok: boolean; cancelled: boolean }
     expect(cancel).toMatchObject({ ok: true, cancelled: false })
   })
