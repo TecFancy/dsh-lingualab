@@ -140,6 +140,11 @@ node scripts/verify.mjs --list   # 看检查表
   侧栏和字幕栏让窗口宽度几乎说明不了栏有多大，别再写视口断点（样式表测试只放行浏览层的 640）。卡片以上的内容在
   `.dsh-lingualab-practice-main` 里，它是唯一的滚动容器，卡片留在下面；句子是 `flex:1 0 auto`，别改回会缩的。触屏的规则看
   `(hover:none) and (pointer:coarse)`，不看宽度。想看改动的效果，把真组件渲染成静态标记、配真样式表、在浏览器里按 iPad 的各个尺寸读高度。
+  **调整时间是一种模式**：页面在 `timing.session !== null` 时给练习栏加 `is-timing`（用类名，不用 `:has()`）。这时播放卡片折成进度条加
+  「变速 | 上一句、播放、下一句」一行，其余按钮、按键提示和菜单用类名隐藏（不卸载）；在播放的画面是 `ll-video` 尺寸容器，拿走剩余高度，
+  不到 120px 就不画；调时间面板在栏宽不到 648px 或栏高不到 780px 时是一行一个边缘的紧凑布局。文字长的按钮同时画长短两个文字
+  （`dsh-lingualab-label-long` / `-short`），样式表挑一个，全文留作 `aria-label` 与 `title`。新增一个调时间时要隐藏的东西，加进
+  `styles.ts` 末尾 `.is-timing` 那一段，别写成对面板的 `:has()`。
 - **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
   （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
   对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`

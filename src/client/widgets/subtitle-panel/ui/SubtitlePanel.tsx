@@ -113,11 +113,14 @@ export function SubtitlePanel({
             className="dsh-lingualab-visually-hidden"
             checked={follow}
             onChange={(event) => onFollow(event.target.checked)}
+            aria-label={t('follow')}
           />
           <span className="dsh-lingualab-switch-track" aria-hidden>
             <span className="dsh-lingualab-switch-knob" />
           </span>
-          {t('follow')}
+          {/* A narrow column shows the short word; the long one stays as the input's name. */}
+          <span className="dsh-lingualab-label-long">{t('follow')}</span>
+          <span className="dsh-lingualab-label-short">{t('followShort')}</span>
         </label>
       </div>
 

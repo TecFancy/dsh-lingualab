@@ -19,6 +19,31 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- Adjusting a sentence's timing is now a mode of the practice view (the page sets `is-timing` on the practice column
+  while the timing panel has a sentence). The player card folds to the scrubber and one row, speed then previous, play
+  and next (about 124 px instead of 264), and the other buttons, the key hints and any open menu wait until the panel
+  closes. The sentence is as tall as its text, with no lines either side of it.
+- In a column 648 px wide or less, or 780 px tall or less (the room the iPad has in both orientations next to the
+  host's sidebar), the timing panel is one compact layout instead of the stacked cards: each edge is one row (its label
+  with how far it moved under it, the value, the two 50 ms steps and a short 「Playhead」 button that wraps onto a second
+  line of its row only where the row is too narrow), the foot is one row (Reset, Cancel, and a short 「Save」 that takes
+  what is left), and the mini timeline and the key hints are gone. The full texts stay as the buttons' names and tooltips.
+  A wide, tall column keeps the two cards with the mini timeline. The panel is about 205 px tall instead of 379.
+- On a touch screen the player card's buttons are 44 px tall, previous and next included, instead of 32 and 40 px. The
+  card gets 12 px taller for each row of buttons it wraps into.
+
+### Fixed
+
+- With the timing panel open the picture is back instead of stepping aside: it takes what is left of the column as the
+  biggest box of the video's shape that fits (at most 720 px wide), and is not drawn only when that is under 120 px tall
+  (the video keeps playing, as for an audio file). A card or a chip standing in for a picture, and the pills on the
+  picture, are not drawn while timing; a large picture keeps its place and its floor of 160 px. At 1024 by 700 with the
+  host sidebar open the sentence, the panel and the card now fit without scrolling.
+- The 「Auto-follow」 switch in the transcript's head no longer sticks out of the 260 px transcript. It says 「Follow」
+  there (the full word stays as its name), and the head's padding, gaps and segmented control are a little tighter.
+
 ## [0.11.2] - 2026-10-14
 
 ### Fixed

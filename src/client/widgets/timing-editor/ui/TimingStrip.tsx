@@ -121,8 +121,17 @@ function EdgeCard({ t, editor, session, which }: EdgeCardProps) {
         ) : null}
       </div>
       {editable ? (
-        <button type="button" className="dsh-lingualab-timing-ghost" onClick={inside(() => editor.toPlayhead(which))}>
-          <UpIcon size={12} /> {t('timingAtPlayhead')} <kbd>{which === 'start' ? 'I' : 'O'}</kbd>
+        <button
+          type="button"
+          className="dsh-lingualab-timing-ghost"
+          onClick={inside(() => editor.toPlayhead(which))}
+          title={t('timingAtPlayhead')}
+          aria-label={t('timingAtPlayhead')}
+        >
+          <UpIcon size={12} />
+          <span className="dsh-lingualab-label-long">{t('timingAtPlayhead')}</span>
+          <span className="dsh-lingualab-label-short">{t('timingAtPlayheadShort')}</span>
+          <kbd>{which === 'start' ? 'I' : 'O'}</kbd>
         </button>
       ) : null}
     </div>
@@ -260,13 +269,17 @@ export function TimingStrip({ t, editor, blocked }: TimingStripProps) {
               className="dsh-lingualab-btn is-primary"
               onClick={editor.save}
               disabled={current.blocked !== null || editor.saving || !changed}
-              title="Enter"
+              title={`${t('timingSave')} (Enter)`}
+              aria-label={editor.saving ? undefined : t('timingSave')}
             >
               {editor.saving ? (
                 `${t('saving')}…`
               ) : (
                 <>
-                  <CheckIcon size={13} /> {t('timingSave')} <kbd>Enter</kbd>
+                  <CheckIcon size={13} />
+                  <span className="dsh-lingualab-label-long">{t('timingSave')}</span>
+                  <span className="dsh-lingualab-label-short">{t('timingSaveShort')}</span>
+                  <kbd>Enter</kbd>
                 </>
               )}
             </button>

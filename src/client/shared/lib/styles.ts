@@ -932,7 +932,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-videostage.is-empty{display:none}
 .dsh-lingualab-videostage.is-shown{padding:20px 12px 0}
 .dsh-lingualab-videostage.is-hidden{padding:14px 12px 0}
-.dsh-lingualab-videostage.is-large{flex:1;min-height:160px;padding:16px 0 8px;justify-content:center;container-type:size}
+.dsh-lingualab-videostage.is-large{flex:1;min-height:160px;padding:16px 0 8px;justify-content:center;container:ll-video/size}
 /* The picture's width is the smallest of its share of the column, 720px and what its height cap allows at 16:9, so a cap
    makes it smaller and keeps its shape. The cap and the share are variables for the responsive rules at the end. */
 .dsh-lingualab-picture{--ll-pic-w:64%;--ll-pic-h:42vh;position:relative;flex:none;box-sizing:border-box;
@@ -1055,6 +1055,8 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 
 /* ── shared bits ─────────────────────────────────────────────── */
 .dsh-lingualab-hint{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b)}
+/* A label with a short twin: the long one by default, and a narrow room (see the responsive rules) swaps them. */
+.dsh-lingualab-label-short{display:none}
 .dsh-lingualab-path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all}
 .dsh-lingualab-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dsh-lingualab-card{border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));border-radius:12px;
@@ -1071,10 +1073,17 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
    none of them applies at the desktop size while the timing panel is closed. These rules override the ones above at the
    same specificity, so they stay last. */
 
-/* A narrow row: the transcript gives back some width, and the grade buttons drop their key caps. */
+/* A narrow row: the transcript gives back some width, the grade buttons drop their key caps, and the follow switch says
+   "Follow" (the long word does not fit the 260px head beside the segmented control). */
 @container ll-body (max-width:820px){
   .dsh-lingualab-transcript{width:260px}
+  .dsh-lingualab-transcript-head{gap:6px;padding:0 12px}
+  .dsh-lingualab-transcript-head .dsh-lingualab-spacer{min-width:0}
+  .dsh-lingualab-transcript-head .dsh-lingualab-segmented button{gap:4px;padding:0 8px;font-size:12.5px}
+  .dsh-lingualab-switch{gap:6px}
   .dsh-lingualab-grades .dsh-lingualab-grade-btn kbd{display:none}
+  .dsh-lingualab-switch .dsh-lingualab-label-long{display:none}
+  .dsh-lingualab-switch .dsh-lingualab-label-short{display:inline}
 }
 
 /* Narrow column (600px and less): the picture and the cards use the whole column, and the pills on the picture may wrap,
@@ -1090,53 +1099,91 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   .dsh-lingualab-transport-main{order:-1;flex:0 0 100%;justify-content:center}
 }
 
-/* The two edge cards of the timing panel stack below 520px, where a card has less than the 226px its value and its step
-   buttons need. A stacked card keeps its three parts in two rows: the label, then the value, the step buttons and the
-   playhead button side by side, and below 440px (where they no longer fit) the playhead button takes a row of its own. */
-@container ll-practice (max-width:520px){
-  .dsh-lingualab-timing-edges{grid-template-columns:1fr}
-  .dsh-lingualab-timing-edge{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 8px}
-  .dsh-lingualab-timing-edge-head{grid-column:1/-1}
-  .dsh-lingualab-timing-ghost{margin-left:0}
+/* The timing panel in a small room: a column of 600px or less (648 or less wide) or of 760px or less (780 or less tall, an
+   iPad in landscape). One layout for every small room: each edge is one row (the label with how far it moved under it, the
+   value, the two step buttons, the playhead button), the foot is one row (Reset, Cancel, and Save taking what is left), and
+   the mini timeline and the lines of keys go. Wide and tall rooms keep the two cards with the mini timeline. */
+@container ll-practice (max-width:600px) or (max-height:760px){
+  .dsh-lingualab-timing{gap:10px;margin-bottom:6px;padding:10px 12px 8px}
+  .dsh-lingualab-timing-line,.dsh-lingualab-timing-hints,.dsh-lingualab-timing-keys,
+  .dsh-lingualab-timing-edge .dsh-lingualab-spacer,.dsh-lingualab-timing-foot .dsh-lingualab-spacer{display:none}
+  .dsh-lingualab-timing-edges{grid-template-columns:1fr;gap:8px}
+  .dsh-lingualab-timing-edge{display:grid;grid-template-columns:minmax(56px,max-content) minmax(0,1fr) auto auto;align-items:center;
+    gap:0 8px;box-sizing:border-box;min-height:44px;padding:2px 8px}
+  .dsh-lingualab-timing-edge-head{flex-direction:column;align-items:flex-start;gap:0;min-height:0;line-height:1.25}
+  .dsh-lingualab-timing-edge-body{display:contents}
+  .dsh-lingualab-timing-value{justify-self:start;font-size:18px}
+  .dsh-lingualab-timing-ghost{margin-left:0;align-self:center;height:30px;padding:0 8px;border-radius:8px;
+    border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+  .dsh-lingualab-timing-ghost kbd{display:none}
+  .dsh-lingualab-timing .dsh-lingualab-label-long{display:none}
+  .dsh-lingualab-timing .dsh-lingualab-label-short{display:inline}
+  .dsh-lingualab-timing-foot{flex-wrap:nowrap;gap:8px;padding-top:8px}
+  .dsh-lingualab-timing-foot .dsh-lingualab-btn{flex:none}
+  .dsh-lingualab-timing-foot .dsh-lingualab-btn.is-primary{flex:1;min-width:0;justify-content:center}
 }
-@container ll-practice (max-width:440px){
-  .dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start;margin-left:calc(var(--ll-ghost-pad) * -1)}
-  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-videostage.is-shown{display:none}
+/* Where the row cannot hold all four parts (the playhead button needs about 100px more than the value and the step buttons
+   leave), the playhead button takes a second line of its own row. */
+@container ll-practice (max-width:372px){
+  .dsh-lingualab-timing-edge{grid-template-columns:minmax(56px,max-content) minmax(0,1fr) auto}
+  .dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start;margin-top:4px}
 }
 
 /* Short column (700px and less, the iPad in landscape): the lines either side of the sentence go first, then the
-   picture's height cap drops from 42% of the column to 30%, the stage and the timing panel give up some padding, and the
-   timing panel's mini timeline (the one part of it that is only to look at) goes. */
+   picture's height cap drops from 42% of the column to 30%, and the stage gives up some padding. */
 @container ll-practice (max-height:700px){
   .dsh-lingualab-stage-side{display:none}
   .dsh-lingualab-picture{--ll-pic-h:30cqh}
   .dsh-lingualab-videocard{min-height:0}
   .dsh-lingualab-stage{padding-block:12px}
-  .dsh-lingualab-timing{gap:8px;padding:10px 14px 8px}
-  .dsh-lingualab-timing-line{display:none}
 }
 
-/* While the timing panel is open (310 to 400px tall, with the player card's 170 to 260 under it) the neighbouring lines
-   go, and in a column shorter than 1000px a shown picture steps aside: it keeps playing, only the picture is not drawn.
-   Taller, it fits as a strip, the column's height less 880px. A large picture is the whole stage and keeps its place; the
-   scroller takes whatever still does not fit. */
-.dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-stage-side{display:none}
-@container ll-practice (max-height:1000px){
-  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-videostage.is-shown{display:none}
-}
-@container ll-practice (min-height:1001px){
-  .dsh-lingualab-practice:has(.dsh-lingualab-timing-wrap.is-open) .dsh-lingualab-picture{--ll-pic-h:calc(100cqh - 880px)}
+/* Adjusting timing is a mode (the page sets is-timing on the column while the panel has a sentence). Everything that is not
+   the sentence, the panel and the way to play it steps back, so they fit a column that is only 631px tall:
+   - the player card is one row, the scrubber and "speed | previous, play, next" (about 124px instead of 264); every other
+     button, the key hints and any open menu are hidden, and all of it is back when the panel closes;
+   - the lines either side of the sentence go and the sentence is not stretched, so it is as tall as its text;
+   - a picture that plays takes whatever is left, as the biggest box of the video's shape that fits (the largest box 720px
+     wide), and is not drawn under 120px of height (the video keeps playing, as for an audio file). A card or a chip standing
+     in for a picture is not drawn at all; the corner pills of a picture (a local file, the smooth version) are not either.
+   The large picture is already the part that takes what is left (it is the stage), so it keeps its place and its 160px floor
+   instead of vanishing: the reader asked for it, and the sentence is not on the stage to take its room. */
+.dsh-lingualab-practice.is-timing .dsh-lingualab-stage-side{display:none}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-stage{flex:0 0 auto;padding-block:12px}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints,
+.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu,
+.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed),
+.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end{display:none}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-row{display:grid;grid-template-columns:1fr auto 1fr}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side{display:flex}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-main{order:0}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown:not(.has-screen){display:none}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen{flex:1 1 0;min-height:0;padding-top:8px;
+  justify-content:center;container:ll-video/size}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture{flex:none;min-width:0;min-height:0;
+  max-height:none;width:min(100cqw,720px,calc(100cqh * var(--ll-video-ratio,1.7778)));aspect-ratio:var(--ll-video-ratio,1.7778)}
+.dsh-lingualab-practice.is-timing .dsh-lingualab-picture-local,
+.dsh-lingualab-practice.is-timing .dsh-lingualab-picture-smooth{display:none}
+@container ll-video (max-height:119px){
+  .dsh-lingualab-picture{display:none}
 }
 
 /* A touch screen: no keyboard to describe, and fingers need 44px. The small pills on the picture keep their look and get a
-   hit area of 44px by an invisible margin around them. */
+   hit area of 44px by an invisible margin around them. The player card's buttons are 44px for real, and the card grows by
+   a row of 12px for each row of buttons it wraps into. */
 @media (hover:none) and (pointer:coarse){
   .dsh-lingualab-page kbd,.dsh-lingualab-keyhints,.dsh-lingualab-timing-hints,.dsh-lingualab-timing-keys,
   .dsh-lingualab-menu-keys,.dsh-lingualab-editor-hint,.dsh-lingualab-keys{display:none}
+  .dsh-lingualab-deck .dsh-lingualab-bar-btn{min-width:44px;min-height:44px}
+  .dsh-lingualab-round{width:44px;height:44px}
   .dsh-lingualab-timing-step button{width:44px;height:44px}
   .dsh-lingualab-timing-ghost{--ll-ghost-pad:12px;height:44px}
   .dsh-lingualab-timing-foot .dsh-lingualab-btn{height:44px}
   .dsh-lingualab-videocard .dsh-lingualab-btn{min-height:44px}
+  @container ll-practice (max-width:392px){
+    .dsh-lingualab-timing-edge{grid-template-columns:minmax(56px,max-content) minmax(0,1fr) auto}
+    .dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start;margin-top:4px}
+  }
   .dsh-lingualab-videochip.is-button,.dsh-lingualab-stage-time,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn{position:relative}
   .dsh-lingualab-picture-local-btn::after,.dsh-lingualab-picture-peek::after,.dsh-lingualab-videochip.is-button::after,
   .dsh-lingualab-stage-time::after,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn::after{content:'';position:absolute;

@@ -149,7 +149,7 @@ export function VideoStage({
 
   return (
     <div
-      className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}`}
+      className={`dsh-lingualab-videostage is-${empty ? 'empty' : mode}${showScreen ? ' has-screen' : ''}`}
       // A video file let go on the stage is the reader's choice to play it. The event stops here whatever was dropped,
       // so nothing else (the page's own catch-all, a browser that would open the file) acts on it.
       onDragOver={(event) => {
@@ -192,8 +192,9 @@ export function VideoStage({
 
       <div
         className={`dsh-lingualab-picture${showScreen ? '' : ' is-off'}`}
-        // Only the large frame follows the picture's shape; the other states keep 16:9.
-        style={mode === 'large' ? ({ '--ll-video-ratio': ratioValue(ratio) } as CSSProperties) : undefined}
+        // The large frame, and the picture while the timing panel is open, follow the video's shape; the normal
+        // shown frame keeps 16:9 whatever the variable says, and a picture that is not drawn has no shape to give.
+        style={showScreen ? ({ '--ll-video-ratio': ratioValue(ratio) } as CSSProperties) : undefined}
       >
         <video ref={attach} className="dsh-lingualab-video" playsInline preload="auto" />
         {showScreen ? (
