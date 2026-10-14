@@ -17,6 +17,11 @@
  *   · `none`: no audio track at all, or nothing usable in the file.
  *
  * The audio track is the first English one, else the first.
+ *
+ * A fifth plan, `smooth`, is not something the file asks for: it is the reader's choice, for a link that
+ * cannot carry the picture as it came, and for a picture a browser cannot decode at all. It re-encodes
+ * the picture (H.264, 8-bit, 720 lines at most, about 1.9 Mbps with its sound) and is planned by
+ * {@link planSmooth} from the same probe, for any file that has a picture and a sound.
  */
 
 /** One stream of `ffprobe -show_streams`, the fields this module reads. */
@@ -25,6 +30,8 @@ export interface ProbeStream {
   readonly codec_type?: string
   readonly codec_name?: string
   readonly pix_fmt?: string
+  readonly width?: number
+  readonly height?: number
   readonly duration?: string
   readonly tags?: Readonly<Record<string, string>>
   readonly disposition?: Readonly<Record<string, number>>
@@ -65,8 +72,18 @@ export type VideoPlan =
     }
   | { readonly kind: 'none'; readonly duration: number | null; readonly reason: 'no-audio' | 'no-streams' }
 
+/** The smooth plan: the picture and the sound re-encoded for streaming. */
+export interface SmoothPlan {
+  readonly kind: 'smooth'
+  readonly duration: number | null
+  readonly videoIndex: number
+  readonly audioIndex: number
+  readonly videoCodec: string
+  readonly audioCodec: string
+}
+
 /** The plans that need a file written. */
-export type PreparePlan = Extract<VideoPlan, { kind: 'remux' | 'audio-only' }>
+export type PreparePlan = Extract<VideoPlan, { kind: 'remux' | 'audio-only' }> | SmoothPlan
 
 /** Video codecs a browser plays inside each of the containers that may be served as they are. */
 const DIRECT_VIDEO: Readonly<Record<string, readonly string[]>> = {
@@ -85,6 +102,21 @@ const H264_PIXEL_FORMATS: readonly string[] = ['yuv420p', 'yuvj420p']
 
 /** The bit rate the prepared sound is written at, in bits per second. */
 export const AUDIO_BITRATE = 160_000
+
+/** The bit rate of the sound in the smooth version, in bits per second. */
+export const SMOOTH_AUDIO_BITRATE = 128_000
+
+/** The cap on the smooth picture's height, in lines; a smaller picture keeps its size. */
+export const SMOOTH_MAX_HEIGHT = 720
+
+/** The seconds between the keyframes of the smooth picture, whatever the frame rate. */
+export const SMOOTH_KEYFRAME_SECONDS = 2
+
+/** What the smooth version averages, picture and sound together, in bits per second: the basis of the size estimate. */
+export const SMOOTH_TOTAL_BITRATE = 1_900_000
+
+/** How many times faster than real time the encode runs, as measured on the server: the basis of the time estimate. */
+export const SMOOTH_ENCODE_SPEED = 1.5
 
 /** Read `ffprobe`'s JSON into the shape above; anything else is `null`. */
 export function parseProbe(text: string): ProbeResult | null {
@@ -177,12 +209,53 @@ export function planVideo(probe: ProbeResult, extension: string): VideoPlan {
 }
 
 /**
+ * Plan the smooth version of a file.
+ *
+ * It needs only a picture (not a cover image) and a sound, and takes the same audio track as the other plans. Every codec
+ * counts, because the encoder decodes the picture itself: that is what makes a picture a browser cannot play playable.
+ * @param probe - what ffprobe said about the file.
+ * @returns the plan, or `null` for a file with no picture or no sound.
+ */
+export function planSmooth(probe: ProbeResult): SmoothPlan | null {
+  const audio = pickAudioStream(probe.streams)
+  const picture = probe.streams.find((stream) => stream.codec_type === 'video' && !isCoverArt(stream)) ?? null
+  if (audio === null || picture === null) return null
+  return {
+    kind: 'smooth',
+    duration: durationOf(probe),
+    videoIndex: picture.index,
+    audioIndex: audio.index,
+    videoCodec: picture.codec_name ?? 'unknown',
+    audioCodec: audio.codec_name ?? 'unknown',
+  }
+}
+
+/** The size the smooth version will be, roughly, in bytes; `null` when the length is not known. */
+export function smoothEstimateBytes(duration: number | null): number | null {
+  return duration === null || duration <= 0 ? null : Math.round((duration * SMOOTH_TOTAL_BITRATE) / 8)
+}
+
+/** How long encoding the smooth version will take, roughly, in seconds; `null` when the length is not known. */
+export function smoothEstimateSeconds(duration: number | null): number | null {
+  return duration === null || duration <= 0 ? null : Math.round(duration / SMOOTH_ENCODE_SPEED)
+}
+
+/**
+ * How many encoder threads the smooth version gets: one fewer than the machine has cores, and never fewer than one,
+ * so the host keeps a core for everything else.
+ */
+export function smoothThreads(cores: number): number {
+  return Math.max(1, Math.floor(Number.isFinite(cores) ? cores : 1) - 1)
+}
+
+/**
  * The size the prepared file will be, roughly, in bytes.
  * @param plan - a plan that writes a file.
  * @param sourceBytes - the source's size.
  */
 export function estimateBytes(plan: PreparePlan, sourceBytes: number | null): number | null {
   if (plan.kind === 'remux') return sourceBytes
+  if (plan.kind === 'smooth') return smoothEstimateBytes(plan.duration)
   return plan.duration === null ? null : Math.round((plan.duration * AUDIO_BITRATE) / 8)
 }
 
@@ -201,11 +274,25 @@ export function probeArgs(path: string): string[] {
  * @param plan - a plan that writes a file.
  * @param source - the source video's absolute path.
  * @param output - the absolute path to write.
+ * @param threads - how many encoder threads the smooth version may use (see {@link smoothThreads}); the other plans do not encode a picture.
  */
-export function ffmpegArgs(plan: PreparePlan, source: string, output: string): string[] {
+export function ffmpegArgs(plan: PreparePlan, source: string, output: string, threads = 1): string[] {
   const head = ['-hide_banner', '-nostdin', '-y', '-loglevel', 'error', '-progress', 'pipe:1', '-nostats', '-i', source]
   const sound = ['-c:a', 'aac', '-ac', '2', '-b:a', String(AUDIO_BITRATE), '-map_chapters', '-1', '-map_metadata', '-1']
   const tail = ['-movflags', '+faststart', '-f', 'mp4', output]
+  if (plan.kind === 'smooth') {
+    const picture = [
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-maxrate', '1.8M', '-bufsize', '3.6M',
+      '-pix_fmt', 'yuv420p',
+      // Never taller than 720 lines and never enlarged; the width follows, rounded to an even number.
+      '-vf', `scale=-2:min(${String(SMOOTH_MAX_HEIGHT)}\\,ih)`,
+      // A keyframe every two seconds whatever the frame rate, so a seek fetches little it does not play.
+      '-force_key_frames', `expr:gte(t,n_forced*${String(SMOOTH_KEYFRAME_SECONDS)})`,
+      '-threads', String(Math.max(1, Math.floor(threads))),
+    ]
+    const smoothSound = ['-c:a', 'aac', '-ac', '2', '-b:a', String(SMOOTH_AUDIO_BITRATE), '-map_chapters', '-1', '-map_metadata', '-1']
+    return [...head, '-map', `0:${String(plan.videoIndex)}`, '-map', `0:${String(plan.audioIndex)}`, ...picture, ...smoothSound, ...tail]
+  }
   if (plan.kind === 'remux') {
     return [...head, '-map', `0:${String(plan.videoIndex)}`, '-map', `0:${String(plan.audioIndex)}`, '-c:v', 'copy', ...sound, ...tail]
   }

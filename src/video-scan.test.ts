@@ -130,6 +130,13 @@ describe('what the scan says about a video', () => {
     expect(videoRefOf(directory, 'a.mkv', 'a').state).toBe('ready')
   })
 
+  it('says ready for the smooth file alone, since it is a video that plays', () => {
+    const directory = folder('S01E01', ['a.mkv'])
+    mkdirSync(join(directory, '.lingualab'))
+    writeFileSync(join(directory, '.lingualab', 'a.smooth.mp4'), 'smooth')
+    expect(videoRefOf(directory, 'a.mkv', 'a').state).toBe('ready')
+  })
+
   it('ignores a partial file and an empty one', () => {
     const directory = folder('S01E01', ['a.mkv'])
     mkdirSync(join(directory, '.lingualab'))
@@ -154,6 +161,12 @@ describe('serving the cache', () => {
     expect(resolveMediaPath('/lib', '/S01E01/.lingualab/%2e%2e/a.mp4')).toBeNull()
     expect(resolveMediaPath('/lib', '/S01E01/.lingualab/x/a.mp4')).toBeNull()
     expect(resolveMediaPath('/lib', '/.lingualab/a.mp4')).toBe(join('/lib', '.lingualab', 'a.mp4'))
+  })
+
+  it('serves the smooth file like the prepared one, as video', () => {
+    expect(resolveMediaPath('/lib', '/S01E01/.lingualab/a.smooth.mp4')).toBe(join('/lib', 'S01E01', '.lingualab', 'a.smooth.mp4'))
+    expect(resolveMediaPath('/lib', '/S01E01/.lingualab/a.smooth.mp4.part')).toBeNull()
+    expect(contentTypeOf('a.smooth.mp4')).toBe('video/mp4')
   })
 
   it('serves a source video only as mp4 or webm: an mkv or mov is prepared first', () => {

@@ -68,10 +68,11 @@ node scripts/verify.mjs --list   # 看检查表
    `zhOrigin`，客户端的计数规则必须和 host 一致（没有文本的块也要计数）。
    见 `.agents/notes/implemented/feature/2026-10-11-edit-subtitle-timing.md`。
    五是视频缓存，`src/host/features/video/model/video-jobs.ts`：只写每集文件夹里自己的隐藏文件夹 `.lingualab/`（`<词干>.mp4` 是画面复制加声音转成立体声 AAC，
-   `<词干>.m4a` 只是声音），先写 `<名>.part` 再 `rename`，一次只跑一个任务，失败或取消删掉 `.part`，崩溃或重启留下的在下次起任务时清掉；
-   源视频从不被改。路由只收「哪一集哪一段、要画面还是只要声音」，路径、命令行全由 host 自己的扫描算出来，ffmpeg 用参数数组起，不过 shell。
+   `<词干>.m4a` 只是声音，`<词干>.smooth.mp4` 是读者手动要的流畅版，画面重新编码），先写 `<名>.part` 再 `rename`，一次只跑一个任务，失败或取消删掉 `.part`，崩溃或重启留下的在下次起任务时清掉；
+   源视频从不被改。路由只收「哪一集哪一段、要画面、只要声音、流畅版，还是改回原画质」，路径、命令行全由 host 自己的扫描算出来，ffmpeg 用参数数组起，不过 shell。
+   流畅版一到位就删掉同一词干的原尺寸 `<词干>.mp4`，「改回原画质」删掉流畅版再走普通的准备（删除只发生在没有任务在跑的时候）。
    缓存文件比源文件旧就不算数。只有媒体库里的文件夹剧集有视频，文件剧集没有。
-   见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md`。
+   见 `.agents/notes/implemented/feature/2026-10-12-video-episodes.md` 与 `.agents/notes/implemented/feature/2026-10-13-smooth-video.md`。
    六是手选字幕，`src/host/entities/subtitle-choice/model/subtitle-choice.ts`：文件夹剧集的选择写在剧集文件夹里隐藏的 `.lingualab-subtitles.json`（按段记，没有分段的记在 `folder`），
    先写临时文件再 `rename`，全部改回「按文件名」时删掉这个文件；文件剧集的选择记在 `openState` 里它那条记录的 `subtitles`，重新打开不会冲掉。
    选择只覆盖它点名的槽，其余照旧走 `pairing.ts`；选的文件不在了就按文件名配对，并在 `subtitleChoice.missing` 里报出来，选择本身保留。
@@ -123,9 +124,16 @@ node scripts/verify.mjs --list   # 看检查表
   放什么由 `features/video/lib/source.ts` 的 `playSource` 一处决定，浏览器报解不了的 URL 记进 `failedUrl`，退回音频文件。
   ffmpeg 与 ffprobe 在 `PATH` 里或可选的 `ffmpegPath`（volatile 字段，同样 `.get()`，配了就只认它）；没有 ffprobe 时 mp4 与 webm 当直接放、
   mkv 与 mov 报需要 ffmpeg。规划（`video-plan.ts`）只认 H.264、VP9、AV1，H.264 还要 yuv420p：10 位的一律「只取声音」，这是拿真 ffmpeg 测出来的
-  （`video.ffmpeg.test.ts`，没装 ffmpeg 的机器自动跳过）。**不转码**是定死的，别为一个 HEVC 加转码。探测结果按「路径、大小、修改时间」记住，
+  （`video.ffmpeg.test.ts`，没装 ffmpeg 的机器自动跳过）。准备时**不转码**是定死的，别让「准备视频」为一个 HEVC 去转码；要转码的只有读者手动点的「准备流畅版」，
+  它是单独的一档（`planSmooth`、`cacheKindOf`，对任何有画面有声音的文件都成立）。探测结果按「路径、大小、修改时间」记住，
   不然轮询进度时每秒探一次。取消靠杀进程，等进程关了再删 `.part`（Windows 删不了打开着的文件）。五步法的盲看只通过计时器碰画面状态
   （`features/settings/lib/picture.ts` 的纯函数），手动的选择清掉要恢复的状态，所以不会盖过读者自己选的。
+- **流畅版的几处别拆**，决定与取舍见 `.agents/notes/implemented/feature/2026-10-13-smooth-video.md`。它是唯一一个在画面正放着时跑的任务，
+  所以状态路由在它运行时让能放的状态保持原样（`playable`、`sound-ready`），只加上 `progress`、`jobKind: 'smooth'`，页面不再把画面换成卡片；
+  没有东西在放的状态才变成 `preparing`。客户端靠 `progress !== null` 判断「有任务」而不是靠状态，「准备好了」的提示只在放的文件真换了的时候出
+  （`producedNewFile`），所以被取消或失败的流畅版不会说「准备好了」。失败的流畅版不进 `failed` 状态（那会盖住正在放的画面），进 `smooth.error`。
+  `-vf` 里 `min(720\,ih)` 的逗号必须转义，否则滤镜图把它读成滤镜的分隔；它与「每 2 秒一个关键帧」都是拿真 ffmpeg 测的（`video.ffmpeg.test.ts`）。
+  降优先级靠 `os.setPriority`，进程号来自 `Child.pid`，测试里的假进程没有进程号就不降，别让测试给真进程降优先级。
 - **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
   （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
   对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`

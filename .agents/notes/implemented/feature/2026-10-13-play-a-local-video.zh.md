@@ -72,5 +72,5 @@ Status: implemented
 - **视频拖到练习页的舞台上就是选择它，不会再触发别的事。** 只收视频文件，拖进来的其他东西会被忽略（浏览器也不会把它打开），
   而且这次拖放不会到达导入，导入仍然只在首页。
 
-相关：[给慢线路准备流畅版视频](../../proposed/feature/2026-10-13-smooth-video.zh.md)，
+相关：[给慢线路准备流畅版视频](../../implemented/feature/2026-10-13-smooth-video.zh.md)，
 [在页面里播放视频剧集](../../implemented/feature/2026-10-12-video-episodes.zh.md)。

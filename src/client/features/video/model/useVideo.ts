@@ -12,8 +12,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cancelVideoPrepare, fetchVideoStatus, startVideoPrepare } from '../../../shared/lib/api.ts'
-import type { VideoPrepareRequest, VideoStatusPayload } from '../../../shared/protocol.ts'
-import { etaSeconds, segmentKey } from '../lib/source.ts'
+import type { VideoPrepareMode, VideoStatusPayload } from '../../../shared/protocol.ts'
+import { etaSeconds, producedNewFile, segmentKey } from '../lib/source.ts'
 
 /** How often a running job is asked about. */
 const POLL_MS = 1000
@@ -26,8 +26,8 @@ export interface VideoState {
   readonly failedUrl: string | null
   /** The browser could not decode this URL: the page stops playing it. */
   readonly markUndecodable: (url: string) => void
-  /** Start preparing the picture and sound, or only the sound. */
-  readonly prepare: (mode: VideoPrepareRequest['mode']) => void
+  /** Start preparing the picture and sound, only the sound or the smooth version, or go back to the original quality. */
+  readonly prepare: (mode: VideoPrepareMode) => void
   /** Stop the running job. */
   readonly cancel: () => void
   /** A start or a cancel is on its way to the host. */
@@ -66,17 +66,21 @@ export function useVideo(
   }, [onReady])
   /** When the job was first seen running, for the guess at how long is left. */
   const runningSince = useRef<number | null>(null)
-  /** The state seen last, to tell "a job just finished" from "this segment was already prepared". */
-  const lastState = useRef<{ key: string | null; state: string | null }>({ key: null, state: null })
+  /**
+   * What was seen last, to tell "a job just finished" from "this segment was already prepared": whether a job ran, and
+   * what played. A job that ends with the same file playing (a cancelled or failed smooth job) has produced nothing.
+   */
+  const lastState = useRef<{ key: string | null; running: boolean; url: string | null }>({ key: null, running: false, url: null })
 
   /** Take a status in, if it is still about the open segment. */
   const accept = useCallback(
     (forKey: string, payload: VideoStatusPayload): void => {
       setFetched({ key: forKey, value: payload })
       const last = lastState.current
-      const wasRunning = last.key === forKey && last.state === 'preparing'
-      lastState.current = { key: forKey, state: payload.state }
-      if (payload.state === 'preparing') {
+      const wasRunning = last.key === forKey && last.running
+      const running = payload.progress !== null
+      lastState.current = { key: forKey, running, url: payload.url }
+      if (running) {
         runningSince.current ??= Date.now()
         const fraction = payload.progress?.fraction ?? 0
         setEta(etaSeconds((Date.now() - runningSince.current) / 1000, fraction))
@@ -84,7 +88,7 @@ export function useVideo(
       }
       runningSince.current = null
       setEta(null)
-      if (wasRunning && (payload.state === 'playable' || payload.state === 'sound-ready')) ready.current?.(payload)
+      if (producedNewFile(wasRunning, payload, last.url)) ready.current?.(payload)
     },
     [],
   )
@@ -103,7 +107,7 @@ export function useVideo(
   }, [key, episodeId, segmentId, accept])
 
   const status = fetched !== null && fetched.key === key ? fetched.value : null
-  const running = status?.state === 'preparing'
+  const running = status !== null && status.progress !== null
 
   // Ask again, once a second, while a job runs.
   useEffect(() => {
@@ -115,7 +119,7 @@ export function useVideo(
   }, [running, key, episodeId, segmentId, accept])
 
   const prepare = useCallback(
-    (mode: VideoPrepareRequest['mode']): void => {
+    (mode: VideoPrepareMode): void => {
       if (key === null || episodeId === null) return
       setBusy(true)
       runningSince.current = null

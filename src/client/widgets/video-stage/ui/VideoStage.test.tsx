@@ -34,6 +34,8 @@ function status(state: VideoState, patch: Partial<VideoStatusPayload> = {}): Vid
     mismatch: null,
     estimateBytes: 1_181_116_006,
     progress: null,
+    jobKind: null,
+    smooth: { offer: false, estimateBytes: null, estimateSeconds: null, revert: false, error: null },
     installCommand: null,
     ...patch,
   }
@@ -262,6 +264,118 @@ describe('no picture to play', () => {
 
   it('takes no room when there is nothing to say', () => {
     expect(html({ playing: false, card: null, status: null })).toContain('dsh-lingualab-videostage is-empty')
+  })
+})
+
+describe('the smooth version', () => {
+  /** The smooth fields of a status, offered unless the patch says otherwise. */
+  const smooth = (patch: Partial<VideoStatusPayload['smooth']> = {}): VideoStatusPayload['smooth'] => ({
+    offer: true,
+    estimateBytes: 330_000_000,
+    estimateSeconds: 920,
+    revert: false,
+    error: null,
+    ...patch,
+  })
+  const playing = (patch: Partial<VideoStatusPayload> = {}): VideoStatusPayload =>
+    status('playable', { url: '/v.mp4', via: 'direct', smooth: smooth(), ...patch })
+
+  it('offers 「准备流畅版」 in the corner of a picture that plays, with the estimate beside it', () => {
+    const markup = html({ status: playing() })
+    expect(markup).toContain('dsh-lingualab-picture-smooth')
+    expect(markup).toContain('smoothAction')
+    expect(markup).toContain('title="smoothHint"')
+    expect(markup).toContain('smoothEstimate[size=315 MB;minutes=16]')
+  })
+
+  it('says nothing where it cannot be made, and says no estimate when the length is not known', () => {
+    expect(html({ status: playing({ smooth: smooth({ offer: false }) }) })).not.toContain('dsh-lingualab-picture-smooth')
+    const markup = html({ status: playing({ smooth: smooth({ estimateBytes: null, estimateSeconds: null }) }) })
+    expect(markup).toContain('smoothAction')
+    expect(markup).not.toContain('smoothEstimate')
+  })
+
+  it('labels the smooth file that plays and offers the way back', () => {
+    const markup = html({ status: playing({ via: 'smooth', smooth: smooth({ offer: false, revert: true }) }) })
+    expect(markup).toContain('smoothLabel')
+    expect(markup).toContain('smoothRevert')
+    expect(markup).not.toContain('smoothAction')
+  })
+
+  it('keeps the picture and shows the progress with 「取消」 while a smooth job runs', () => {
+    const markup = html({
+      eta: 300,
+      status: playing({ jobKind: 'smooth', progress: { fraction: 0.4, seconds: 40, total: 100 }, smooth: smooth({ offer: false }) }),
+    })
+    expect(markup).toContain('smoothRunning[percent=40]')
+    expect(markup).toContain('cardPreparingEtaMinutes[minutes=5]')
+    expect(markup).toContain('cardCancel')
+    expect(markup).not.toContain('dsh-lingualab-videocard')
+    expect(markup).not.toContain('dsh-lingualab-picture is-off')
+  })
+
+  it('shows the time left in seconds when it is short', () => {
+    const markup = html({ eta: 45, status: playing({ jobKind: 'smooth', progress: { fraction: 0.4, seconds: 40, total: 100 } }) })
+    expect(markup).toContain('cardPreparingEta[seconds=45]')
+  })
+
+  it('says why the last job failed, and why a request was refused, under the control', () => {
+    expect(html({ status: playing({ smooth: smooth({ error: 'Conversion failed' }) }) })).toContain('smoothError[reason=Conversion failed]')
+    expect(html({ status: playing({ ok: false, reason: 'busy with another' }) })).toContain('busy with another')
+  })
+
+  it('is left out while the reader own file plays, while the picture is hidden and in no card', () => {
+    expect(html({ local: local({ name: 'ep1.mp4' }) })).not.toContain('dsh-lingualab-picture-smooth')
+    expect(html({ picture: 'hidden', status: playing() })).not.toContain('dsh-lingualab-picture-smooth')
+  })
+
+  it('moves to the left of a large picture, clear of the peek button', () => {
+    const start = STYLES.indexOf('.dsh-lingualab-videostage.is-large .dsh-lingualab-picture-smooth{')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(STYLES.slice(start, STYLES.indexOf('}', start))).toContain('left:14px')
+    expect(html({ picture: 'large', status: playing() })).toContain('dsh-lingualab-picture-smooth')
+  })
+
+  const asking: readonly [CardKind, VideoState][] = [
+    ['prepare', 'prepare'],
+    ['sound-only', 'sound-only'],
+    ['sound-ready', 'sound-ready'],
+    ['unplayable', 'unplayable'],
+  ]
+  for (const [card, state] of asking) {
+    it(`is offered at the foot of the ${card} card, with what it does and what it costs`, () => {
+      const markup = html({ playing: false, card, cardOpen: true, status: status(state, { videoCodec: 'hevc', smooth: smooth() }) })
+      expect(markup).toContain('smoothAction')
+      expect(markup).toContain('smoothEstimate[size=315 MB;minutes=16]')
+      expect(markup).toContain('dsh-lingualab-videocard-note">smoothHint')
+    })
+
+    it(`is not offered on the ${card} card when it cannot be made`, () => {
+      const markup = html({ playing: false, card, cardOpen: true, status: status(state, { videoCodec: 'hevc', smooth: smooth({ offer: false }) }) })
+      expect(markup).not.toContain('smoothAction')
+    })
+  }
+
+  it('says on the card why the last smooth job failed, and offers it again', () => {
+    const markup = html({ playing: false, card: 'prepare', status: status('prepare', { smooth: smooth({ error: 'Disk full' }) }) })
+    expect(markup).toContain('smoothError[reason=Disk full]')
+    expect(markup).toContain('smoothAction')
+  })
+
+  it('titles the progress card as the smooth version while that job runs', () => {
+    const progress = { fraction: 0.1, seconds: 10, total: 100 }
+    const smoothJob = html({ playing: false, card: 'preparing', status: status('preparing', { jobKind: 'smooth', progress }) })
+    expect(smoothJob).toContain('cardPreparingTitleSmooth')
+    expect(smoothJob).toContain('cardPreparingSubSmooth')
+    const plain = html({ playing: false, card: 'preparing', status: status('preparing', { jobKind: 'video', progress }) })
+    expect(plain).toContain('cardPreparingTitle')
+    expect(plain).not.toContain('cardPreparingTitleSmooth')
+  })
+
+  it('does not put the offer on the failed, ffmpeg or progress cards', () => {
+    for (const [card, state] of [['failed', 'failed'], ['no-ffmpeg', 'no-ffmpeg'], ['preparing', 'preparing']] as const) {
+      expect(html({ playing: false, card, status: status(state, { smooth: smooth() }) })).not.toContain('smoothAction')
+    }
   })
 })
 

@@ -1,8 +1,9 @@
 /**
  * Where prepared video and sound live, and what the scan may say about a video without probing it.
  *
- * The cache is `<episode>/.lingualab/<stem>.mp4` (the picture kept, the sound converted) or
- * `<stem>.m4a` (only the sound). It is the fifth thing this plugin writes into the media folder,
+ * The cache is `<episode>/.lingualab/<stem>.mp4` (the picture kept, the sound converted),
+ * `<stem>.smooth.mp4` (the picture re-encoded for streaming, which replaces the first when it is
+ * made) or `<stem>.m4a` (only the sound). It is the fifth thing this plugin writes into the media folder,
  * and the narrowest: the plugin's own hidden folder, files nobody else reads, and deleting the
  * folder only means preparing again. The source video is never modified.
  *
@@ -17,11 +18,14 @@ import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { VIDEO_CACHE_DIR, type VideoRef } from '../../../../shared/protocol.ts'
 
-/** The two kinds of file the cache holds. */
-export type CacheKind = 'video' | 'sound'
+/** The three kinds of file the cache holds. */
+export type CacheKind = 'video' | 'sound' | 'smooth'
 
 /** The extension each kind is written with. */
-const EXTENSIONS: Readonly<Record<CacheKind, string>> = { video: 'mp4', sound: 'm4a' }
+const EXTENSIONS: Readonly<Record<CacheKind, string>> = { video: 'mp4', sound: 'm4a', smooth: 'smooth.mp4' }
+
+/** The kinds in the order they are preferred: the smooth picture, the picture as it came, then only the sound. */
+const PREFERENCE: readonly CacheKind[] = ['smooth', 'video', 'sound']
 
 /** The cache folder of one episode folder. */
 export function cacheDirOf(folder: string): string {
@@ -58,7 +62,7 @@ function statOf(path: string): { readonly size: number; readonly mtimeMs: number
 /**
  * The prepared copy of a source video, when there is one that is still good.
  *
- * The picture is preferred over the sound alone. An empty file, or one older than its source, does not count.
+ * The smooth picture is preferred over the one that kept its size, and either over the sound alone. An empty file, or one older than its source, does not count.
  * @param folder - the episode folder.
  * @param stem - the segment stem.
  * @param sourcePath - the source video, whose modification time the cache is held against.
@@ -66,7 +70,7 @@ function statOf(path: string): { readonly size: number; readonly mtimeMs: number
  */
 export function findCached(folder: string, stem: string, sourcePath: string): CachedFile | null {
   const source = statOf(sourcePath)
-  for (const kind of ['video', 'sound'] as const) {
+  for (const kind of PREFERENCE) {
     const path = cachePathFor(folder, stem, kind)
     const stats = statOf(path)
     if (stats === null || stats.size === 0) continue
@@ -114,7 +118,7 @@ export function videoRefOf(folder: string, file: string, stem: string): VideoRef
   const stats = statOf(path)
   const cached = findCached(folder, stem, path)
   let state: VideoRef['state'] = 'unprepared'
-  if (cached !== null) state = cached.kind === 'video' ? 'ready' : 'sound'
+  if (cached !== null) state = cached.kind === 'sound' ? 'sound' : 'ready'
   else if (isKnownDirect(path)) state = 'ready'
   return { file, bytes: stats === null ? null : stats.size, state }
 }

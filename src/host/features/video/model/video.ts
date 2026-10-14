@@ -8,12 +8,17 @@
  * to answer, through the pure planner in `video-plan.ts`, and the answer is remembered per file (path,
  * size and modification time) so polling a job does not probe the same file every second.
  *
+ * The smooth version rides on top of that answer: whatever the file's state is, the status also says whether
+ * 「准备流畅版」 can be offered (any file with a picture and a sound, the ones a browser cannot decode included),
+ * whether 「改回原画质」 can (a smooth file is in the cache), and, while a smooth job runs, how far it has got. A
+ * smooth job does not take the picture away: what plays keeps playing until the new file is in place.
+ *
  * Videos exist only for folder episodes inside the library: preparing writes into the library, so a
  * file episode picked from elsewhere in the workspace has no video here, the same boundary subtitle
  * timing draws. The episode and segment named in a request are looked up in the scan, never joined
  * into a path as they come.
  */
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, statSync, unlinkSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import {
   MEDIA_PATH,
@@ -21,20 +26,24 @@ import {
   type EpisodeSegment,
   type VideoPrepareRequest,
   type VideoProgress,
+  type VideoSmooth,
   type VideoStatusPayload,
 } from '../../../../shared/protocol.ts'
 import { stemOf } from '../../../../shared/stem.ts'
 import { scanEpisode } from '../../../entities/episode/index.ts'
 import { isFileEpisodeId } from '../../../entities/open-state/index.ts'
-import { cacheDirOf, cacheFileName, findCached, rememberDirect } from '../../../entities/video-cache/index.ts'
+import { cacheDirOf, cacheFileName, cachePathFor, findCached, rememberDirect, type CachedFile } from '../../../entities/video-cache/index.ts'
 import { installCommandFor, runToEnd, type Binaries, type Spawn } from '../../../shared/ffmpeg/index.ts'
 import { isInside } from '../../../shared/fs/index.ts'
 import {
   durationOf,
   estimateBytes,
   parseProbe,
+  planSmooth,
   planVideo,
   probeArgs,
+  smoothEstimateBytes,
+  smoothEstimateSeconds,
   type PreparePlan,
   type ProbeResult,
   type VideoPlan,
@@ -81,6 +90,8 @@ function emptyStatus(ok: boolean, reason: string | null, state: VideoStatusPaylo
     mismatch: null,
     estimateBytes: null,
     progress: null,
+    jobKind: null,
+    smooth: { offer: false, estimateBytes: null, estimateSeconds: null, revert: false, error: null },
     installCommand: null,
   }
 }
@@ -196,6 +207,19 @@ async function mismatchOf(deps: VideoDeps, binaries: Binaries | null, track: Tra
   return Math.abs(difference) > MISMATCH_SECONDS ? Math.round(difference * 10) / 10 : null
 }
 
+/** What the status of one segment is worked out from. */
+interface StatusContext {
+  readonly episode: string
+  readonly track: Track
+  readonly source: string
+  readonly basis: VideoStatusPayload
+  readonly deps: VideoDeps
+  readonly binaries: Binaries | null
+  readonly cached: CachedFile | null
+  /** The last job for this segment when it failed, whatever it was making (except the smooth one, which the smooth field tells of). */
+  readonly failed: JobView | null
+}
+
 /**
  * Say what the host knows about the video of one segment.
  * @param episode - the folder episode's id.
@@ -210,23 +234,53 @@ export async function videoStatus(episode: string, segment: string | undefined, 
   const basis = { ...emptyStatus(true, null), file: track.videoFile, bytes: track.videoBytes }
 
   const job = deps.jobs.has(track.folder, track.stem)
-  if (job !== null && job.phase === 'running') {
-    return { ...basis, state: 'preparing', progress: progressOf(job), duration: job.total }
+  const running = job !== null && job.phase === 'running' ? job : null
+  if (running !== null && running.kind !== 'smooth') {
+    return { ...basis, state: 'preparing', progress: progressOf(running), duration: running.total, jobKind: running.kind }
   }
 
   const binaries = deps.binaries()
-  const extension = extname(track.videoFile).slice(1).toLowerCase()
   const cached = findCached(track.folder, track.stem, source)
+  const failed = job !== null && job.phase === 'failed' && job.kind !== 'smooth' ? job : null
+  const status = await settledStatus({ episode, track, source, basis, deps, binaries, cached, failed })
 
-  // A prepared copy with its picture plays; the length check is the source's, which is what it was made from.
-  if (cached !== null && cached.kind === 'video') {
+  const probed = binaries === null ? null : await probe(deps, binaries, source)
+  const smoothPlan = probed === null ? null : planSmooth(probed)
+  const smooth: VideoSmooth = {
+    offer: smoothPlan !== null && cached?.kind !== 'smooth' && running === null,
+    estimateBytes: smoothPlan === null ? null : smoothEstimateBytes(smoothPlan.duration),
+    estimateSeconds: smoothPlan === null ? null : smoothEstimateSeconds(smoothPlan.duration),
+    revert: cached?.kind === 'smooth',
+    error: job !== null && job.phase === 'failed' && job.kind === 'smooth' ? job.error : null,
+  }
+  if (running === null) return { ...status, smooth, jobKind: status.state === 'failed' ? (failed?.kind ?? null) : null }
+  // A smooth job runs. What plays keeps playing; only a segment with nothing to play yet is "being prepared".
+  const keepsPlaying = status.state === 'playable' || status.state === 'sound-ready'
+  return {
+    ...status,
+    smooth,
+    state: keepsPlaying ? status.state : 'preparing',
+    progress: progressOf(running),
+    jobKind: 'smooth',
+    duration: status.duration ?? running.total,
+  }
+}
+
+/** The state of a segment's video, without the smooth version's offers and progress laid over it. */
+async function settledStatus(context: StatusContext): Promise<VideoStatusPayload> {
+  const { episode, track, source, basis, deps, binaries, cached, failed } = context
+  const extension = extname(track.videoFile).slice(1).toLowerCase()
+
+  // A prepared copy with its picture plays, the smooth one before the one that kept its size. The length check is the
+  // source's, which is what either was made from.
+  if (cached !== null && cached.kind !== 'sound') {
     const plan = binaries === null ? null : await planOf(deps, binaries, source, extension)
     const duration = plan === null ? null : plan.duration
     return {
       ...basis,
       state: 'playable',
-      via: 'prepared',
-      url: urlOf(episode, cacheFileName(track.stem, 'video'), true),
+      via: cached.kind === 'smooth' ? 'smooth' : 'prepared',
+      url: urlOf(episode, cacheFileName(track.stem, cached.kind), true),
       duration,
       ...(plan === null ? {} : describePlan(plan, track)),
       mismatch: await mismatchOf(deps, binaries, track, duration),
@@ -237,8 +291,8 @@ export async function videoStatus(episode: string, segment: string | undefined, 
     return { ...basis, state: 'sound-ready', via: 'prepared', url: urlOf(episode, cacheFileName(track.stem, 'sound'), true) }
   }
 
-  if (job !== null && job.phase === 'failed') {
-    return { ...basis, ok: false, state: 'failed', reason: job.error ?? '没准备成功' }
+  if (failed !== null) {
+    return { ...basis, ok: false, state: 'failed', reason: failed.error ?? '没准备成功' }
   }
 
   if (binaries === null) {
@@ -296,7 +350,8 @@ function cacheFolderSafe(folder: string): boolean {
  * Start preparing one segment's video.
  *
  * The plan comes from the probe again rather than from the page: the page says only which segment and
- * whether it wants the picture or just the sound, and the host decides what that means for this file.
+ * what it wants (the picture, only the sound, the smooth version, or the original back), and the host
+ * decides what that means for this file.
  * @param request - the parsed request body.
  * @param deps - the library, the binaries and the job runner.
  * @returns the status after the start: `preparing` when a job began, otherwise the reason it did not.
@@ -308,27 +363,65 @@ export async function prepareVideo(request: VideoPrepareRequest, deps: VideoDeps
   const binaries = deps.binaries()
   if (binaries === null) return { ...(await videoStatus(request.episode, request.segment, deps)), ok: false }
 
-  const plan = await planOf(deps, binaries, source, extname(track.videoFile).slice(1).toLowerCase())
-  if (plan === null) return emptyStatus(false, '读不了这个视频，ffprobe 没能解析它', 'unplayable')
-  if (plan.kind === 'direct') return videoStatus(request.episode, request.segment, deps)
-  if (plan.kind === 'none') return videoStatus(request.episode, request.segment, deps)
+  /** The status as it is, with the reason nothing was started. */
+  const refuse = async (reason: string): Promise<VideoStatusPayload> => ({
+    ...(await videoStatus(request.episode, request.segment, deps)),
+    ok: false,
+    reason,
+  })
+
+  const probed = await probe(deps, binaries, source)
+  if (probed === null) return emptyStatus(false, '读不了这个视频，ffprobe 没能解析它', 'unplayable')
+  const plan = planVideo(probed, extname(track.videoFile).slice(1).toLowerCase())
+
+  if (request.mode === 'original') return revertSmooth(request, deps, track, source, plan)
 
   let chosen: PreparePlan
-  if (request.mode === 'sound') {
-    const audioIndex = plan.audioIndex
-    chosen = { kind: 'audio-only', duration: plan.duration, audioIndex, videoCodec: plan.videoCodec, audioCodec: plan.audioCodec, reason: 'video-codec' }
-  } else if (plan.kind === 'remux') {
-    chosen = plan
+  if (request.mode === 'smooth') {
+    if (findCached(track.folder, track.stem, source)?.kind === 'smooth') return refuse('已经是流畅版了')
+    const smooth = planSmooth(probed)
+    if (smooth === null) return refuse('这个视频没有画面或者没有声音，做不了流畅版')
+    chosen = smooth
   } else {
-    return { ...(await videoStatus(request.episode, request.segment, deps)), ok: false, reason: '这个画面浏览器解不了，只能准备声音' }
+    if (plan.kind === 'direct' || plan.kind === 'none') return videoStatus(request.episode, request.segment, deps)
+    if (request.mode === 'sound') {
+      const audioIndex = plan.audioIndex
+      chosen = { kind: 'audio-only', duration: plan.duration, audioIndex, videoCodec: plan.videoCodec, audioCodec: plan.audioCodec, reason: 'video-codec' }
+    } else if (plan.kind === 'remux') {
+      chosen = plan
+    } else {
+      return refuse('这个画面浏览器解不了，只能准备声音，或者准备流畅版')
+    }
   }
 
-  if (!cacheFolderSafe(track.folder)) {
-    return { ...(await videoStatus(request.episode, request.segment, deps)), ok: false, reason: '缓存文件夹指到剧集文件夹外面了' }
-  }
+  if (!cacheFolderSafe(track.folder)) return refuse('缓存文件夹指到剧集文件夹外面了')
   const started = deps.jobs.start({ folder: track.folder, stem: track.stem, source, plan: chosen, ffmpeg: binaries.ffmpeg })
-  if (!started.ok) {
-    return { ...(await videoStatus(request.episode, request.segment, deps)), ok: false, reason: started.message }
-  }
+  if (!started.ok) return refuse(started.message)
   return videoStatus(request.episode, request.segment, deps)
+}
+
+/**
+ * Go back from the smooth version: delete its file, and prepare the file as it was before.
+ *
+ * A source that plays as it is needs nothing more, and one whose picture a browser cannot decode goes back to what it
+ * was (the sound, or nothing). One that was prepared by remuxing is prepared again, which is a minute of work through
+ * the same job queue. Nothing is deleted while a job runs, since that job may be writing the file that replaces it.
+ */
+async function revertSmooth(request: VideoPrepareRequest, deps: VideoDeps, track: Track, source: string, plan: VideoPlan): Promise<VideoStatusPayload> {
+  const again = (): Promise<VideoStatusPayload> => videoStatus(request.episode, request.segment, deps)
+  const refuse = async (reason: string): Promise<VideoStatusPayload> => ({ ...(await again()), ok: false, reason })
+  if (findCached(track.folder, track.stem, source)?.kind !== 'smooth') return again()
+  if (deps.jobs.busy()) return refuse('正在准备另一个视频，等它做完或者先取消')
+  if (!cacheFolderSafe(track.folder)) return refuse('缓存文件夹指到剧集文件夹外面了')
+  try {
+    unlinkSync(cachePathFor(track.folder, track.stem, 'smooth'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return refuse(`没能删掉流畅版：${String(error)}`)
+  }
+  const binaries = deps.binaries()
+  if (plan.kind === 'remux' && binaries !== null) {
+    const started = deps.jobs.start({ folder: track.folder, stem: track.stem, source, plan, ffmpeg: binaries.ffmpeg })
+    if (!started.ok) return refuse(started.message)
+  }
+  return again()
 }

@@ -101,5 +101,5 @@ Decisions made while building:
   taken, anything else dropped there is ignored (and not opened by the browser), and the drop never reaches the import,
   which stays on the home page.
 
-Related: [a smooth version of a video for slow links](../../proposed/feature/2026-10-13-smooth-video.md),
+Related: [a smooth version of a video for slow links](../../implemented/feature/2026-10-13-smooth-video.md),
 [play video episodes in the page](../../implemented/feature/2026-10-12-video-episodes.md).

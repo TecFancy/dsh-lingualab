@@ -19,6 +19,28 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-14
+
+### Added
+
+- A smooth version of a video for slow links (「准备流畅版」). Started by hand for one episode or segment, from the corner of
+  the playing picture or from a card, with the estimated size and time next to it, it re-encodes the picture as H.264 at
+  720 lines at most and about 1.9 Mbps (a keyframe every 2 seconds, stereo AAC at 128 kb/s, the index first) into
+  `<episode>/.lingualab/<stem>.smooth.mp4`. It runs in the same one-at-a-time job as preparing, with the same progress and
+  「取消」, at a lower priority and with one thread fewer than the machine has cores, and the picture keeps playing while it
+  runs. When it is in place the full-size prepared `mp4` is deleted, a source that plays directly is never touched, and the
+  page plays the smooth file, else the prepared one, else the source (the status says `via: 'smooth'`).
+- The smooth version is also offered for a picture a browser cannot decode (HEVC, MPEG-4 Part 2, 10-bit H.264), on the
+  sound-only card and on the card of a segment with its own audio file. The same re-encode turns it into a video that plays.
+- 「改回原画质」 on the playing smooth picture deletes the smooth file and prepares the video as it was before, through the
+  same job queue (a one-minute remux). For a picture that could only ever be sound, going back just returns to the
+  sound-only state. It is the `original` mode of the prepare route, and `smooth` is the other new one.
+
+### Fixed
+
+- 「重试」 on a failed sound-only preparation asked for the picture, which the host refuses for such a file; it now asks for
+  the sound again.
+
 ## [0.10.1] - 2026-10-14
 
 ### Fixed

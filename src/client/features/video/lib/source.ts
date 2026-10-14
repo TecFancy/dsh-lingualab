@@ -15,6 +15,10 @@
  * The cards that only inform (nothing to do but know) are shown in full the first time a segment is
  * opened in this page session and afterwards as a small label that reopens them; the ones that ask
  * for something are shown whenever the picture is.
+ *
+ * The smooth version is the one job that can run while a picture plays, so it does not take the picture's place with a
+ * card: the playing picture's corner carries its offer and its progress (see `smooth.ts`), and a card only offers it
+ * beside the other things it asks.
  */
 import type { VideoStatusPayload } from '../../../shared/protocol.ts'
 
@@ -80,7 +84,13 @@ export type CardKind =
  */
 export function cardOf(status: VideoStatusPayload | null, failedUrl: string | null): CardKind | null {
   if (status === null) return null
-  if (status.state === 'playable') return status.url !== null && status.url === failedUrl ? 'unplayable' : null
+  if (status.state === 'playable') {
+    if (status.url === null || status.url !== failedUrl) return null
+    // A smooth job may already be running for the file the browser could not decode: it is what will fix it.
+    return status.progress === null ? 'unplayable' : 'preparing'
+  }
+  // The sound plays from the cache while a smooth job runs: the card is the progress, as for any job.
+  if (status.state === 'sound-ready' && status.progress !== null) return 'preparing'
   switch (status.state) {
     case 'prepare':
       return 'prepare'
@@ -112,6 +122,20 @@ export function isInformational(kind: CardKind): boolean {
  */
 export function segmentKey(episodeId: string | null, segmentId: string | null): string | null {
   return episodeId === null ? null : JSON.stringify([episodeId, segmentId])
+}
+
+/**
+ * Whether a job that was running has just produced something to play.
+ *
+ * A job that ends with the same file playing (a smooth job that was cancelled or failed while the picture played) has
+ * produced nothing, so the page does not say "ready".
+ * @param wasRunning - a job was running at the last look.
+ * @param status - what the host says now.
+ * @param lastUrl - what played at the last look, or `null`.
+ */
+export function producedNewFile(wasRunning: boolean, status: VideoStatusPayload, lastUrl: string | null): boolean {
+  if (!wasRunning || status.progress !== null) return false
+  return (status.state === 'playable' || status.state === 'sound-ready') && status.url !== lastUrl
 }
 
 /**
