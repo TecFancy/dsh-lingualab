@@ -19,6 +19,26 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The practice view no longer breaks on an iPad. It used to ask the window's width, but the host's sidebar and the
+  transcript take a different share of it in every state, so in landscape the practice column is only 440 to 630 px wide
+  while the window is 1024 or 1180 px. The column is now a size container and the rules about what is in it ask the
+  column (`@container`); the transcript's narrower width asks the row it sits in; only the browse layer still asks the
+  window.
+- A column too short for the picture, the sentence and the timing panel at once no longer paints the sentence over the
+  picture and the timing panel, and no longer pushes the player card off the screen. The part above the card scrolls
+  and the card stays put. Before that is needed, a column under about 720 px tall drops the lines either side of the
+  sentence, caps the picture at 30% of the column's height (it was 42% of the window's) and the timing panel loses its
+  mini timeline, and while the timing panel is open the picture steps aside (it keeps playing, and a large picture keeps
+  its place).
+- In a column under about 650 px wide the picture and the cards use the whole width instead of 64% of it, the smooth
+  version's pill wraps instead of cutting its text, the player card's buttons sit in centred rows, and the timing panel's
+  start and end cards stack with the playhead button beside the value.
+- On a touch screen the keyboard hints are gone (the key row under the player, the keys in the timing panel, the caps on
+  buttons and in the 「更多」 menu), and the timing panel's step buttons, 「设为播放位置」, 「取消」 and
+  「保存到字幕文件」 are 44 px tall. The small pills on the picture keep their size and get a 44 px touch area.
+
 ## [0.11.1] - 2026-10-14
 
 ### Fixed

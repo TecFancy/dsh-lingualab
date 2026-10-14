@@ -134,6 +134,12 @@ node scripts/verify.mjs --list   # 看检查表
   （`producedNewFile`），所以被取消或失败的流畅版不会说「准备好了」。失败的流畅版不进 `failed` 状态（那会盖住正在放的画面），进 `smooth.error`。
   `-vf` 里 `min(720\,ih)` 的逗号必须转义，否则滤镜图把它读成滤镜的分隔；它与「每 2 秒一个关键帧」都是拿真 ffmpeg 测的（`video.ffmpeg.test.ts`）。
   降优先级靠 `os.setPriority`，进程号来自 `Child.pid`，测试里的假进程没有进程号就不降，别让测试给真进程降优先级。
+- **布局看练习栏自己的大小，不看窗口**，决定与取舍见 `.agents/notes/implemented/architecture/2026-10-14-layout-answers-to-the-practice-column.md`。
+  `.dsh-lingualab-practice` 是 `container:ll-practice/size`，响应式规则写成 `@container ll-practice (...)`，都在 `styles.ts` 末尾那一段
+  （要压过前面同优先级的规则，所以放最后）。两个坑：**尺寸查询量的是内容盒**，栏宽要减 48、栏高要减 20 才是写进阈值的数；
+  侧栏和字幕栏让窗口宽度几乎说明不了栏有多大，别再写视口断点（样式表测试只放行浏览层的 640）。卡片以上的内容在
+  `.dsh-lingualab-practice-main` 里，它是唯一的滚动容器，卡片留在下面；句子是 `flex:1 0 auto`，别改回会缩的。触屏的规则看
+  `(hover:none) and (pointer:coarse)`，不看宽度。想看改动的效果，把真组件渲染成静态标记、配真样式表、在浏览器里按 iPad 的各个尺寸读高度。
 - **点过按钮空格还得管用，靠的是鼠标不把焦点留在按钮上**：Windows 上 Chrome 点按钮会把焦点给按钮，而点了就消失的按钮
   （大画面的「R 看一眼这句」、舞台上的「R」揭开）会把焦点丢给文档，落到面板容器外，快捷键就死到下次点页面。页面根的 `onMouseDown`
   对按钮 `preventDefault`（`shared/lib/focus.ts` 的 `holdsMouseFocus`，模态层与设置抽屉除外，它们自己读键盘），容器的 `onKeyDown`
