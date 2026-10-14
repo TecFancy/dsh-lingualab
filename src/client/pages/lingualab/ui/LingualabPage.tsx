@@ -103,7 +103,7 @@ import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { SETTINGS_EXIT_MS, SettingsPanel } from '../../../widgets/settings-panel/index.ts'
 import { STEPS_EXIT_MS, StepTracker } from '../../../widgets/step-tracker/index.ts'
 import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
-import { TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
+import { TIMING_EXIT_MS, TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
 import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
@@ -692,10 +692,15 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     onSaved: onTimingSaved,
     onStale: onTimingStale,
   })
+  // The layout is in timing mode for as long as the panel is on the page, which outlasts the session by its way out: the
+  // card fades while everything around it stays put, and the column leaves timing mode in the commit that unmounts the
+  // panel. Behaviour (the keys, the stage's button) follows the session. One presence serves both the column and the
+  // panel, so they cannot part by a frame.
+  const timingPresence = usePresence(timing.session !== null, TIMING_EXIT_MS)
   // Whether the picture that plays under the timing panel has the room it needs. The scroller is in state, not a ref, so
   // the measuring starts when the practice view puts it on the page.
   const [practiceMain, setPracticeMain] = useState<HTMLDivElement | null>(null)
-  const pictureFits = usePictureRoom(practiceMain, timing.session !== null)
+  const pictureFits = usePictureRoom(practiceMain, timingPresence.mounted)
 
   /** Open the strip for the sentence on stage; layers close, because the strip takes the keyboard. */
   const openTiming = useCallback((): void => {
@@ -1317,7 +1322,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
 
           <div className="dsh-lingualab-body">
             <div
-              className={`dsh-lingualab-practice${timing.session === null ? '' : ' is-timing'}${pictureFits ? '' : ' is-picture-squeezed'}`}
+              className={`dsh-lingualab-practice${timingPresence.mounted ? ' is-timing' : ''}${pictureFits ? '' : ' is-picture-squeezed'}`}
             >
               {shownNotice === null ? null : <VideoNotice notice={shownNotice} onAction={onNoticeAction} />}
               {review !== null && reviewOn && reviewItem !== null ? (
@@ -1386,6 +1391,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 <TimingStrip
                   t={t}
                   editor={timing}
+                  mounted={timingPresence.mounted}
+                  shown={timingPresence.shown}
                   blocked={
                     timingBlocked ??
                     (timing.session !== null && (timing.session.cue.origin === undefined || library.tracks.english === null)

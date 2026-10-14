@@ -262,14 +262,13 @@ export const STYLES = `
 .dsh-lingualab-stage-time.is-on{border-color:var(--dsw-alias-brand-primary,#0f1115);color:var(--dsw-alias-label-primary,inherit);
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 8%,transparent)}
 
-/* The timing panel, between the stage and the player card. It opens by growing a grid row from nothing
-   (so the stage above it re-centres instead of jumping) while the card inside fades and lifts in, and it
-   stays mounted for as long as the way out takes; see usePresence. */
-.dsh-lingualab-timing-wrap{flex:none;display:grid;grid-template-rows:0fr;width:min(720px,100%);align-self:center;
-  transition:grid-template-rows .24s cubic-bezier(.2,.8,.2,1)}
-.dsh-lingualab-timing-wrap.is-open{grid-template-rows:1fr}
+/* The timing panel, between the stage and the player card. It only exists while the column is in timing mode, and takes its
+   full height from the first frame to the last: the layout around it (the picture above all) steps once each way, and only
+   the card inside fades and lifts, so nothing is ever drawn at a size it does not keep. It stays mounted for as long as the
+   way out takes, and the page keeps the column in timing mode for as long; see usePresence. */
+.dsh-lingualab-timing-wrap{flex:none;width:min(720px,100%);align-self:center}
 .dsh-lingualab-timing-wrap:not(.is-open){pointer-events:none}
-.dsh-lingualab-timing-clip{min-height:0;overflow:hidden}
+.dsh-lingualab-timing-clip{overflow:hidden}
 .dsh-lingualab-timing{display:flex;flex-direction:column;gap:12px;box-sizing:border-box;margin-bottom:10px;
   padding:14px 16px 12px;border-radius:14px;background:var(--ll-surface);
   border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));box-shadow:0 8px 24px rgba(0,0,0,0.08);
