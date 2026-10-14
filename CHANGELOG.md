@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-10-14
+
 ### Fixed
 
 - With the timing panel open, a picture that does not fit (under 120 px of room, for example beside a two-line sentence at
