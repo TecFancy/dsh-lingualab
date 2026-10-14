@@ -19,6 +19,18 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The practice view fits at the heights a real iPad in Safari has, where Safari's status bar and toolbar take 74 to 110 px
+  that the earlier measurements did not count. With the timing panel closed and a picture playing, a two-line sentence with its
+  Chinese line needed up to 74 px more than the column had (an iPad mini at 1133 by 634, 49 px at 1133 by 670, 25 px at
+  1180 by 710, 17 px at 1194 by 724), so the part above the player card scrolled. The picture now gives way, as it already did
+  while timing: its stage is sized as the picture always was and may shrink when the room is less, down to 120 px, under which
+  the picture is not drawn and the sentence takes the room (it comes back at 128 px). The corner pills are not drawn on a
+  picture under 160 px. Where the page fitted it is unchanged (the 1440 by 900 desktop picture is still 443 by 249 with the
+  sidebar open); the sizes that did not fit lose some picture instead of getting a scroller. The play card stays on screen at
+  every size measured.
+
 ## [0.11.5] - 2026-10-14
 
 ### Fixed

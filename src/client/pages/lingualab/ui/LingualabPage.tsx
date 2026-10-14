@@ -697,10 +697,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // panel. Behaviour (the keys, the stage's button) follows the session. One presence serves both the column and the
   // panel, so they cannot part by a frame.
   const timingPresence = usePresence(timing.session !== null, TIMING_EXIT_MS)
-  // Whether the picture that plays under the timing panel has the room it needs. The scroller is in state, not a ref, so
-  // the measuring starts when the practice view puts it on the page.
+  // Whether the picture that plays above the sentence has the room it needs, with the timing panel open or not. The
+  // scroller is in state, not a ref, so the measuring starts when the practice view puts it on the page.
   const [practiceMain, setPracticeMain] = useState<HTMLDivElement | null>(null)
-  const pictureFits = usePictureRoom(practiceMain, timingPresence.mounted)
+  const pictureFits = usePictureRoom(practiceMain, videoPlays && picture === 'shown')
 
   /** Open the strip for the sentence on stage; layers close, because the strip takes the keyboard. */
   const openTiming = useCallback((): void => {
