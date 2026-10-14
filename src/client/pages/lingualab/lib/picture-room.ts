@@ -1,12 +1,13 @@
 /**
- * Whether the picture has room while timing is adjusted: the arithmetic, apart from the DOM it is read from.
+ * Whether the picture has room above the sentence, with the timing panel open or not: the arithmetic, apart from the DOM it
+ * is read from.
  *
- * The picture takes whatever is left of the practice column's scroller once the other parts have their own height, so
- * the room it would get is a sum of things that do not change when the picture is not drawn. That is the point of
- * computing it instead of reading the picture's own box: a box that disappears when it is small would be small no
- * longer, appear again, and flicker. The band between `PICTURE_MIN` and `PICTURE_BACK` is the other half of that:
- * once the picture has stepped aside it needs a little more than it gave up at, so a window dragged along the edge
- * does not toggle it on every pixel.
+ * The picture takes whatever is left of the practice column's scroller once the other parts have their own height (up to
+ * the size it would have anyway), so the room it would get is a sum of things that do not change when the picture is
+ * not drawn. That is the point of computing it instead of reading the picture's own box: a box that disappears when it
+ * is small would be small no longer, appear again, and flicker. The band between `PICTURE_MIN` and `PICTURE_BACK` is
+ * the other half of that: once the picture has stepped aside it needs a little more than it gave up at, so a window
+ * dragged along the edge does not toggle it on every pixel.
  */
 
 /** The picture is not drawn under this much height (CSS pixels), the number the layout has always used. */

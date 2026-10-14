@@ -130,22 +130,57 @@ describe('the stylesheet', () => {
 
   it('collapses the picture stage and lets the sentence stage take and centre the room when the page says it is squeezed', () => {
     const squeezed = '.dsh-lingualab-practice.is-timing.is-picture-squeezed'
-    // The picture's stage takes no space at all, not a box with nothing drawn in it.
-    expect(rule(`${squeezed} .dsh-lingualab-videostage.is-shown.has-screen`)).toContain('display:none')
-    // The sentence stage grows into the room, and its text stays centred in it (the base rule centres it).
+    // The picture's stage takes no space at all, not a box with nothing drawn in it, with the timing panel open or not.
+    expect(rule('.dsh-lingualab-practice.is-picture-squeezed .dsh-lingualab-videostage.is-shown.has-screen')).toContain('display:none')
+    // The sentence stage grows into the room, and its text stays centred in it (the base rule centres it). It only
+    // learns to shrink while timing, where the panel is the other part; closed it keeps its own height (flex:1 0 auto).
     expect(rule(`${squeezed} .dsh-lingualab-stage`)).toContain('flex:1 1 auto')
+    expect(STYLES).not.toContain('.dsh-lingualab-practice.is-picture-squeezed .dsh-lingualab-stage{')
     expect(rule('.dsh-lingualab-stage')).toContain('justify-content:center')
     // It comes after the rules it overrides, at the same specificity or more.
     expect(STYLES.indexOf(`${squeezed} .dsh-lingualab-stage{`)).toBeGreaterThan(
       STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-stage{'),
     )
-    expect(STYLES.indexOf(`${squeezed} .dsh-lingualab-videostage.is-shown.has-screen{`)).toBeGreaterThan(
-      STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen{'),
-    )
+    const closed = '.dsh-lingualab-practice:not(.is-timing) .dsh-lingualab-videostage.is-shown.has-screen{'
+    const hide = '.dsh-lingualab-practice.is-picture-squeezed .dsh-lingualab-videostage.is-shown.has-screen{'
+    expect(STYLES.indexOf(hide)).toBeGreaterThan(STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen{'))
+    expect(STYLES.indexOf(hide)).toBeGreaterThan(STYLES.indexOf(closed))
+  })
+
+  it('lets a playing picture give way when the column is short, outside timing too, from the size it always had', () => {
+    // The stage is sized as the picture would be (its share of the width, 720px at 16:9, the height cap), and may shrink by flex.
+    const stage = rule('.dsh-lingualab-practice:not(.is-timing) .dsh-lingualab-videostage.is-shown.has-screen')
+    expect(stage).toContain('flex:0 1 min(calc(var(--ll-pic-share) * (100cqw - 24px) * 9 / 16),405px,var(--ll-pic-h))')
+    expect(stage).toContain('min-height:0')
+    expect(stage).toContain('container:ll-video/size')
+    // The padding is outside the box the basis names, whatever the host does to box-sizing.
+    expect(stage).toContain('box-sizing:content-box')
+    // The picture is the biggest 16:9 box the stage gives it, no wider than its share; it has no 300px floor and no height cap of its own.
+    const frame = rule('.dsh-lingualab-practice:not(.is-timing) .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture')
+    expect(frame).toContain('width:min(var(--ll-pic-w),720px,calc(100cqh * 16 / 9))')
+    expect(frame).toContain('min-width:0')
+    expect(frame).toContain('max-height:none')
+    // The share and the cap are the picture's own, said once more for the stage, and the narrow and short rules change both.
+    expect(rule('.dsh-lingualab-videostage')).toContain('--ll-pic-share:.64')
+    expect(rule('.dsh-lingualab-videostage')).toContain('--ll-pic-h:42cqh')
+    expect(block('@container ll-practice (max-width:600px)')).toContain('.dsh-lingualab-videostage{--ll-pic-share:1}')
+    expect(block('@container ll-practice (max-height:700px)')).toContain('.dsh-lingualab-videostage,.dsh-lingualab-picture{--ll-pic-h:30cqh}')
+    // Timing keeps its own sizing: all that is left, not the size it always had.
+    expect(rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen')).toContain('flex:1 1 0')
+  })
+
+  it('leaves the corner pills off a picture that has given way to under 160px', () => {
+    const small = block('@container ll-video (max-height:159px)')
+    expect(small).toContain('.dsh-lingualab-videostage.is-shown .dsh-lingualab-picture-local')
+    expect(small).toContain('.dsh-lingualab-videostage.is-shown .dsh-lingualab-picture-smooth')
+    expect(small).toContain('{display:none}')
   })
 
   it('leaves the decision to draw no picture to the page, not to a container query on the picture', () => {
-    expect(STYLES).not.toContain('@container ll-video (max-height')
+    // The one query on the picture stage's height is about the pills drawn on the picture, and never hides the picture.
+    expect([...STYLES.matchAll(/@container ll-video \(max-height:(\d+)px\)/g)].map((match) => match[1])).toEqual(['159'])
+    expect(block('@container ll-video (max-height:159px)')).not.toContain('.dsh-lingualab-picture{')
+    expect(block('@container ll-video (max-height:159px)')).not.toContain('videostage.is-shown{')
     // The large picture still has its own container, and is not touched by the squeezed rules.
     expect(STYLES).not.toContain('.is-picture-squeezed .dsh-lingualab-videostage.is-large')
   })
