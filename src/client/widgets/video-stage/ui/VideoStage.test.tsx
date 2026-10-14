@@ -116,6 +116,13 @@ describe('a video that plays', () => {
     expect(html({ picture: 'shown', caption: 'secret' })).not.toContain('secret')
   })
 
+  it('says whether a picture is on the stage, so the timing layout can tell it from a card or a chip', () => {
+    expect(html()).toContain('dsh-lingualab-videostage is-shown has-screen')
+    expect(html({ picture: 'large' })).toContain('dsh-lingualab-videostage is-large has-screen')
+    expect(html({ playing: false, card: 'prepare', status: status('prepare') })).not.toContain('has-screen')
+    expect(html({ picture: 'hidden' })).not.toContain('has-screen')
+  })
+
   it('shows only a chip when hidden, and still has the element that plays the sound', () => {
     const markup = html({ picture: 'hidden' })
     expect(markup).toContain('dsh-lingualab-videostage is-hidden')
@@ -138,15 +145,19 @@ describe('the large frame', () => {
     expect(markup).toContain('--ll-video-ratio:1.7778')
   })
 
+  it('gives a shown picture the video shape too, for the timing layout, while its own frame stays 16:9', () => {
+    expect(html({ picture: 'shown' })).toContain('--ll-video-ratio:1.7778')
+    expect(rule('.dsh-lingualab-picture')).toContain('aspect-ratio:16/9')
+  })
+
   it('leaves the other states on the stylesheet own 16:9', () => {
-    expect(html({ picture: 'shown' })).not.toContain('--ll-video-ratio')
     expect(html({ picture: 'hidden' })).not.toContain('--ll-video-ratio')
     // No picture to enlarge: the card state keeps the usual size.
     expect(html({ playing: false, picture: 'large', card: 'prepare', status: status('prepare') })).not.toContain('--ll-video-ratio')
   })
 
   it('makes the stage a size container and the frame the biggest box of the video shape that fits, at most 1100px wide', () => {
-    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('container-type:size')
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('container:ll-video/size')
     expect(rule('.dsh-lingualab-videostage.is-large')).toContain('flex:1')
     // A floor, not zero: with the timing panel open the frame stays a picture and the column's scroller takes the rest.
     expect(rule('.dsh-lingualab-videostage.is-large')).toContain('min-height:160px')

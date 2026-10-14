@@ -41,7 +41,7 @@ describe('the stylesheet', () => {
   it('asks only containers that exist', () => {
     const asked = [...STYLES.matchAll(/@container\s+([\w-]+)\s*\(/g)].map((match) => match[1])
     expect(asked.length).toBeGreaterThan(0)
-    for (const name of asked) expect(['ll-practice', 'll-body']).toContain(name)
+    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video']).toContain(name)
   })
 
   it('keeps only the browse layer on a viewport width', () => {
@@ -68,17 +68,96 @@ describe('the stylesheet', () => {
     expect(short).toContain('--ll-pic-h:30cqh')
   })
 
-  it('steps a shown picture aside while the timing panel is open in a column under 1000px', () => {
-    const tight = block('@container ll-practice (max-height:1000px)')
-    expect(tight).toContain(':has(.dsh-lingualab-timing-wrap.is-open)')
-    expect(tight).toContain('.dsh-lingualab-videostage.is-shown{display:none}')
-    // A large picture is the whole stage: nothing here may hide it.
-    expect(tight).not.toContain('is-large')
+  it('treats adjusting timing as a mode the page sets on the column, not as a :has() of the panel', () => {
+    expect(STYLES).not.toContain(':has(.dsh-lingualab-timing-wrap')
+    expect(STYLES).toContain('.dsh-lingualab-practice.is-timing')
+    // The rules the mode replaced: a shown picture hidden under 1000px, the strip of 100cqh less 880px, the 440px hide.
+    expect(STYLES).not.toContain('max-height:1000px')
+    expect(STYLES).not.toContain('880px')
+    expect(STYLES).not.toContain('max-width:440px')
+    expect(STYLES).not.toContain('max-width:520px')
   })
 
-  it('stacks the two edge cards and gives the picture and the cards the whole width in a narrow column', () => {
-    expect(block('@container ll-practice (max-width:520px)')).toContain('.dsh-lingualab-timing-edges{grid-template-columns:1fr}')
-    expect(block('@container ll-practice (max-width:600px)')).toContain('--ll-pic-w:100%')
+  it('folds the player card to the scrubber and one row, speed then previous, play and next, while timing', () => {
+    const hidden = block('.dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints')
+    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed)')
+    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu')
+    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end')
+    expect(hidden).toContain('{display:none}')
+    // The narrow rule that dissolves the sides into one wrapping flow must not decide the row while timing.
+    const row = rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-row')
+    expect(row).toContain('display:grid')
+    expect(row).toContain('grid-template-columns:1fr auto 1fr')
+    expect(rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side')).toContain('display:flex')
+    expect(rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-main')).toContain('order:0')
+    expect(STYLES.indexOf('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-row{')).toBeGreaterThan(
+      STYLES.indexOf('@container ll-practice (max-width:600px){'),
+    )
+  })
+
+  it('gives a playing picture what is left while timing, as the biggest box of its shape, and draws none under 120px', () => {
+    const stage = rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown.has-screen')
+    expect(stage).toContain('flex:1 1 0')
+    expect(stage).toContain('min-height:0')
+    expect(stage).toContain('container:ll-video/size')
+    const frame = rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown .dsh-lingualab-picture')
+    expect(frame).toContain('width:min(100cqw,720px,calc(100cqh * var(--ll-video-ratio,1.7778)))')
+    expect(frame).toContain('aspect-ratio:var(--ll-video-ratio,1.7778)')
+    expect(frame).toContain('max-height:none')
+    expect(frame).toContain('min-width:0')
+    // The sentence is not stretched to take the room, and the lines either side of it are not there.
+    expect(rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-stage')).toContain('flex:0 0 auto')
+    expect(rule('.dsh-lingualab-practice.is-timing .dsh-lingualab-stage-side')).toContain('display:none')
+    // A card or a chip standing in for a picture, and the pills on the picture, are not drawn while timing.
+    expect(STYLES).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-videostage.is-shown:not(.has-screen){display:none}')
+    expect(block('.dsh-lingualab-practice.is-timing .dsh-lingualab-picture-local')).toContain('.dsh-lingualab-picture-smooth{display:none}')
+    expect(block('@container ll-video (max-height:119px)')).toContain('.dsh-lingualab-picture{display:none}')
+  })
+
+  it('keeps the large picture as the part that takes what is left, with its floor, and does not hide it', () => {
+    expect(STYLES).not.toContain('.is-timing .dsh-lingualab-videostage.is-large')
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('min-height:160px')
+    expect(rule('.dsh-lingualab-videostage.is-large')).toContain('container:ll-video/size')
+  })
+
+  it('lays the timing panel out in one compact layout for a small room, and keeps two cards for a big one', () => {
+    const compact = block('@container ll-practice (max-width:600px) or (max-height:760px)')
+    // One row per edge: the label with the delta under it, the value, the step buttons, the playhead button.
+    expect(compact).toContain('.dsh-lingualab-timing-edge{display:grid;grid-template-columns:minmax(56px,max-content) minmax(0,1fr) auto auto')
+    expect(compact).toContain('.dsh-lingualab-timing-edge-head{flex-direction:column')
+    expect(compact).toContain('.dsh-lingualab-timing-edge-body{display:contents}')
+    expect(compact).toContain('min-height:44px')
+    expect(compact).toContain('.dsh-lingualab-timing-value{justify-self:start;font-size:18px}')
+    // The mini timeline and the lines of keys are not there.
+    for (const selector of ['.dsh-lingualab-timing-line', '.dsh-lingualab-timing-hints', '.dsh-lingualab-timing-keys']) {
+      expect(compact).toContain(selector)
+    }
+    // The short labels replace the long ones.
+    expect(compact).toContain('.dsh-lingualab-timing .dsh-lingualab-label-long{display:none}')
+    expect(compact).toContain('.dsh-lingualab-timing .dsh-lingualab-label-short{display:inline}')
+    // The foot is one row: Reset, Cancel, and Save taking what is left.
+    expect(compact).toContain('.dsh-lingualab-timing-foot{flex-wrap:nowrap')
+    expect(compact).toContain('.dsh-lingualab-timing-foot .dsh-lingualab-btn.is-primary{flex:1')
+    // The wide layout is the base rules: two cards in two columns, with the mini timeline.
+    expect(rule('.dsh-lingualab-timing-edges')).toContain('grid-template-columns:repeat(2,minmax(0,1fr))')
+    expect(rule('.dsh-lingualab-label-short')).toContain('display:none')
+  })
+
+  it('wraps the playhead button onto a second line of its row where the row is too narrow, and later on a touch screen', () => {
+    const wrap = [...STYLES.matchAll(/@container ll-practice \(max-width:(\d+)px\)\{\s*\.dsh-lingualab-timing-edge\{grid-template-columns/g)].map(
+      (match) => Number(match[1]),
+    )
+    expect(wrap).toHaveLength(2)
+    // The touch one is the wider: its step buttons and its playhead button are 44px tall and wider.
+    expect(wrap[1]).toBeGreaterThan(wrap[0] ?? 0)
+    expect(STYLES).toContain('.dsh-lingualab-timing-ghost{grid-column:1/-1;justify-self:start')
+  })
+
+  it('turns the follow switch into its short word where the transcript is 260px wide', () => {
+    const narrow = block('@container ll-body (max-width:820px)')
+    expect(narrow).toContain('.dsh-lingualab-transcript{width:260px}')
+    expect(narrow).toContain('.dsh-lingualab-switch .dsh-lingualab-label-long{display:none}')
+    expect(narrow).toContain('.dsh-lingualab-switch .dsh-lingualab-label-short{display:inline}')
   })
 
   it('gives a touch screen no key hints and 44px targets', () => {
@@ -88,6 +167,10 @@ describe('the stylesheet', () => {
     }
     expect(touch).toContain('{display:none}')
     expect(touch).toContain('.dsh-lingualab-timing-step button{width:44px;height:44px}')
+    // The player card's buttons are 44px for real, not by a margin around a smaller button.
+    expect(touch).toContain('.dsh-lingualab-deck .dsh-lingualab-bar-btn{min-width:44px;min-height:44px}')
+    expect(touch).toContain('.dsh-lingualab-round{width:44px;height:44px}')
+    expect(touch).not.toContain('.dsh-lingualab-deck .dsh-lingualab-bar-btn::after')
     expect(touch).toContain('.dsh-lingualab-timing-foot .dsh-lingualab-btn{height:44px}')
     // The pills on the picture keep their look; the hit area grows by an invisible margin.
     expect(touch).toContain('.dsh-lingualab-picture-local-btn::after')

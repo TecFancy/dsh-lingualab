@@ -1311,7 +1311,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           </div>
 
           <div className="dsh-lingualab-body">
-            <div className="dsh-lingualab-practice">
+            <div className={`dsh-lingualab-practice${timing.session === null ? '' : ' is-timing'}`}>
               {shownNotice === null ? null : <VideoNotice notice={shownNotice} onAction={onNoticeAction} />}
               {review !== null && reviewOn && reviewItem !== null ? (
                 <ReviewStrip
