@@ -18,6 +18,15 @@ export function isRunning(state: Pick<MediaPlayerState, 'isPlaying' | 'shadowWai
   return state.isPlaying || state.shadowWait !== null || state.compare !== null
 }
 
+/**
+ * Whether a headset's or the lock screen's `play` should press the play button: when nothing runs, and also while a
+ * program runs with the media paused (a speaking pause, or a take in a comparison), where iOS may send `play` because it
+ * reads the paused media element, and the press means stop. Only a `play` while the media really plays is ignored.
+ */
+export function playPresses(state: Pick<MediaPlayerState, 'isPlaying' | 'shadowWait' | 'compare'>): boolean {
+  return !isRunning(state) || !state.isPlaying
+}
+
 /** Do what the play button does. */
 export function togglePlayback(): void {
   const store = useMediaPlayer.getState()

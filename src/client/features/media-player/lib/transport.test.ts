@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMediaPlayer } from '../model/store.ts'
 import { setTakeAudioFactory, type AudioLike } from './take-player.ts'
-import { isRunning, togglePlayback } from './transport.ts'
+import { isRunning, playPresses, togglePlayback } from './transport.ts'
 
 const cues = [
   { start: 10, end: 12, text: 'One' },
@@ -31,6 +31,24 @@ describe('isRunning', () => {
     expect(isRunning({ ...idle, isPlaying: true })).toBe(true)
     expect(isRunning({ ...idle, shadowWait: { index: 0, phase: 'speak', until: 1, ms: 1 } })).toBe(true)
     expect(isRunning({ ...idle, compare: { index: 0, stage: 'original', then: 'stop' } })).toBe(true)
+  })
+})
+
+describe('playPresses', () => {
+  const idle = { isPlaying: false, shadowWait: null, compare: null }
+
+  it('presses the button when nothing runs', () => {
+    expect(playPresses(idle)).toBe(true)
+  })
+
+  it('presses it during a speaking pause or a take, where the media is paused and the press means stop', () => {
+    expect(playPresses({ ...idle, shadowWait: { index: 0, phase: 'speak', until: 1, ms: 1 } })).toBe(true)
+    expect(playPresses({ ...idle, compare: { index: 0, stage: 'take', then: 'program' } })).toBe(true)
+  })
+
+  it('ignores play while the media really plays', () => {
+    expect(playPresses({ ...idle, isPlaying: true })).toBe(false)
+    expect(playPresses({ ...idle, isPlaying: true, compare: { index: 0, stage: 'original', then: 'program' } })).toBe(false)
   })
 })
 

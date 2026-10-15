@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- A headset or lock-screen `play` during a speaking pause, or while a take plays in a comparison, now ends the program at
+  the sentence's start like the play button. iOS may send `play` there because the media element is paused, and it used
+  to be ignored, so the press did nothing.
+
 ## [0.14.0] - 2026-10-15
 
 ### Added
