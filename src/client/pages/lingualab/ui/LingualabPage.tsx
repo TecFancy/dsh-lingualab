@@ -27,123 +27,65 @@
  * 「继续」 opens), the library feature opens a segment, the notes feature keeps the sentences,
  * and the segment list is one more layer for the Escape key to close.
  *
- * Keyboard handling lives here rather than on `window`. The earlier standalone app bound
+ * Keyboard handling is on the page container rather than on `window`. The earlier standalone app bound
  * its shortcuts globally and therefore owned the space bar, the arrow keys and the
  * bracket keys wherever it was open; inside a panel that shares a page with a
  * conversation, that is a hostile neighbour. The handler sits on the page container,
  * which is focusable, so the keys work while the panel has focus and stop at its edge.
+ *
+ * What this file is: the page's state, the wiring between features that may not import each other, and the composition
+ * of the two views. The work is in the hooks and views beside it, one per concern, each with its tests where there is
+ * logic: `lib/keymap.ts` and `useKeyboard.ts` (the keys), `useResume.ts` and `useOpening.ts` (where listening resumes,
+ * and everything that opens something), `useReviewRun.ts` (a review), `useStageNotes.ts` (keeping and grading the
+ * sentence on stage), `useRetime.ts` (the timing strip), `useVideoSource.ts` and `useVideoNotices.ts` (what plays and
+ * what is said about it), and `HomeView.tsx` and `PracticeView.tsx` (what is drawn). New logic goes there, not here.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { splitCue } from '../../../entities/cue/index.ts'
+import type { CSSProperties, RefObject } from 'react'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
-import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
+import { hasMedia, segmentLabel, useLibrary } from '../../../features/library/index.ts'
 import {
   primeTakeAudio,
   sessionMetadata,
-  togglePlayback,
-  useMediaBinding,
   useMediaPlayer,
   useMediaSession,
-  type MicNotice,
 } from '../../../features/media-player/index.ts'
-import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
+import { useNotes } from '../../../features/notes/index.ts'
 import { finishedSegments } from '../../../features/resume/index.ts'
-import { retryNotYet, stepBack, tallyReview, useReviewList } from '../../../features/review/index.ts'
+import { useReviewList } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
-import {
-  cardOf,
-  isInformational,
-  playSource,
-  segmentKey,
-  useFirstTimeCard,
-  useLocalVideo,
-  useVideo,
-} from '../../../features/video/index.ts'
-import { holdsMouseFocus, keepsKeyForTarget } from '../../../shared/lib/focus.ts'
-import { formatClock } from '../../../shared/lib/format.ts'
-import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
-import type { VideoStatusPayload } from '../../../shared/protocol.ts'
+import { cardOf, isInformational, segmentKey, useFirstTimeCard } from '../../../features/video/index.ts'
+import { holdsMouseFocus } from '../../../shared/lib/focus.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
-import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
-import { Segmented } from '../../../shared/ui/Segmented.tsx'
-import {
-  ControlBar,
-  nextZhMode,
-  type ControlBarHandle,
-  type PictureControl,
-  type SubtitleControl,
-} from '../../../widgets/control-bar/index.ts'
+import type { ControlBarHandle, PictureControl, SubtitleControl } from '../../../widgets/control-bar/index.ts'
 import { EpisodePicker } from '../../../widgets/episode-picker/index.ts'
-import { LibraryHome } from '../../../widgets/library-home/index.ts'
 import { MediaFolderPanel } from '../../../widgets/media-folder/index.ts'
-import { FinishCard, KeyHints, Stage } from '../../../widgets/practice-stage/index.ts'
-import { NotesPanel } from '../../../widgets/notes-panel/index.ts'
-import { ReviewFinish, ReviewStrip } from '../../../widgets/review-strip/index.ts'
-import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { SETTINGS_EXIT_MS, SettingsPanel } from '../../../widgets/settings-panel/index.ts'
-import { STEPS_EXIT_MS, StepTracker } from '../../../widgets/step-tracker/index.ts'
-import { SubtitlePanel } from '../../../widgets/subtitle-panel/index.ts'
-import { TIMING_EXIT_MS, TimingStrip, useTimingEditor, type SavedTiming } from '../../../widgets/timing-editor/index.ts'
-import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
+import { STEPS_EXIT_MS } from '../../../widgets/step-tracker/index.ts'
+import type { VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import { useCardFit } from '../lib/useCardFit.ts'
-import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from '../lib/keymap.ts'
 import type { Column, Layer, View } from '../lib/panel.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
 import { useOpening } from '../lib/useOpening.ts'
 import { useResume } from '../lib/useResume.ts'
+import { isTypingTarget, useKeyboard } from '../lib/useKeyboard.ts'
+import { useRetime } from '../lib/useRetime.ts'
 import { useReviewRun } from '../lib/useReviewRun.ts'
+import { useStageNotes } from '../lib/useStageNotes.ts'
+import { useVideoNotices } from '../lib/useVideoNotices.ts'
+import { useVideoSource } from '../lib/useVideoSource.ts'
+import { HomeView } from './HomeView.tsx'
+import { PracticeView } from './PracticeView.tsx'
+import { SettingsButton } from './SettingsButton.tsx'
 
 /** The set of finished segments of an episode that has none. One value, so the memo below stays stable. */
 const NO_FINISHED: ReadonlySet<string> = new Set()
 
 export interface LingualabPageProps extends PanelProps {
   readonly t: Translate
-}
-
-/** How long a key cap stays lit after the page handles its key. */
-const FLASH_MS = 260
-
-/** How long the 「视频准备好了」 and 「盲看开始计时」 notices stay; the length warning stays until it is dismissed. */
-const NOTICE_MS = 7000
-
-/** The dictionary key of what each microphone problem says. */
-const MIC_NOTICE_KEYS: Readonly<Record<MicNotice, string>> = {
-  unsupported: 'micUnsupported',
-  denied: 'micDenied',
-  unavailable: 'micUnavailable',
-  blocked: 'micBlocked',
-}
-
-/** Whether a keystroke belongs to a field the reader is typing in. */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  const tag = target.tagName.toLowerCase()
-  // A checkbox or a button-like input takes no typing, and a tick that leaves focus on it
-  // must not switch the page's keys (Escape included) off for the rest of the visit.
-  if (target instanceof HTMLInputElement) return !['checkbox', 'radio', 'button', 'submit', 'range', 'file'].includes(target.type)
-  return tag === 'select' || tag === 'textarea' || target.isContentEditable
-}
-
-/** A keystroke as the keymap reads it: the key and modifiers, and the two questions only the DOM can answer. */
-function pressOf(event: ReactKeyboardEvent<HTMLDivElement>): KeyPress {
-  return {
-    key: event.key,
-    ctrlKey: event.ctrlKey,
-    metaKey: event.metaKey,
-    altKey: event.altKey,
-    typing: isTypingTarget(event.target),
-    ownsKey: keepsKeyForTarget(event.target, event.key),
-  }
-}
-
-/** Stop a handled key here: the conversation lives in the same document, and its default would act behind the panel. */
-function stopKey(event: ReactKeyboardEvent<HTMLDivElement>): void {
-  event.preventDefault()
-  event.stopPropagation()
 }
 
 /** The panel's centre-column page. */
@@ -190,20 +132,13 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [selection, setSelection] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
   const [follow, setFollow] = useState(true)
-  const [flashed, setFlashed] = useState<string | null>(null)
   const [dismissedFinish, setDismissedFinish] = useState(0)
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
   const controlBar = useRef<ControlBarHandle>(null)
 
   const activeIndex = useMediaPlayer((state) => state.activeIndex)
-  const shadow = useMediaPlayer((state) => state.pauseAfterSentence)
-  const revealed = useMediaPlayer((state) => state.revealed)
   const finished = useMediaPlayer((state) => state.finished)
   const finishCount = useMediaPlayer((state) => state.finishCount)
-  /** Whether the sentence on stage has a take of the reader's own, which the 「对比」 key plays. */
-  const hasTake = useMediaPlayer((state) => state.takes[state.activeIndex] !== undefined)
-  const micNotice = useMediaPlayer((state) => state.micNotice)
   const cues = library.cues
 
   const episode = library.episode
@@ -217,59 +152,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   /** The audio file of what is open, null for a video-only segment. */
   const audioFile = segment === null ? (episode?.audio ?? null) : segment.audio
   const picture = useSettings((state) => state.picture)
-  const pictureRestore = useSettings((state) => state.pictureRestore)
   const [notice, setNotice] = useState<VideoNoticeData | null>(null)
-  /** The segments whose length warning was dismissed, for this visit. */
-  const [dismissedMismatch, setDismissedMismatch] = useState<ReadonlySet<string>>(() => new Set())
-  const refreshListing = library.refreshListing
-  /** A preparing job just finished: say so, and let the listing's marks catch up. */
-  const onVideoReady = useCallback(
-    (ready: VideoStatusPayload): void => {
-      const at = useMediaPlayer.getState().currentTime
-      const text = t(ready.via === 'smooth' ? 'noticeReadySmooth' : 'noticeReady', { time: formatClock(at) })
-      setNotice({ kind: 'ready', text, action: null })
-      refreshListing()
-    },
-    [t, refreshListing],
-  )
-  const video = useVideo(episodeId, segmentId, hasVideoFile, onVideoReady)
-  /** A remembered local file could not be opened: not allowed, or gone. */
-  const onLocalUnreadable = useCallback((): void => {
-    setNotice({ kind: 'warn', text: t('noticeLocalUnreadable'), action: t('cardGotIt') })
-  }, [t])
-  /** A video file the reader picked from their own disk, to play in place of the served one. */
-  const local = useLocalVideo({
-    key: hasVideoFile ? segmentKey(episodeId, segmentId) : null,
-    status: video.status,
-    audioUrl: library.media?.audioUrl ?? null,
-    onUnreadable: onLocalUnreadable,
-  })
-  const markUndecodable = video.markUndecodable
-  const rejectLocal = local.reject
-  /** The browser cannot decode what the element was given: the reader's file is dropped, anything else is given up on. */
-  const onUndecodable = useCallback(
-    (failed: string): void => {
-      const name = rejectLocal(failed)
-      if (name === null) markUndecodable(failed)
-      else setNotice({ kind: 'warn', text: t('noticeLocalFailed', { name }), action: t('cardGotIt') })
-    },
-    [rejectLocal, markUndecodable, t],
-  )
-  /**
-   * What plays: the reader's own file when they chose one, else the video once it plays, else the audio file (or
-   * nothing, for a video that is not prepared). With the picture hidden the audio file plays even when a video
-   * could, so the video is not downloaded; the reader showing the picture again swaps it back under the same
-   * session, keeping the position.
-   */
-  const source = playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, picture === 'hidden', local.url)
-  /** Whether the segment has a video that plays, whichever of the two is the source right now. */
-  const videoPlays =
-    picture === 'hidden'
-      ? playSource(library.media?.audioUrl ?? null, video.status, video.failedUrl, false, local.url).picture
-      : source.picture
-  // The one media element. A new source for the same segment (the audio, then the video that was just
-  // prepared, or the file the reader chose) keeps the position; the `session` is what says it is the same segment.
-  const binding = useMediaBinding(source.url, segmentKey(episodeId, segmentId), onUndecodable)
+  const { video, local, source, videoPlays, binding } = useVideoSource({ t, library, hasVideoFile, picture, setNotice })
 
   // Feature-to-feature wiring is the page's job: the library feature may not reach into
   // the player, so loading a new cue list resets the player here.
@@ -291,7 +175,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     finishCount,
     reviewing,
   })
-  const { progress, bookmark, arm: armResume, disarm: disarmResume, refreshProgress } = resume
+  const { progress, bookmark, refreshProgress } = resume
 
   // The segment list takes the keyboard when it opens. When it closes the focused list is gone, and
   // focus that falls to the document would switch the page's shortcuts off, so it comes back here.
@@ -331,111 +215,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [progress, episode, segments],
   )
 
-  /**
-   * Cue indexes whose sentence is kept, so the list can mark them.
-   *
-   * Decided by the same key the toggle uses (whole second plus text), not by asking
-   * which cue is playing at a phrase's timestamp: `notes.md` stores whole seconds, and
-   * the cue playing at `00:12` can be the one before the one that was kept.
-   */
-  const notedIndexes = useMemo(() => {
-    const kept = new Set(notes.phrases.map((phrase) => keptSentenceKey(phrase)))
-    const marked = new Set<number>()
-    cues.forEach((cue, index) => {
-      if (kept.has(keptSentenceKey({ at: cue.start, text: splitCue(cue).english, segment: segmentId ?? undefined }))) {
-        marked.add(index)
-      }
-    })
-    return marked
-  }, [notes.phrases, cues, segmentId])
-
-  /**
-   * Keep or un-keep one sentence; the same star on the row and on the transport.
-   *
-   * A sentence the reader has already worked on (a note, a grade) is not removed by a star,
-   * because a star is a reflex and the work behind it is not. The 「收藏」 column shows it
-   * instead, where removing it is a button with an undo.
-   */
-  const keep = useCallback(
-    (index?: number): void => {
-      const target = cues[index ?? activeIndex]
-      if (target === undefined) return
-      const { english, chinese } = splitCue(target)
-      // The segment is recorded with the sentence: seconds only mean something inside one.
-      const outcome = notes.toggle({
-        at: target.start,
-        text: english,
-        zh: chinese,
-        note: '',
-        tags: [],
-        done: false,
-        segment: segmentId ?? undefined,
-      })
-      if (outcome === 'protected') setColumn('kept')
-    },
-    [cues, activeIndex, notes, segmentId],
-  )
-
-  /** Light the key cap for a key the page just handled. */
-  const flash = useCallback((id: string): void => {
-    setFlashed(id)
-    if (flashTimer.current !== null) clearTimeout(flashTimer.current)
-    flashTimer.current = setTimeout(() => setFlashed(null), FLASH_MS)
-  }, [])
-
-  useEffect(
-    () => () => {
-      if (flashTimer.current !== null) clearTimeout(flashTimer.current)
-    },
-    [],
-  )
-
-  /** The kept phrase for the sentence on stage, with its place in the stored list. */
-  const stagePhrase = useMemo(() => {
-    const cue = cues[activeIndex]
-    if (cue === undefined) return null
-    const key = { at: cue.start, text: splitCue(cue).english, segment: segmentId ?? undefined }
-    const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
-    return index < 0 ? null : { index, phrase: notes.phrases[index] }
-  }, [cues, activeIndex, notes.phrases, segmentId])
-
-  /**
-   * Put a picked word or phrase into the note of the sentence on stage, keeping the sentence if it
-   * was not; take it out again when the note already holds it.
-   */
-  const toggleWord = useCallback(
-    (word: string): void => {
-      const cue = cues[activeIndex]
-      if (cue === undefined) return
-      const existing = stagePhrase?.phrase
-      if (stagePhrase !== null && existing !== undefined) {
-        const note = noteHasWord(existing.note, word) ? removeWordFromNote(existing.note, word) : addWordToNote(existing.note, word)
-        notes.update(stagePhrase.index, { note })
-        return
-      }
-      const { english, chinese } = splitCue(cue)
-      notes.add({
-        at: cue.start,
-        text: english,
-        zh: chinese,
-        note: addWordToNote('', word),
-        tags: [],
-        done: false,
-        segment: segmentId ?? undefined,
-      })
-    },
-    [cues, activeIndex, notes, stagePhrase, segmentId],
-  )
-
-  /** Grade the kept sentence on stage; a sentence that is not kept has no grade to give. */
-  const gradeStage = useCallback(
-    (grade: GivenGrade): void => {
-      const phrase = stagePhrase?.phrase
-      if (stagePhrase === null || phrase === undefined) return
-      notes.update(stagePhrase.index, withGrade(phrase, grade))
-    },
-    [notes, stagePhrase],
-  )
+  const showKept = useCallback((): void => setColumn('kept'), [])
+  const { stagePhrase, notedIndexes, keep, toggleWord, gradeStage } = useStageNotes({
+    notes,
+    cues,
+    activeIndex,
+    segmentId,
+    onProtected: showKept,
+  })
 
   /** The episodes that can be played, in library order; "next" is the one after the open one. */
   const playable = useMemo(
@@ -447,88 +234,22 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     return at >= 0 ? (playable[at + 1] ?? null) : null
   }, [playable, library.episode])
 
-  /**
-   * Why this episode's subtitles cannot be saved from the timing strip, or `null`.
-   *
-   * The page only writes files inside the library: a folder episode always is, a file episode only
-   * when it is a loose file at the library root. The host checks the same thing again.
-   */
-  const timingBlocked = useMemo((): string | null => {
-    if (episode === null || episode.kind === 'folder') return null
-    return (library.payload?.files ?? []).some((entry) => entry.id === episode.id) ? null : t('timingOutside')
-  }, [episode, library.payload, t])
-
-  /**
-   * After a timing save: keep the star on the sentence, read the file again, and stay on the sentence.
-   *
-   * A kept sentence is matched by its whole second, so a start that crossed a second would leave
-   * the star behind; the phrase's `at` moves with it, and the same for a next sentence whose start
-   * the end pushed. Reading the file again gives the cues their
-   * new edges and the hash the next save needs; the position is put back on the sentence the way a
-   * replayed note is, looping it when it was playing.
-   */
-  const onTimingSaved = useCallback(
-    (saved: SavedTiming): void => {
-      for (const moved of [saved, ...saved.pushed]) {
-        const before = moved.before.start / 1000
-        const after = moved.after.start / 1000
-        if (Math.floor(before) === Math.floor(after)) continue
-        const key = { at: before, text: splitCue(moved.cue).english, segment: segmentId ?? undefined }
-        const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
-        if (index >= 0) notes.update(index, { at: after })
-      }
-      armResume(saved.after.start / 1000, useMediaPlayer.getState().isPlaying, null)
-      library.reloadCues()
-    },
-    [notes, segmentId, library, armResume],
-  )
-
-  /** The file changed under the page: read it again and stay where the playhead is. */
-  const onTimingStale = useCallback((): void => {
-    armResume(useMediaPlayer.getState().currentTime, false, null)
-    library.reloadCues()
-  }, [library, armResume])
-
-  /**
-   * After the 「字幕」 popover saved a choice: open the same episode and segment again, so the host
-   * hands out the files the choice resolves to, and stay where the playhead is, as after a timing save.
-   * The listing is read again too, so the home's marks say what will play.
-   */
-  const onSubtitlesSaved = useCallback((): void => {
-    if (episodeId === null) return
-    armResume(useMediaPlayer.getState().currentTime, false, null)
-    void library.openEpisode(episodeId, segmentId ?? undefined).then((opened) => {
-      if (!opened) disarmResume()
-      library.refreshListing()
-    })
-  }, [episodeId, segmentId, library, armResume, disarmResume])
-
-  const timing = useTimingEditor({
-    cues,
-    tracks: library.tracks,
-    episodeId,
+  const clearOverlays = useCallback((): void => {
+    setLayer('none')
+    setStepsOpen(false)
+    setSelection(null)
+  }, [])
+  const {
+    timing,
+    presence: timingPresence,
     blocked: timingBlocked,
-    onSaved: onTimingSaved,
-    onStale: onTimingStale,
-  })
-  // The layout is in timing mode for as long as the panel is on the page, which outlasts the session by its way out: the
-  // card fades while everything around it stays put, and the column leaves timing mode in the commit that unmounts the
-  // panel. Behaviour (the keys, the stage's button) follows the session. One presence serves both the column and the
-  // panel, so they cannot part by a frame.
-  const timingPresence = usePresence(timing.session !== null, TIMING_EXIT_MS)
+    open: openTiming,
+    onSubtitlesSaved,
+  } = useRetime({ t, library, notes, cues, activeIndex, resume, clearOverlays })
   // Whether the picture that plays above the sentence has the room it needs, with the timing panel open or not. The
   // scroller is in state, not a ref, so the measuring starts when the practice view puts it on the page.
   const [practiceMain, setPracticeMain] = useState<HTMLDivElement | null>(null)
   const pictureFits = usePictureRoom(practiceMain, videoPlays && picture === 'shown')
-
-  /** Open the strip for the sentence on stage; layers close, because the strip takes the keyboard. */
-  const openTiming = useCallback((): void => {
-    if (cues[activeIndex] === undefined) return
-    setLayer('none')
-    setStepsOpen(false)
-    setSelection(null)
-    timing.open(activeIndex)
-  }, [cues, activeIndex, timing])
 
   const { openEpisode, openFile, openSegment, replayPhrase, goToItem } = useOpening({
     library,
@@ -545,17 +266,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     setStepsOpen(false)
     timing.close()
   }, [timing])
-  const { review, reviewItem, reviewIndex, reviewOn, reviewDone, runReview, reviewEpisode, reviewLibrary, endReview, answerReview } =
-    useReviewRun({
-      episode,
-      segments,
-      notes,
-      libraryReview: reviewList.payload,
-      goToItem,
-      reviewing,
-      bookmark,
-      closeLayers: closeReviewLayers,
-    })
+  const reviewRun = useReviewRun({
+    episode,
+    segments,
+    notes,
+    libraryReview: reviewList.payload,
+    goToItem,
+    reviewing,
+    bookmark,
+    closeLayers: closeReviewLayers,
+  })
+  const { review, reviewEpisode, reviewLibrary, endReview } = reviewRun
 
   /** Go home: save the position first, then refresh what the home shows about it. */
   const goHome = useCallback(() => {
@@ -586,39 +307,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [importer],
   )
 
-  // A notice that is not the length warning goes away on its own.
-  useEffect(() => {
-    if (notice === null) return
-    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
-    return () => clearTimeout(timer)
-  }, [notice])
-  // So does the one about the microphone, which the store keeps until it has been said.
-  useEffect(() => {
-    if (micNotice === null) return
-    const timer = setTimeout(() => useMediaPlayer.getState().clearMicNotice(), NOTICE_MS)
-    return () => clearTimeout(timer)
-  }, [micNotice])
-
-  /**
-   * The blind-watch step's timer started or stopped (the step tracker says so; opening its drawer says nothing).
-   *
-   * Starting switches the picture to large, once, and shows the notice with 「撤销」; pausing or ticking the
-   * step off puts the previous state back. Without a video that plays there is nothing to switch; a hidden
-   * picture is switched like a shown one, and the video then takes over from the audio file at the same position.
-   */
-  const onBlindRunning = useCallback(
-    (running: boolean): void => {
-      const settings = useSettings.getState()
-      if (!running) {
-        settings.blindEnded()
-        setNotice((current) => (current?.kind === 'blind' ? null : current))
-        return
-      }
-      if (!videoPlays) return
-      if (settings.blindStarted()) setNotice({ kind: 'blind', text: t('noticeBlind'), action: t('noticeUndo') })
-    },
-    [videoPlays, t],
-  )
+  const notices = useVideoNotices({
+    t,
+    notice,
+    setNotice,
+    episodeId,
+    segmentId,
+    sourcePicture: source.picture,
+    videoPlays,
+    local,
+    servedMismatch: video.status?.mismatch,
+  })
 
   // What the card in the video's place needs, and the memory of whether it was shown in full already.
   const card = cardOf(video.status, video.failedUrl)
@@ -626,218 +325,35 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // A card steps down (compact, lean, one line, gone) until the column has nothing to scroll, as the picture gives way by flex.
   useCardFit(practiceMain, card !== null && !videoPlays)
 
-  // The length warning: a video that is longer or shorter than the audio the subtitles were timed against. The reader's
-  // own file is held against the served video (or the audio file, when that was never probed) first; one that matches
-  // it has the served video's own warning, if it has one.
-  const mismatchKey = segmentKey(episodeId, segmentId)
-  const mismatch = source.picture ? (local.url === null ? null : local.mismatch) ?? video.status?.mismatch ?? null : null
-  const mismatchNotice: VideoNoticeData | null =
-    mismatch === null || mismatchKey === null || dismissedMismatch.has(mismatchKey)
-      ? null
-      : {
-          kind: 'mismatch',
-          text: t(mismatch > 0 ? 'noticeMismatch' : 'noticeMismatchShorter', { seconds: String(Math.abs(mismatch)) }),
-          action: t('cardGotIt'),
-        }
-  // The blind-watch notice goes when the reader changes the picture by hand: there is nothing left to undo.
-  // 「视频准备好了」 is about the served video, which does not play while the reader's own file does.
-  const liveNotice =
-    notice === null ||
-    (notice.kind === 'blind' && pictureRestore === null) ||
-    (notice.kind === 'ready' && local.url !== null)
-      ? null
-      : notice
-  // A microphone that could not be used, or a take the browser would not play, comes before the rest: the reader has just acted on it.
-  const micData: VideoNoticeData | null =
-    micNotice === null ? null : { kind: 'warn', text: t(MIC_NOTICE_KEYS[micNotice]), action: t('cardGotIt') }
-  const shownNotice = micData ?? liveNotice ?? mismatchNotice
-  const onNoticeAction = (): void => {
-    if (shownNotice === null) return
-    if (shownNotice === micData) {
-      useMediaPlayer.getState().clearMicNotice()
-    } else if (shownNotice.kind === 'blind') {
-      useSettings.getState().setPicture(pictureRestore ?? 'shown')
-      setNotice(null)
-    } else if (shownNotice.kind === 'mismatch' && mismatchKey !== null) {
-      setDismissedMismatch(new Set(dismissedMismatch).add(mismatchKey))
-    } else {
-      setNotice(null)
-    }
-  }
-
-  // The end of a segment that is not the last offers the next segment; only the last segment (or
-  // an episode without segments) says the episode is done, and offers the next episode.
-  const followingSegment = nextSegment(segments, segmentId)
-  // The card's counts are the segment's own: it is the unit that was just listened to.
-  const segmentPhrases = useMemo(
-    () =>
-      segmentId === null
-        ? notes.phrases
-        : notes.phrases.filter((phrase) => (phrase.segment ?? segments[0]?.id) === segmentId),
-    [notes.phrases, segmentId, segments],
-  )
-
   // The end-of-episode card: shown once per time the audio ends, until it is answered.
   const finishOpen = view === 'practice' && finished && finishCount > dismissedFinish && cues.length > 0 && review === null
 
-  /**
-   * Do what a key (or a headset button) decided; which key decides what is `lib/keymap.ts`. The two actions that
-   * need the key event itself, the strip's own keys and the menu's Escape, are answered by the key handler.
-   */
-  const perform = useCallback(
-    (action: KeyAction): void => {
-      const store = useMediaPlayer.getState
-      switch (action.type) {
-        case 'close-settings':
-          setSettingsOpen(false)
-          return
-        case 'close-timing':
-          timing.close()
-          return
-        case 'end-review':
-          endReview()
-          return
-        case 'dismiss-finish':
-          setDismissedFinish(finishCount)
-          return
-        case 'close-layer':
-          setLayer('none')
-          return
-        case 'close-steps':
-          setStepsOpen(false)
-          return
-        case 'clear-ab':
-          store().clearAB()
-          return
-        case 'review-grade':
-          answerReview(action.grade)
-          return
-        case 'stage-grade':
-          gradeStage(action.grade)
-          return
-        case 'review-skip':
-          answerReview('skipped')
-          return
-        case 'review-back':
-          if (review !== null) runReview(stepBack(review))
-          return
-        case 'toggle-play':
-          togglePlayback()
-          return
-        case 'step':
-          setSelection(null)
-          store().stepCue(action.delta)
-          return
-        case 'select':
-          setSelection(action.index)
-          return
-        case 'play-index':
-          if (cues[action.index] !== undefined) {
-            setSelection(null)
-            store().seekCue(action.index)
-            store().setPlaying(true)
-          }
-          return
-        case 'toggle-loop':
-          if (store().loopMode === 'sentence') store().setLoopMode('none')
-          else store().loopSentence(action.index)
-          return
-        case 'keep':
-          keep(action.index ?? undefined)
-          return
-        case 'toggle-column':
-          setColumn(column === 'kept' ? 'transcript' : 'kept')
-          return
-        case 'cycle-zh':
-          setZhMode(nextZhMode(zhMode))
-          return
-        case 'reveal':
-          store().reveal(store().activeIndex)
-          return
-        case 'compare-take':
-          // Plays the sentence and then the reader's take of it; a sentence with no take has nothing to play, and the key is spent on it anyway.
-          primeTakeAudio()
-          store().compareTake()
-          return
-        case 'cycle-picture':
-          useSettings.getState().cyclePicture()
-          return
-        case 'mark-a':
-          if (store().pointA === null) store().setPoint('a')
-          else store().clearAB()
-          return
-        case 'mark-b':
-          store().setPoint('b')
-          return
-        case 'retime':
-          openTiming()
-          return
-        case 'speed':
-          store().cycleSpeed(action.delta)
-          return
-        case 'close-menu':
-        case 'timing-key':
-          return
-      }
-    },
-    [answerReview, column, cues, endReview, finishCount, gradeStage, keep, openTiming, review, runReview, setZhMode, timing, zhMode],
-  )
-
-  const onKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      let action = keyAction(pressOf(event), {
-        view,
-        settingsOpen,
-        timingOpen: timing.session !== null,
-        reviewing: review !== null,
-        reviewFinished: reviewDone,
-        finishOpen,
-        layerOpen: layer !== 'none',
-        stepsOpen,
-        hasVideo: hasVideoFile,
-        selection,
-        activeIndex: useMediaPlayer.getState().activeIndex,
-        cueCount: cues.length,
-      })
-      // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it must not also clear the
-      // A-B marks its own buttons set.
-      if (action?.type === 'close-menu') {
-        if (controlBar.current?.closeMenu() === true) {
-          stopKey(event)
-          return
-        }
-        action = action.otherwise
-      }
-      if (action === null) return
-      if (action.type === 'timing-key') {
-        if (timing.handleKey(event)) stopKey(event)
-        return
-      }
-      // Handled keys stop here. The conversation lives in the same document, and a space bar that scrolls or submits
-      // behind the panel is a stolen keystroke.
-      stopKey(event)
-      const lit = flashOf(action)
-      if (lit !== null) flash(lit)
-      perform(action)
-    },
-    [cues.length, finishOpen, flash, hasVideoFile, layer, perform, review, reviewDone, selection, settingsOpen, stepsOpen, timing, view],
-  )
-
-  // A headset's previous and next buttons, and the lock screen's, do what the arrow keys do: the sentence before or after,
-  // or, while a review runs, the queue (`←` goes back, `→` skips). A finished review is a dialog the keys leave alone, and
-  // so does the headset. Anything else a key does (a layer open, the settings drawer) is about focus, which a headset has
-  // none of, so those do not apply: the mapping is the keymap's, asked with those flags off.
-  const stepFromHeadset = useCallback(
-    (delta: number): void => {
-      const action = headsetAction(delta, { reviewing: review !== null, reviewFinished: reviewDone })
-      if (action !== null) perform(action)
-    },
-    [review, reviewDone, perform],
-  )
-  const headsetSteps = useMemo(
-    () => ({ onPrevious: () => stepFromHeadset(-1), onNext: () => stepFromHeadset(1) }),
-    [stepFromHeadset],
-  )
+  const dismissFinish = useCallback((): void => setDismissedFinish(finishCount), [finishCount])
+  const { onKeyDown, headsetSteps, flashed } = useKeyboard({
+    view,
+    layer,
+    setLayer,
+    settingsOpen,
+    setSettingsOpen,
+    stepsOpen,
+    setStepsOpen,
+    column,
+    setColumn,
+    zhMode,
+    setZhMode,
+    selection,
+    setSelection,
+    cues,
+    hasVideoFile,
+    finishOpen,
+    dismissFinish,
+    review: reviewRun,
+    timing,
+    openTiming,
+    keep,
+    gradeStage,
+    controlBar,
+  })
   const albumName = t('appTitle')
   const episodeName = episode?.title ?? ''
   const segmentName = segment === null ? null : segmentLabel(segment)
@@ -855,11 +371,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   )
   useMediaSession(view === 'practice', headsetSteps, lockScreen)
 
-  // Something to play or to read: a video-only segment that is not prepared has its subtitles and no sound yet.
-  const hasAudio = library.media !== null
   const canPlay = source.url !== null
-  /** Large hides the sentence, because the picture is what is being watched; it only applies while a picture plays. */
-  const stageHidden = picture === 'large' && source.picture
   const pictureControl: PictureControl | null = hasVideoFile
     ? { mode: picture, onCycle: () => useSettings.getState().cyclePicture() }
     : null
@@ -871,44 +383,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // the episode does; clamping here is cheaper than resetting it from an effect.
   const selectedIndex =
     selection === null ? activeIndex : Math.min(Math.max(0, selection), Math.max(0, cues.length - 1))
-  const stageCue = cues[activeIndex]
-  const stageLines = stageCue === undefined ? null : splitCue(stageCue)
-  const keptNow =
-    stageCue !== undefined &&
-    stageLines !== null &&
-    notes.has({ at: stageCue.start, text: stageLines.english, segment: segmentId ?? undefined })
-  // Shadowing hides the English of the sentence being repeated until it has been heard, and a
-  // review hides it until the reader asks for it: saying it from what was heard comes first.
-  const masked = (shadow || reviewOn) && stageCue !== undefined && revealed !== activeIndex
-  const practising = segmentPhrases.filter((phrase) => !phrase.done).length
-  const reviewSegment = reviewItem?.phrase.segment === undefined ? null : findSegment(segments, reviewItem.phrase.segment)
-  const switcher = (
-    <Segmented
-      label={t('columnLabel')}
-      value={column}
-      onChange={setColumn}
-      options={[
-        { id: 'transcript', label: t('transcript'), count: cues.length },
-        { id: 'kept', label: t('columnKept'), count: notes.phrases.length },
-      ]}
-    />
-  )
   /** The icon at the right end of both top bars; it opens the settings and closes the five steps. */
-  const settingsButton = (
-    <button
-      type="button"
-      className={`dsh-lingualab-icon-btn${settingsOpen ? ' is-on' : ''}`}
-      onClick={() => {
+  const settings = (
+    <SettingsButton
+      t={t}
+      open={settingsOpen}
+      onToggle={() => {
         setStepsOpen(false)
         setLayer('none')
         setSettingsOpen(!settingsOpen)
       }}
-      title={t('settingsOpen')}
-      aria-label={t('settingsOpen')}
-      aria-expanded={settingsOpen}
-    >
-      <SettingsIcon size={16} />
-    </button>
+    />
   )
   return (
     <div
@@ -947,297 +432,129 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       <style>{STYLES}</style>
 
       {view === 'home' ? (
-        <>
-          <div className="dsh-lingualab-top">
-            {back !== undefined ? (
-              <button type="button" className="dsh-lingualab-chip" onClick={back}>
-                {t('back')}
-              </button>
-            ) : null}
-            <span className="dsh-lingualab-top-title">{t('appTitle')}</span>
-            <span className="dsh-lingualab-spacer" />
-            {settingsButton}
-          </div>
-          <LibraryHome
-            t={t}
-            library={library.payload}
-            loading={library.loading}
-            importer={importer}
-            progress={progress}
-            currentId={episodeId}
-            current={episode}
-            opening={library.opening}
-            openError={library.openError}
-            onOpen={openEpisode}
-            onFiles={importFiles}
-            onBrowse={() => setLayer('browse')}
-            onFolder={() => setLayer('folder')}
-            review={reviewList.payload}
-            onReview={reviewLibrary}
-          />
-        </>
+        <HomeView
+          t={t}
+          back={back}
+          library={library}
+          importer={importer}
+          progress={progress}
+          review={reviewList.payload}
+          settings={settings}
+          onOpen={openEpisode}
+          onFiles={importFiles}
+          onBrowse={() => setLayer('browse')}
+          onFolder={() => setLayer('folder')}
+          onReview={reviewLibrary}
+        />
       ) : (
-        <>
-          <div className="dsh-lingualab-top">
-            <button type="button" className="dsh-lingualab-chip" onClick={goHome} title={t('backToList')}>
-              <BackIcon size={14} /> {t('backToList')}
-            </button>
-            <div className="dsh-lingualab-top-heading">
-              <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
-                {episode?.title ?? t('openEpisode')}
-              </span>
-              {segment !== null || (cues.length > 0 && stageCue !== undefined) ? (
-                <span className="dsh-lingualab-top-sub">
-                  {[
-                    segment === null ? null : segmentLabel(segment),
-                    cues.length > 0 && stageCue !== undefined ? t('cueOf', { n: activeIndex + 1, total: cues.length }) : null,
-                  ]
-                    .filter((part) => part !== null)
-                    .join(' · ')}
-                </span>
-              ) : null}
-            </div>
-            {segments.length > 0 ? (
-              <SegmentPicker
-                t={t}
-                segments={segments}
-                currentId={segmentId}
-                finished={finishedIds}
-                open={layer === 'segments'}
-                onToggle={() => {
-                  setStepsOpen(false)
-                  setSettingsOpen(false)
-                  if (layer !== 'segments') refreshProgress()
-                  setLayer(layer === 'segments' ? 'none' : 'segments')
-                }}
-                onClose={() => setLayer('none')}
-                onSelect={(id) => {
-                  if (id === segmentId) setLayer('none')
-                  else openSegment(id)
-                }}
-              />
-            ) : null}
-            <span className="dsh-lingualab-spacer" />
-            <button
-              type="button"
-              className={`dsh-lingualab-chip${column === 'kept' ? ' is-on' : ''}`}
-              onClick={() => setColumn(column === 'kept' ? 'transcript' : 'kept')}
-              title={t('keyColumn')}
-              aria-pressed={column === 'kept'}
-            >
-              <NoteIcon size={13} /> {t('notesChip')} {notes.phrases.length > 0 ? notes.phrases.length : ''}{' '}
-              <kbd>N</kbd>
-            </button>
-            {episode !== null ? (
-              <StepTracker
-                key={episode.id}
-                t={t}
-                episode={episode.id}
-                open={stepsOpen}
-                onToggle={() => {
-                  setLayer('none')
-                  setSettingsOpen(false)
-                  setStepsOpen(!stepsOpen)
-                }}
-                onBlindRunning={onBlindRunning}
-              />
-            ) : null}
-            {settingsButton}
-          </div>
-
-          <div className="dsh-lingualab-body">
-            <div
-              className={`dsh-lingualab-practice${timingPresence.mounted ? ' is-timing' : ''}${pictureFits ? '' : ' is-picture-squeezed'}`}
-            >
-              {shownNotice === null ? null : <VideoNotice notice={shownNotice} onAction={onNoticeAction} />}
-              {review !== null && reviewOn && reviewItem !== null ? (
-                <ReviewStrip
-                  t={t}
-                  position={review.at + 1}
-                  total={review.items.length}
-                  source={reviewSegment === null ? reviewItem.title : `${reviewItem.title} · ${segmentLabel(reviewSegment)}`}
-                  ready={reviewIndex >= 0}
-                  onGrade={answerReview}
-                  onSkip={() => answerReview('skipped')}
-                  onBack={() => runReview(stepBack(review))}
-                  onExit={endReview}
-                />
-              ) : null}
-              <div className="dsh-lingualab-practice-main" ref={setPracticeMain}>
-                <VideoStage
-                  t={t}
-                  mediaRef={binding.attach}
-                  picture={picture}
-                  playing={videoPlays}
-                  status={video.status}
-                  card={card}
-                  cardOpen={firstTimeCard.open}
-                  hasAudioFile={audioFile !== null}
-                  busy={video.busy}
-                  eta={video.eta}
-                  caption={picture === 'large' && source.picture && revealed === activeIndex && stageLines !== null ? stageLines.english : null}
-                  onPeek={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                  onPrepare={video.prepare}
-                  onCancel={video.cancel}
-                  onCardShow={firstTimeCard.show}
-                  onCardHide={firstTimeCard.hide}
-                  onShowPicture={() => useSettings.getState().setPicture('shown')}
-                  local={
-                    hasVideoFile
-                      ? {
-                          name: local.name,
-                          remembered: local.remembered,
-                          canPick: local.canRemember,
-                          onPick: local.pick,
-                          onFile: local.use,
-                          onResume: local.resume,
-                          onForget: local.forget,
-                          onStop: local.stop,
-                        }
-                      : null
-                  }
-                />
-                {stageHidden ? null : (
-                  <Stage
-                    t={t}
-                    cues={cues}
-                    activeIndex={activeIndex}
-                    zhMode={zhMode}
-                    masked={masked}
-                    onReveal={() => useMediaPlayer.getState().reveal(useMediaPlayer.getState().activeIndex)}
-                    onToggleWord={toggleWord}
-                    hasWord={(word) => noteHasWord(stagePhrase?.phrase?.note ?? '', word)}
-                    loading={library.cuesLoading}
-                    hasAudio={hasAudio}
-                    onRetime={() => (timing.session === null ? openTiming() : timing.close())}
-                    retiming={timing.session !== null}
-                  />
-                )}
-                <TimingStrip
-                  t={t}
-                  editor={timing}
-                  mounted={timingPresence.mounted}
-                  shown={timingPresence.shown}
-                  blocked={
-                    timingBlocked ??
-                    (timing.session !== null && (timing.session.cue.origin === undefined || library.tracks.english === null)
-                      ? t('timingNoSource')
-                      : null)
-                  }
-                />
-              </div>
-              <div className="dsh-lingualab-deck">
-                <ControlBar
-                  ref={controlBar}
-                  t={t}
-                  zhMode={zhMode}
-                  onZhMode={setZhMode}
-                  kept={keptNow}
-                  onToggleKeep={() => keep()}
-                  onRetime={openTiming}
-                  picture={pictureControl}
-                  subtitles={subtitleControl}
-                  disabled={!canPlay || cues.length === 0}
-                />
-                <KeyHints t={t} flash={flashed} active={focused} video={hasVideoFile} compare={hasTake} />
-              </div>
-              {library.error !== null && cues.length === 0 && hasAudio ? (
-                <div className="dsh-lingualab-error" style={{ textAlign: 'center' }}>
-                  {t('subtitleFailed')}{' '}
-                  <button type="button" className="dsh-lingualab-btn" onClick={library.reload}>
-                    {t('retry')}
-                  </button>
-                </div>
-              ) : null}
-              {review !== null && !reviewOn ? (
-                <ReviewFinish
-                  t={t}
-                  tally={tallyReview(review)}
-                  onAgain={() => {
-                    const again = retryNotYet(review)
-                    if (again === null) endReview()
-                    else runReview(again)
-                  }}
-                  onExit={endReview}
-                />
-              ) : null}
-              {finishOpen ? (
-                <FinishCard
-                  t={t}
-                  title={followingSegment !== null && segment !== null ? segmentLabel(segment) : (episode?.title ?? '')}
-                  scope={followingSegment === null ? 'episode' : 'segment'}
-                  sentences={cues.length}
-                  kept={segmentPhrases.length}
-                  practising={practising}
-                  nextTitle={followingSegment === null ? (nextEpisode?.title ?? null) : followingSegment.title}
-                  onAgain={() => {
-                    setDismissedFinish(finishCount)
-                    useMediaPlayer.getState().seek(0)
-                    useMediaPlayer.getState().setPlaying(true)
-                  }}
-                  onNext={() => {
-                    setDismissedFinish(finishCount)
-                    if (followingSegment !== null) openSegment(followingSegment.id)
-                    else if (nextEpisode !== null) openEpisode(nextEpisode.id)
-                  }}
-                  onHome={() => {
-                    setDismissedFinish(finishCount)
-                    goHome()
-                  }}
-                  onClose={() => setDismissedFinish(finishCount)}
-                />
-              ) : null}
-            </div>
-
-            {column === 'kept' ? (
-              <NotesPanel
-                t={t}
-                notes={notes}
-                segments={segments}
-                switcher={switcher}
-                currentIndex={stagePhrase?.index ?? null}
-                onReplay={(phrase) => {
-                  // Another sentence ends the edit, as a click on a subtitle line does.
-                  timing.close()
-                  replayPhrase(phrase)
-                }}
-                onReview={reviewEpisode}
-                reviewing={review !== null}
-              />
-            ) : (
-            <SubtitlePanel
-              t={t}
-              switcher={switcher}
-              cues={cues}
-              loading={library.cuesLoading}
-              activeIndex={activeIndex}
-              selectedIndex={selectedIndex}
-              zhMode={zhMode}
-              notedIndexes={notedIndexes}
-              follow={follow}
-              onFollow={setFollow}
-              onSelect={setSelection}
-              onPlay={(index) => {
-                const cue = cues[index]
-                if (cue === undefined) return
-                setSelection(null)
-                // Another sentence ends the edit: the strip belongs to the one it was opened on.
-                timing.close()
-                useMediaPlayer.getState().seekCue(index)
-                useMediaPlayer.getState().setPlaying(true)
-              }}
-              onKeep={(index) => keep(index)}
-            />
-            )}
-          </div>
-
-          {scrim.mounted ? (
-            <div
-              className={`dsh-lingualab-scrim${stepsOpen ? '' : ' is-leaving'}`}
-              onClick={() => setStepsOpen(false)}
-            />
-          ) : null}
-        </>
+        <PracticeView
+          topBar={{
+            t,
+            episode,
+            segment,
+            segments,
+            finishedIds,
+            segmentsOpen: layer === 'segments',
+            sentence: cues[activeIndex] === undefined ? null : { index: activeIndex, total: cues.length },
+            keptShown: column === 'kept',
+            keptCount: notes.phrases.length,
+            stepsOpen,
+            settings,
+            onHome: goHome,
+            onToggleSegments: () => {
+              setStepsOpen(false)
+              setSettingsOpen(false)
+              if (layer !== 'segments') refreshProgress()
+              setLayer(layer === 'segments' ? 'none' : 'segments')
+            },
+            onCloseSegments: () => setLayer('none'),
+            onSelectSegment: (id) => {
+              if (id === segmentId) setLayer('none')
+              else openSegment(id)
+            },
+            onToggleKept: () => setColumn(column === 'kept' ? 'transcript' : 'kept'),
+            onToggleSteps: () => {
+              setLayer('none')
+              setSettingsOpen(false)
+              setStepsOpen(!stepsOpen)
+            },
+            onBlindRunning: notices.onBlindRunning,
+          }}
+          stage={{
+            t,
+            library,
+            notes,
+            review: reviewRun,
+            activeIndex,
+            zhMode,
+            onZhMode: setZhMode,
+            stagePhrase,
+            onToggleWord: toggleWord,
+            onToggleKeep: () => keep(),
+            picture,
+            mediaRef: binding.attach,
+            videoPlays,
+            sourcePicture: source.picture,
+            video,
+            local,
+            card,
+            firstTimeCard,
+            hasVideoFile,
+            audioFile,
+            pictureFits,
+            notice: notices.shown,
+            onNoticeAction: notices.onAction,
+            onMain: setPracticeMain,
+            timing,
+            timingBlocked,
+            timingPresence,
+            onRetime: openTiming,
+            controlBar,
+            canPlay,
+            pictureControl,
+            subtitleControl,
+            flashed,
+            focused,
+            finishOpen,
+            nextEpisode,
+            onDismissFinish: dismissFinish,
+            onOpenSegment: openSegment,
+            onOpenEpisode: openEpisode,
+            onHome: goHome,
+          }}
+          side={{
+            t,
+            library,
+            notes,
+            column,
+            onColumn: setColumn,
+            activeIndex,
+            selectedIndex,
+            zhMode,
+            notedIndexes,
+            follow,
+            onFollow: setFollow,
+            stagePhrase,
+            reviewing: review !== null,
+            onSelect: setSelection,
+            onPlay: (index) => {
+              if (cues[index] === undefined) return
+              setSelection(null)
+              // Another sentence ends the edit: the strip belongs to the one it was opened on.
+              timing.close()
+              useMediaPlayer.getState().seekCue(index)
+              useMediaPlayer.getState().setPlaying(true)
+            },
+            onKeep: (index) => keep(index),
+            onReplay: (phrase) => {
+              // Another sentence ends the edit, as a click on a subtitle line does.
+              timing.close()
+              replayPhrase(phrase)
+            },
+            onReview: reviewEpisode,
+          }}
+          scrim={{ mounted: scrim.mounted, open: stepsOpen, onClose: () => setStepsOpen(false) }}
+        />
       )}
       {settingsScrim.mounted ? (
         <div
