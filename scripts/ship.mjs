@@ -5,14 +5,18 @@
  *   npm run ship -- patch|minor|major [--no-wait] [--dry-run]
  *   npm run ship -- --continue [--dry-run]
  *
- * The first form starts a release: check the ground, bump the version and the
- * changelog pair (`scripts/release.mjs`), run the full verify, push `development`,
- * open the pull request into `main` and, unless `--no-wait`, watch its checks. The
- * second form finishes it: read the checks once, merge with a merge commit, and
- * fast-forward `development` onto the merged `main`. The merge is the release
- * decision, so it is a separate, explicit step; the tag and the GitHub Release come
- * from `.github/workflows/release.yml` when `main` receives the merge, which is why
- * nothing here creates a tag. Deploying is `npm run deploy`.
+ * Running `ship` with a level IS the release decision. It checks the ground, bumps
+ * the version and the changelog pair (`scripts/release.mjs`), runs the full verify,
+ * pushes `development`, opens the pull request into `main`, watches its checks and,
+ * when they are green, merges with a merge commit and fast-forwards `development`
+ * onto the merged `main`. Deploying is `npm run deploy`. The tag and the GitHub
+ * Release come from `.github/workflows/release.yml` when `main` receives the merge,
+ * which is why nothing here creates a tag.
+ *
+ * `--no-wait` is the two-step form for a caller that must not sit and poll CI (an
+ * agent, say): it stops after opening the pull request, and `--continue` later reads
+ * the checks once, without polling, and does the merge and the sync back. It exits 3
+ * while checks are pending and 1 when one failed, so it can simply be run again.
  *
  * There is no release branch and no pull request into `development`: a push to
  * `development` already runs the full verify in CI, and the pull request into
@@ -79,13 +83,13 @@ async function waitForChecksToAppear(number) {
 async function startRelease() {
   const target = nextVersion(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, args.level)
   say(`发版：${args.level} → v${target}${args.dryRun ? '（--dry-run）' : ''}\n`)
-  say('1/4 检查')
+  say('1. 检查')
   const facts = gatherShipFacts(run, root, target)
   say(`  分支 ${facts.branch || '（游离）'}，origin/main 是 ${facts.mainVersion}，要发的提交 ${facts.toShip} 个`)
   judge(checkShipReadiness(facts))
 
   const undo = '本地 development 可能已有版本提交；放弃它：git reset --hard origin/development，然后重来'
-  say('\n2/4 抬版本并验证')
+  say('\n2. 抬版本并验证')
   must('node', ['scripts/release.mjs', args.level], undo)
   if (!run.dryRun) {
     const written = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
@@ -94,7 +98,7 @@ async function startRelease() {
   must('node', ['scripts/verify.mjs'], `修好之后：node scripts/verify.mjs && git push origin development，再手动开 PR；或者 ${undo}`)
   must('git', ['push', 'origin', 'development'], '推送失败，网络恢复后重跑 git push origin development，再手动开 PR')
 
-  say('\n3/4 开 PR')
+  say('\n3. 开 PR')
   const body = run.dryRun ? '<tmp>/pr-body.md' : join(mkdtempSync(join(tmpdir(), 'lingualab-ship-')), 'pr-body.md')
   must('node', ['scripts/release-notes.mjs', target, '--write', body], '没法生成 PR 正文：检查两侧 CHANGELOG 里有没有这一版')
   const created = must(
@@ -107,14 +111,16 @@ async function startRelease() {
   const number = run.dryRun ? '<PR>' : url.split('/').pop()
   say(`  PR：${run.dryRun ? '（--dry-run）' : url}`)
 
-  say('\n4/4 等检查')
-  if (!args.wait) return say(`  --no-wait：到此为止。CI 跑完后：npm run ship -- --continue`)
+  say('\n4. 等检查')
+  if (!args.wait) return say('  --no-wait：到此为止。CI 跑完后：npm run ship -- --continue（只读一次检查，还在跑会退出码 3，等等再来）')
   if (!run.dryRun && !(await waitForChecksToAppear(number))) {
     fail('一分钟了 CI 还没有出检查', `看一眼 ${url}，有了之后：npm run ship -- --continue`)
   }
   const watched = run.mutate('gh', ['pr', 'checks', String(number), '--watch', '--fail-fast'])
   if (watched.status !== 0) fail('PR 的检查没有全过', `看 ${url}，修好后推到 development，全绿后：npm run ship -- --continue`)
-  say(`\n✅ 检查全绿。合并就是发版，确认后：npm run ship -- --continue`)
+  say('\n✅ 检查全绿')
+  if (!run.dryRun) judge(checkContinueReadiness(gatherContinueFacts(run, root)))
+  mergeAndSync(number, target)
 }
 
 function reportChecks(number) {
@@ -128,24 +134,15 @@ function reportChecks(number) {
   process.exit(3)
 }
 
-function finishRelease() {
-  say(`收尾${args.dryRun ? '（--dry-run）' : ''}\n`)
-  say('1/3 检查')
-  const facts = gatherContinueFacts(run, root)
-  judge(checkContinueReadiness(facts))
-  const pr = facts.openPr
-  const number = pr === null ? '<PR>' : pr.number
-  const version = pr === null ? 'X.Y.Z' : (versionFromTitle(pr.title) ?? 'X.Y.Z')
-  if (pr !== null) say(`  PR #${pr.number}：${pr.title}\n  ${pr.url}`)
-  if (pr !== null) reportChecks(pr.number)
-
-  say('\n2/3 合并')
+/** Merge the pull request with a merge commit, then fast-forward development onto main. */
+function mergeAndSync(number, version) {
+  say('\n5. 合并')
   const merge = must(
     'gh', ['pr', 'merge', String(number), '--merge', '--subject', mergeSubject(version, number)],
     `合并没成功，看 PR 页面；成功后用 git fetch origin && git merge --ff-only origin/main && git push origin development 同步`,
   )
 
-  say('\n3/3 把 main 同步回 development')
+  say('\n6. 把 main 同步回 development')
   const sync = '合并已经完成。排查后手动：git fetch origin && git merge --ff-only origin/main && git push origin development'
   must('git', ['fetch', 'origin'], sync)
   must('git', ['merge', '--ff-only', 'origin/main'], sync)
@@ -156,6 +153,20 @@ function finishRelease() {
   }
   say(`\n✅ v${version} 已合并进 main。.github/workflows/release.yml 会在 main 收到合并后建标签和 GitHub Release。`)
   say('下一步：npm run deploy（需要 LINGUALAB_DEPLOY_HOST 与 LINGUALAB_DEPLOY_PATH，见技能「发版与 Release」）')
+}
+
+/** `--continue`: finish the release a `--no-wait` run opened. */
+function finishRelease() {
+  say(`收尾${args.dryRun ? '（--dry-run）' : ''}\n`)
+  say('1. 检查')
+  const facts = gatherContinueFacts(run, root)
+  judge(checkContinueReadiness(facts))
+  const pr = facts.openPr
+  const number = pr === null ? '<PR>' : pr.number
+  const version = pr === null ? 'X.Y.Z' : (versionFromTitle(pr.title) ?? 'X.Y.Z')
+  if (pr !== null) say(`  PR #${pr.number}：${pr.title}\n  ${pr.url}`)
+  if (pr !== null) reportChecks(pr.number)
+  mergeAndSync(number, version)
 }
 
 if (args.mode === 'ship') await startRelease()

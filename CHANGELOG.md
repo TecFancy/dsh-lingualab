@@ -23,10 +23,11 @@ the plugin that was installed and used, not an artifact on a registry.
 
 - `npm run ship -- patch|minor|major` releases from `development` with one command: it checks the ground (on `development`,
   clean tree, not behind origin, `gh` signed in, both changelog sides have unreleased entries, the tag is free), bumps with
-  `release.mjs`, runs the full verify, pushes, opens the pull request into `main` with the release notes as its body and
-  watches its checks (`--no-wait` stops after opening it). `npm run ship -- --continue` reads the checks once, merges with a
-  merge commit and fast-forwards `development` onto the merged `main`. `--dry-run` prints every command that would change
-  something instead of running it.
+  `release.mjs`, runs the full verify, pushes, opens the pull request into `main` with the release notes as its body, waits
+  for its checks and, when they are green, merges with a merge commit and fast-forwards `development` onto the merged
+  `main`. Running it is the release decision. `--no-wait` stops after opening the pull request, for a caller that must not
+  poll CI (an agent); `npm run ship -- --continue` then reads the checks once and does the merge and the sync back.
+  `--dry-run` prints every command that would change something instead of running it.
 - `npm run deploy` pulls on the server (fast-forward only), compares the version there with origin/main's, restarts the
   service and fails unless it reports `active`. The target comes from `LINGUALAB_DEPLOY_HOST`, `LINGUALAB_DEPLOY_PATH` and
   optionally `LINGUALAB_DEPLOY_SERVICE`; `--dry-run` prints the ssh commands.

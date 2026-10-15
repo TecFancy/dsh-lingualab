@@ -196,16 +196,18 @@ Work lands on `development`. A pull request into `main` is a release, and one co
 runs it from `development`:
 
 ```sh
-npm run ship -- patch|minor|major   # check, bump, full verify, push, open the PR, watch its checks
-npm run ship -- --continue          # checks green: merge, then fast-forward development onto main
+npm run ship -- patch|minor|major   # check, bump, verify, push, open the PR, wait for green, merge, sync back
 npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
 `ship` bumps the version and moves both sides of the changelog under a dated heading
 (`scripts/release.mjs`), runs the full `npm run verify`, pushes `development` and opens
-the pull request into `main`. The merge is the release decision, so it is the separate
-`--continue` step, which reads the checks once and refuses to merge unless they are all
-green. The `version-bump` job in CI fails a pull request that does not raise the version.
+the pull request into `main`, waits for its checks and, when they are green, merges it with
+a merge commit and fast-forwards `development` onto the merged `main`. Running `ship` is the
+release decision. A caller that must not sit and poll CI (an agent) uses
+`npm run ship -- patch --no-wait`, which stops after opening the pull request, and later
+`npm run ship -- --continue`, which reads the checks once and merges only if they are all green.
+The `version-bump` job in CI fails a pull request that does not raise the version.
 `--dry-run` prints every command that would change something instead of running it.
 
 The tag is not made by hand: when the merge lands on `main`, the `release` workflow creates

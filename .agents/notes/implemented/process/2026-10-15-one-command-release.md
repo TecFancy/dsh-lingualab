@@ -31,8 +31,11 @@ here.
 - *One orchestrating command.* `npm run ship -- patch|minor|major` checks the ground, runs
   the existing `scripts/release.mjs` (the bump logic stays in one place), runs the full
   verify, pushes `development`, opens the pull request into `main` with the release notes as
-  its body and watches its checks. `npm run ship -- --continue` reads the checks once, merges
-  and syncs back. The state is derived from git and gh each time (branch, open pull request,
+  its body, waits for its checks and, when they are green, merges and syncs back. Running it is
+  the release decision. `--no-wait` stops after opening the pull request, and
+  `npm run ship -- --continue` finishes later: it reads the checks once, never polls, and merges
+  only if they are all green. That two-step form exists for callers that must not sit and poll
+  CI, an agent being the case in point. The state is derived from git and gh each time (branch, open pull request,
   tags), never kept in a file that could disagree with them. `--dry-run` runs the checks and
   prints every command that would change something, so the flow can be inspected without
   releasing.
@@ -41,8 +44,8 @@ here.
   and calls `gh release create --target $GITHUB_SHA`, which creates the tag and the release
   together on the merged commit. A version that already has a tag is skipped, and a version
   with no changelog section fails the run. Nobody tags by hand, and a tag cannot point at the
-  wrong commit. The human decision becomes the merge itself, which is why merging stays an
-  explicit `--continue` step and not something `ship` does the moment checks go green.
+  wrong commit. The merge is the last thing `ship` does, so running `ship` is the single human
+  decision and nothing after it needs a second confirmation.
 - *Sync back.* After the merge, `development` is fast-forwarded onto `main` and pushed, so
   the merge commit that exists only on `main` does not accumulate as drift.
 
@@ -69,11 +72,11 @@ PowerShell. Whether the page works in a browser stays a manual look.
   commit per pull request to compute the bump and the changelog. Without release-please
   that reason is gone, and a merge commit keeps the individual commits of `development`
   reachable from `main` (which is also why the sync-back is a fast-forward).
-- **Merge automatically once the checks pass.** It would make `ship` truly one command, and
-  `--no-wait` plus `--continue` already cover the case where waiting is the annoying part.
-  But merging is the release, and a script that merges whatever goes green takes the one
-  decision out of the human's hands. The cost is two commands instead of one; if that proves
-  too much, a `--merge` flag is a small addition.
+- **Make the merge a separate, explicit step.** This was the first design: `ship` stopped at
+  green checks and a second command, `--continue`, merged. It was dropped because the goal is
+  fewer steps and the decision is already made by running `ship` with a level; a second prompt
+  only repeats it. The two-step form survives as `--no-wait` plus `--continue`, for the
+  caller that must not wait on CI.
 - **Keep the tag step manual, or tag from the script.** A tag made locally needs the merged
   commit to be looked up and pushed from the right machine. Letting the workflow create it at
   `$GITHUB_SHA` removes the lookup entirely.
@@ -83,8 +86,8 @@ PowerShell. Whether the page works in a browser stays a manual look.
 
 ## Consequences
 
-A release is `npm run ship -- patch`, then `npm run ship -- --continue` when the checks are
-green, then `npm run deploy`. The first push to `main` after this lands runs the new workflow
+A release is `npm run ship -- patch`, then `npm run deploy`. An agent that may not poll CI runs
+`ship -- patch --no-wait`, and `ship -- --continue` when the checks have finished. The first push to `main` after this lands runs the new workflow
 for a version whose tag already exists, and skips.
 
 Two things are accepted. A failed `ship` after the version commit leaves that commit on the

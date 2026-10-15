@@ -16,9 +16,10 @@ export const USAGE = [
   '  npm run ship -- patch|minor|major [--no-wait] [--dry-run]',
   '  npm run ship -- --continue [--dry-run]',
   '',
-  '  patch|minor|major  在 development 上抬版本、跑完整 verify、推送并开往 main 的 PR',
-  '  --no-wait          开完 PR 就停，不等 CI；之后用 --continue 合并',
-  '  --continue         读一次 PR 的检查，全绿就合并并把 main 同步回 development',
+  '  patch|minor|major  运行它就是发版的决定：在 development 上抬版本、跑完整 verify、推送、',
+  '                     开往 main 的 PR、等检查全绿，然后合并并把 main 同步回 development',
+  '  --no-wait          开完 PR 就停，不等 CI（给不该轮询 CI 的调用方，比如 agent）',
+  '  --continue         接着走 --no-wait 留下的 PR：只读一次检查，全绿就合并并同步',
   '  --dry-run          只打印会执行的改动型命令，不推送、不开 PR、不合并',
 ].join('\n')
 

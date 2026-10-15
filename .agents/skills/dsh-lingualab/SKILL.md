@@ -262,11 +262,15 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
 ## 发版与 Release（2026-10-08 定，2026-10-15 改成一条命令）
 
 ```sh
-npm run ship -- patch|minor|major [--no-wait] [--dry-run]   # 在 development 上：检查、抬版本、verify、推送、开 PR、盯检查
-npm run ship -- --continue [--dry-run]                      # 检查全绿后：合并，再把 development 快进到 main
+npm run ship -- patch|minor|major [--no-wait] [--dry-run]   # 在 development 上：检查、抬版本、verify、推送、开 PR、等全绿、合并、同步回来
+npm run ship -- --continue [--dry-run]                      # 接着走 --no-wait 留下的 PR：读一次检查，全绿就合并并同步
 npm run deploy [-- --dry-run]                               # 服务器拉取、重启、确认 active
 npm run release:notes [版本号]                               # 打印这一版的正文（GitHub Release 与 PR 正文用的就是它）
 ```
+
+**运行 `ship -- patch|minor|major` 就是发版的决定**，之后只剩 `npm run deploy`。`ship` 必须在检出了 `development` 的那份
+工作副本里跑（现在是主检出 `D:\source\personal\dsh-lingualab`，git 不允许同一个分支在两个 worktree 里检出）；
+它落后于 origin 时先拉一下（检查本来就会拒绝落后的状态）。
 
 **`ship` 做什么**（`scripts/ship.mjs`，规则在 `scripts/lib/release-plan.mjs`，带单测）：
 
@@ -275,11 +279,13 @@ npm run release:notes [版本号]                               # 打印这一�
    `package.json` 与 origin/main 同版本。所有问题一次列完，不是撞一个报一个。
 2. 抬版本：调现成的 `scripts/release.mjs`（不重复它的逻辑），再跑完整的 `node scripts/verify.mjs`，推送 `development`。
 3. 开 PR：`gh pr create --base main --head development`，标题 `chore(release): vX.Y.Z`，正文是 `release-notes.mjs` 的输出。
-4. 等检查：缺省 `gh pr checks --watch --fail-fast`；`--no-wait` 开完 PR 就停并打印下一条命令。
+4. 等检查：`gh pr checks --watch --fail-fast`。
+5. 合并：重新核对一遍现场，再 `gh pr merge --merge --subject "chore(release): vX.Y.Z (#n)"`。
+6. 同步回来：fetch、`git merge --ff-only origin/main`、推送 `development`。
 
-**`--continue`**：找到开着的 development 到 main 的 PR，**只读一次**检查，不轮询。还在跑退出码 3（等一等再来）；
-有失败退出码 1 并点名；全绿才 `gh pr merge --merge --subject "chore(release): vX.Y.Z (#n)"`，然后 fetch、
-`git merge --ff-only origin/main`、推送 `development`。状态一律从 git 和 gh 现查，没有状态文件。
+**`--no-wait` 与 `--continue`** 是两步的形式，给不该轮询 CI 的调用方（agent）用：`ship -- patch --no-wait` 开完 PR 就停；
+CI 跑完之后 `ship -- --continue` 找到开着的 development 到 main 的 PR，**只读一次**检查，不轮询。还在跑退出码 3
+（等一等再来）；有失败退出码 1 并点名；全绿才做第 5、6 步。状态一律从 git 和 gh 现查，没有状态文件。
 
 **`--dry-run`**：检查是真跑的（它们只读），会改东西的命令（`release.mjs`、verify、push、`pr create`、`pr merge`、ssh）
 只打印不执行。检查没过时 dry-run 只报告、继续演示计划，所以在功能分支上也能看全流程。
@@ -290,7 +296,7 @@ npm run release:notes [版本号]                               # 打印这一�
 
 **标签不再本地打**：PR 合进 `main` 后，`.github/workflows/release.yml`（push 到 main，或手动触发）读
 `package.json` 的版本，标签 `vX.Y.Z` 已存在就跳过，否则用 `release-notes.mjs` 生成正文，`gh release create --target $GITHUB_SHA`
-一次建出标签与 GitHub Release。这一版的更新日志节找不到就让这次运行失败。所以「合并」就是发版的那个人工决定。
+一次建出标签与 GitHub Release。这一版的更新日志节找不到就让这次运行失败。人只做一个决定：运行 `ship`。
 `release.mjs` 因此不再有 `--tag`。
 
 **部署**（`scripts/deploy.mjs`）：目标从环境变量读，缺了会报并给出设置办法。

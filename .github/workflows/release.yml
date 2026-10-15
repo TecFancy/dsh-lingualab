@@ -1,8 +1,9 @@
 # A merge into `main` becomes a tag and a GitHub Release.
 #
-# The one human decision in a release is merging the pull request from
-# `development` into `main` (`npm run ship -- --continue`). That merge is the moment
-# "this version is going out", so everything after it is mechanical and lives here:
+# The one human decision in a release is running `npm run ship -- patch|minor|major`,
+# which ends by merging the pull request from `development` into `main` once its
+# checks are green. That merge is the moment "this version is going out", so
+# everything after it is mechanical and lives here:
 # read the version from `package.json`, and if its tag does not exist yet, take that
 # version's section out of the changelog pair and publish it as the release body.
 # `gh release create` creates the tag on the merged commit as part of the same call,

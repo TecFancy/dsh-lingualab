@@ -140,15 +140,15 @@ Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以
 改动落在 `development`。往 `main` 开 PR 就是一次发版，在 `development` 上一条命令走完：
 
 ```sh
-npm run ship -- patch|minor|major   # check, bump, full verify, push, open the PR, watch its checks
-npm run ship -- --continue          # checks green: merge, then fast-forward development onto main
+npm run ship -- patch|minor|major   # check, bump, verify, push, open the PR, wait for green, merge, sync back
 npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
 `ship` 抬高版本，把更新日志中英两侧的未发版条目挪到带日期的标题下面（`scripts/release.mjs`），
-跑完整的 `npm run verify`，推送 `development`，再开往 `main` 的 PR。合并就是发版的决定，所以它是
-单独的 `--continue` 一步：只读一次检查，没有全绿就不合。CI 里的 `version-bump` job 会把没有抬高版本的 PR
-拦住。`--dry-run` 把每条会改动东西的命令打印出来而不执行。
+跑完整的 `npm run verify`，推送 `development`，再开往 `main` 的 PR，等它的检查，全绿就用合并提交合进去，并把
+`development` 快进到合并后的 `main`。运行 `ship` 就是发版的决定。不该轮询 CI 的调用方（比如 agent）用
+`npm run ship -- patch --no-wait`，开完 PR 就停，之后用 `npm run ship -- --continue`：它只读一次检查，全绿才合并。
+CI 里的 `version-bump` job 会把没有抬高版本的 PR 拦住。`--dry-run` 把每条会改动东西的命令打印出来而不执行。
 
 标签不用手打：合并落到 `main` 之后，`release` 工作流建标签和 GitHub Release，正文取自更新日志那一对文件里这一版的
 两段，先中文后英文。这里不发 npm，插件从本地路径或 tar 包装，所以版本号标记的是一个装过、用过的状态，而不是注册表上
