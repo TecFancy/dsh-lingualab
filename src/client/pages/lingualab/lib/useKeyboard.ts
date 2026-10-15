@@ -15,13 +15,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import type { Cue, SubtitleZhMode } from '../../../entities/cue/index.ts'
-import { primeTakeAudio, togglePlayback, useMediaPlayer } from '../../../features/media-player/index.ts'
+import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { stepBack } from '../../../features/review/index.ts'
-import { useSettings } from '../../../features/settings/index.ts'
 import { keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import type { GivenGrade } from '../../../shared/notes-format.ts'
 import { nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/index.ts'
 import type { TimingEditor } from '../../../widgets/timing-editor/index.ts'
+import { performKey } from './key-actions.ts'
 import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from './keymap.ts'
 import type { Column, Layer, View } from './panel.ts'
 import type { ReviewRun } from './useReviewRun.ts'
@@ -151,99 +151,25 @@ export function useKeyboard({
    */
   const perform = useCallback(
     (action: KeyAction): void => {
-      const store = useMediaPlayer.getState
-      switch (action.type) {
-        case 'close-settings':
-          setSettingsOpen(false)
-          return
-        case 'close-timing':
-          timing.close()
-          return
-        case 'end-review':
-          endReview()
-          return
-        case 'dismiss-finish':
-          dismissFinish()
-          return
-        case 'close-layer':
-          setLayer('none')
-          return
-        case 'close-steps':
-          setStepsOpen(false)
-          return
-        case 'clear-ab':
-          store().clearAB()
-          return
-        case 'review-grade':
-          answerReview(action.grade)
-          return
-        case 'stage-grade':
-          gradeStage(action.grade)
-          return
-        case 'review-skip':
-          answerReview('skipped')
-          return
-        case 'review-back':
+      performKey(action, {
+        closeSettings: () => setSettingsOpen(false),
+        closeTiming: () => timing.close(),
+        endReview,
+        dismissFinish,
+        closeLayer: () => setLayer('none'),
+        closeSteps: () => setStepsOpen(false),
+        answerReview,
+        reviewBack: () => {
           if (review !== null) runReview(stepBack(review))
-          return
-        case 'toggle-play':
-          togglePlayback()
-          return
-        case 'step':
-          setSelection(null)
-          store().stepCue(action.delta)
-          return
-        case 'select':
-          setSelection(action.index)
-          return
-        case 'play-index':
-          if (cues[action.index] !== undefined) {
-            setSelection(null)
-            store().seekCue(action.index)
-            store().setPlaying(true)
-          }
-          return
-        case 'toggle-loop':
-          if (store().loopMode === 'sentence') store().setLoopMode('none')
-          else store().loopSentence(action.index)
-          return
-        case 'keep':
-          keep(action.index ?? undefined)
-          return
-        case 'toggle-column':
-          setColumn(column === 'kept' ? 'transcript' : 'kept')
-          return
-        case 'cycle-zh':
-          setZhMode(nextZhMode(zhMode))
-          return
-        case 'reveal':
-          store().reveal(store().activeIndex)
-          return
-        case 'compare-take':
-          // Plays the sentence and then the reader's take of it; a sentence with no take has nothing to play, and the key is spent on it anyway.
-          primeTakeAudio()
-          store().compareTake()
-          return
-        case 'cycle-picture':
-          useSettings.getState().cyclePicture()
-          return
-        case 'mark-a':
-          if (store().pointA === null) store().setPoint('a')
-          else store().clearAB()
-          return
-        case 'mark-b':
-          store().setPoint('b')
-          return
-        case 'retime':
-          openTiming()
-          return
-        case 'speed':
-          store().cycleSpeed(action.delta)
-          return
-        case 'close-menu':
-        case 'timing-key':
-          return
-      }
+        },
+        gradeStage,
+        select: setSelection,
+        hasCue: (index) => cues[index] !== undefined,
+        keep,
+        toggleColumn: () => setColumn(column === 'kept' ? 'transcript' : 'kept'),
+        cycleZh: () => setZhMode(nextZhMode(zhMode)),
+        retime: openTiming,
+      })
     },
     [
       answerReview,

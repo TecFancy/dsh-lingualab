@@ -35,8 +35,8 @@
  *
  * What this file is: the page's state, the wiring between features that may not import each other, and the composition
  * of the two views. The work is in the hooks and views beside it, one per concern, each with its tests where there is
- * logic: `lib/keymap.ts` and `useKeyboard.ts` (the keys), `useResume.ts` and `useOpening.ts` (where listening resumes,
- * and everything that opens something), `useReviewRun.ts` (a review), `useStageNotes.ts` (keeping and grading the
+ * logic: `lib/keymap.ts` and `useKeyboard.ts` (the keys), `useResume.ts`, `useOpening.ts` and `useReplay.ts` (where listening
+ * resumes, and everything that opens or replays something), `useReviewRun.ts` (a review), `useStageNotes.ts` (keeping and grading the
  * sentence on stage), `useRetime.ts` (the timing strip), `useVideoSource.ts` and `useVideoNotices.ts` (what plays and
  * what is said about it), and `HomeView.tsx` and `PracticeView.tsx` (what is drawn). New logic goes there, not here.
  */
@@ -73,6 +73,7 @@ import { useOpening } from '../lib/useOpening.ts'
 import { useResume } from '../lib/useResume.ts'
 import { isTypingTarget, useKeyboard } from '../lib/useKeyboard.ts'
 import { useRetime } from '../lib/useRetime.ts'
+import { useReplay } from '../lib/useReplay.ts'
 import { useReviewRun } from '../lib/useReviewRun.ts'
 import { useStageNotes } from '../lib/useStageNotes.ts'
 import { useVideoNotices } from '../lib/useVideoNotices.ts'
@@ -251,14 +252,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [practiceMain, setPracticeMain] = useState<HTMLDivElement | null>(null)
   const pictureFits = usePictureRoom(practiceMain, videoPlays && picture === 'shown')
 
-  const { openEpisode, openFile, openSegment, replayPhrase, goToItem } = useOpening({
-    library,
-    cues,
-    resume,
-    setView,
-    setLayer,
-    setSelection,
-  })
+  const opening = useOpening({ library, resume, setView, setLayer, setSelection })
+  const { openEpisode, openFile, openSegment } = opening
+  const { replayPhrase, goToItem } = useReplay({ library, cues, resume, opening, setView, setSelection })
 
   /** Close what is over the practice view, because a review takes it over. */
   const closeReviewLayers = useCallback((): void => {
@@ -490,37 +486,40 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             onZhMode: setZhMode,
             stagePhrase,
             onToggleWord: toggleWord,
-            onToggleKeep: () => keep(),
-            picture,
-            mediaRef: binding.attach,
-            videoPlays,
-            sourcePicture: source.picture,
-            video,
-            local,
-            card,
-            firstTimeCard,
-            hasVideoFile,
-            audioFile,
+            picture: {
+              picture,
+              mediaRef: binding.attach,
+              videoPlays,
+              sourcePicture: source.picture,
+              video,
+              local,
+              card,
+              firstTimeCard,
+              hasVideoFile,
+              audioFile,
+            },
             pictureFits,
+            timing: { editor: timing, blocked: timingBlocked, presence: timingPresence, onRetime: openTiming },
+            deck: {
+              canPlay,
+              pictureControl,
+              subtitleControl,
+              onToggleKeep: () => keep(),
+              flashed,
+              focused,
+            },
+            controlBar,
+            finish: {
+              open: finishOpen,
+              nextEpisode,
+              onDismiss: dismissFinish,
+              onOpenSegment: openSegment,
+              onOpenEpisode: openEpisode,
+              onHome: goHome,
+            },
             notice: notices.shown,
             onNoticeAction: notices.onAction,
             onMain: setPracticeMain,
-            timing,
-            timingBlocked,
-            timingPresence,
-            onRetime: openTiming,
-            controlBar,
-            canPlay,
-            pictureControl,
-            subtitleControl,
-            flashed,
-            focused,
-            finishOpen,
-            nextEpisode,
-            onDismissFinish: dismissFinish,
-            onOpenSegment: openSegment,
-            onOpenEpisode: openEpisode,
-            onHome: goHome,
           }}
           side={{
             t,

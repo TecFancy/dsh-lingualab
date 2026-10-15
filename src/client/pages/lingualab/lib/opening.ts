@@ -13,7 +13,20 @@ import {
   type Progress,
 } from '../../../features/resume/index.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
-import type { EpisodeEntry, EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, EpisodeSegment, LibraryPayload, NotePhrase } from '../../../shared/protocol.ts'
+
+/**
+ * The entry for an episode id: from the listing (folders, then loose files), or the open one when it lives outside it.
+ * An episode opened through the picker from outside the media folder is not in the listing, and is still one the page
+ * can open again by id.
+ */
+export function entryOf(
+  payload: Pick<LibraryPayload, 'episodes' | 'files'> | null,
+  open: EpisodeEntry | null,
+  id: string,
+): EpisodeEntry | null {
+  return [...(payload?.episodes ?? []), ...(payload?.files ?? [])].find((entry) => entry.id === id) ?? (open?.id === id ? open : null)
+}
 
 /** The segment 「继续」 opens for an episode: the one listened to most recently, or the first; `null` without segments. */
 export function segmentToContinue(entry: EpisodeEntry | null, positions: PositionTable): string | null {

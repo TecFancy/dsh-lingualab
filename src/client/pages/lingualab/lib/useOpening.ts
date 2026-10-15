@@ -1,32 +1,26 @@
 /**
- * Opening things and replaying a kept sentence: the page's one path from a choice to the practice view.
+ * Opening things: the page's one path from a choice to the practice view.
  *
- * Opening an episode, a segment of it, a file from the picker, a review item and a kept sentence of another segment
- * all end the same way: the library opens it, the resume is armed with where to start, and the page switches to the
- * practice view. That is feature-to-feature wiring, which is why it is the page's (the library feature may not reach
- * into the player or the reader's positions); it lives here so that the wiring is written once and each of its callers
- * says only what it wants opened.
+ * Opening an episode, a segment of it or a file from the picker ends the same way: the library opens it, the resume is
+ * armed with where to start, and the page switches to the practice view. That is feature-to-feature wiring, which is
+ * why it is the page's (the library feature may not reach into the player or the reader's positions); it lives here so
+ * that the wiring is written once and each of its callers says only what it wants opened. Putting a kept sentence or a
+ * review item on stage is built on it, in `useReplay.ts`.
  *
  * The resume is armed *before* the view switches, so the effect that applies it sees it (`useResume.ts`). Where an
  * open starts, and which segment it opens, are decided by plain functions in `opening.ts`.
  */
 import { useCallback } from 'react'
-import type { Cue } from '../../../entities/cue/index.ts'
 import type { LibraryState } from '../../../features/library/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { readAllProgress, readProgress } from '../../../features/resume/index.ts'
-import type { ReviewItem } from '../../../features/review/index.ts'
-import type { EpisodeEntry, NotePhrase } from '../../../shared/protocol.ts'
-import { otherSegmentToOpen, segmentForItem, segmentToContinue, startPosition } from './opening.ts'
+import type { EpisodeEntry } from '../../../shared/protocol.ts'
+import { entryOf, segmentToContinue, startPosition } from './opening.ts'
 import type { Layer, View } from './panel.ts'
-import { keptCueStart } from './resume.ts'
 import type { Resume } from './useResume.ts'
 
 /** What the opening reads from and does to the rest of the page. */
 export interface OpeningOptions {
   readonly library: LibraryState
-  /** The cue list on screen, which a replayed sentence is looked up in. */
-  readonly cues: readonly Cue[]
   readonly resume: Pick<Resume, 'arm' | 'bookmark' | 'refreshProgress'>
   readonly setView: (view: View) => void
   readonly setLayer: (layer: Layer) => void
@@ -55,28 +49,16 @@ export interface Opening {
    * be looped, and the drawer it came from stays open.
    */
   readonly openSegment: (id: string, to?: { readonly at: number; readonly loop: boolean; readonly text?: string }) => void
-  /** Replay a kept sentence: seek to it and loop it, opening its segment first when it is in another. */
-  readonly replayPhrase: (phrase: NotePhrase) => void
-  /**
-   * Put one review item on stage: replay it in the open episode, or open its episode (at its segment) first and replay
-   * it there, the way a kept sentence from another segment is replayed.
-   * @returns false when its episode could not be opened, which the review counts as gone.
-   */
-  readonly goToItem: (item: ReviewItem) => Promise<boolean>
 }
 
 /** The callbacks that open things. */
-export function useOpening({ library, cues, resume, setView, setLayer, setSelection }: OpeningOptions): Opening {
+export function useOpening({ library, resume, setView, setLayer, setSelection }: OpeningOptions): Opening {
   const { arm, bookmark, refreshProgress } = resume
   const episode = library.episode
-  const episodeId = episode?.id ?? null
   const segmentId = library.segment?.id ?? null
-  const segments = library.segments
 
   const entryFor = useCallback(
-    (id: string): EpisodeEntry | null =>
-      [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].find((entry) => entry.id === id) ??
-      (library.episode?.id === id ? library.episode : null),
+    (id: string): EpisodeEntry | null => entryOf(library.payload, library.episode, id),
     [library.payload, library.episode],
   )
 
@@ -127,39 +109,5 @@ export function useOpening({ library, cues, resume, setView, setLayer, setSelect
     [episode, segmentId, bookmark, library, arm, setSelection, setLayer, refreshProgress],
   )
 
-  const replayPhrase = useCallback(
-    (phrase: NotePhrase): void => {
-      const other = otherSegmentToOpen(phrase, segmentId, segments)
-      if (other !== null) {
-        openSegment(other, { at: phrase.at, loop: true, text: phrase.text })
-        return
-      }
-      useMediaPlayer.getState().seekCueAt(keptCueStart(cues, phrase.at, phrase.text))
-      useMediaPlayer.getState().setLoopMode('sentence')
-      // A seek alone leaves paused audio paused, and the card's play icon then did nothing.
-      useMediaPlayer.getState().setPlaying(true)
-    },
-    [cues, segmentId, segments, openSegment],
-  )
-
-  const goToItem = useCallback(
-    async (item: ReviewItem): Promise<boolean> => {
-      if (item.episode === episodeId) {
-        // A review started from the home can begin in the episode that is already loaded.
-        setSelection(null)
-        setView('practice')
-        replayPhrase(item.phrase)
-        return true
-      }
-      const segmentOf = segmentForItem(entryFor(item.episode), item.phrase.segment)
-      if (!(await library.openEpisode(item.episode, segmentOf))) return false
-      arm(item.phrase.at, true, item.phrase.text)
-      setSelection(null)
-      setView('practice')
-      return true
-    },
-    [episodeId, replayPhrase, entryFor, library, arm, setSelection, setView],
-  )
-
-  return { entryFor, openEpisode, openFile, openSegment, replayPhrase, goToItem }
+  return { entryFor, openEpisode, openFile, openSegment }
 }

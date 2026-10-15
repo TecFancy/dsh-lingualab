@@ -1,20 +1,17 @@
 // @vitest-environment node
 /**
  * The hook's callbacks, rendered to a string: the render hands back the callbacks, and calling them outside it runs the
- * whole open (the library, the position cache, the player store) against fakes for the library and for the page's
- * setters. What is checked is what each open asks of them, and in which order: the resume is armed before the view
- * switches, which is what lets the apply effect see it.
+ * whole open (the library, the position cache) against fakes for the library and for the page's setters. What is
+ * checked is what each open asks of them, and in which order: the resume is armed before the view switches, which is
+ * what lets the apply effect see it. Replaying a sentence is built on it and is `useReplay.test.tsx`'s.
  */
 import type { ReactElement } from 'react'
 // @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Cue } from '../../../entities/cue/index.ts'
 import type { LibraryState } from '../../../features/library/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { writeProgress } from '../../../features/resume/index.ts'
-import type { ReviewItem } from '../../../features/review/index.ts'
-import type { EpisodeEntry, EpisodeSegment, NotePhrase } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, EpisodeSegment } from '../../../shared/protocol.ts'
 import { useOpening, type Opening } from './useOpening.ts'
 
 const renderToStaticMarkup = render as (element: ReactElement) => string
@@ -47,21 +44,6 @@ const segment = (id: string): EpisodeSegment => ({
 
 const episode = (id: string, segmentIds: string[] = []): EpisodeEntry =>
   ({ id, title: `Episode ${id}`, kind: 'folder', segments: segmentIds.map(segment) }) as unknown as EpisodeEntry
-
-const cues: Cue[] = [
-  { start: 10, end: 12, text: 'One' },
-  { start: 20, end: 22, text: 'Two' },
-]
-
-const phrase = (at: number, over: Partial<NotePhrase> = {}): NotePhrase => ({
-  at,
-  text: `line ${String(at)}`,
-  zh: '',
-  note: '',
-  tags: [],
-  done: false,
-  ...over,
-})
 
 /** Let the open's promise chain run. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
@@ -108,7 +90,6 @@ function setup(
   function Probe() {
     opening = useOpening({
       library: library as unknown as LibraryState,
-      cues,
       resume,
       setView: (view) => log.push(`view:${view}`),
       setLayer: (layer) => log.push(`layer:${layer}`),
@@ -124,7 +105,6 @@ function setup(
 beforeEach(() => {
   installStorage()
   vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
-  useMediaPlayer.getState().reset(cues)
 })
 
 afterEach(() => {
@@ -230,66 +210,5 @@ describe('openSegment', () => {
     opening.openSegment('02_b')
     await flush()
     expect(log).toEqual(['bookmark', 'open:E2:02_b'])
-  })
-})
-
-describe('replayPhrase', () => {
-  it('seeks to the sentence and loops it in the segment on screen', () => {
-    const { opening, log } = setup({ open: episode('E1') })
-    opening.replayPhrase(phrase(20, { text: 'Two' }))
-    const state = useMediaPlayer.getState()
-    expect(state.loopMode).toBe('sentence')
-    expect(state.isPlaying).toBe(true)
-    expect(state.seekRequest).toBe(20)
-    expect(log).toEqual([])
-  })
-
-  it('opens the segment of a sentence from another one, to play it there', async () => {
-    const { opening, log } = setup({ open: episode('E2', ['01_a', '02_b']), segmentId: '01_a' })
-    opening.replayPhrase(phrase(20, { text: 'Two', segment: '02_b' }))
-    await flush()
-    expect(log).toEqual(['bookmark', 'open:E2:02_b', 'arm:20:true:Two', 'selection:null', 'refresh'])
-  })
-
-  it('replays a sentence of a segment that is gone in the one on screen', () => {
-    const { opening, log } = setup({ open: episode('E2', ['01_a']), segmentId: '01_a' })
-    opening.replayPhrase(phrase(20, { text: 'Two', segment: '09_gone' }))
-    expect(log).toEqual([])
-    expect(useMediaPlayer.getState().loopMode).toBe('sentence')
-  })
-})
-
-describe('goToItem', () => {
-  const item = (episodeId: string, over: Partial<NotePhrase> = {}): ReviewItem => ({
-    episode: episodeId,
-    title: `Episode ${episodeId}`,
-    phrase: phrase(20, { text: 'Two', ...over }),
-  })
-
-  it('replays the sentence in the episode that is already open, without opening anything', async () => {
-    const { opening, log, library } = setup({ open: episode('E1') })
-    expect(await opening.goToItem(item('E1'))).toBe(true)
-    expect(log).toEqual(['selection:null', 'view:practice'])
-    expect(library.openEpisode).not.toHaveBeenCalled()
-    expect(useMediaPlayer.getState().loopMode).toBe('sentence')
-  })
-
-  it('opens another episode at the item\'s segment, arms the sentence to loop, then shows the practice view', async () => {
-    const { opening, log } = setup({ listed: [episode('E2', ['01_a', '02_b'])], open: episode('E1') })
-    expect(await opening.goToItem(item('E2', { segment: '02_b' }))).toBe(true)
-    expect(log).toEqual(['open:E2:02_b', 'arm:20:true:Two', 'selection:null', 'view:practice'])
-  })
-
-  it('lets the host pick the segment when the episode no longer has the one the item names', async () => {
-    const { opening, log } = setup({ listed: [episode('E2', ['01_a'])], open: episode('E1') })
-    expect(await opening.goToItem(item('E2', { segment: '09_gone' }))).toBe(true)
-    expect(log[0]).toBe('open:E2:-')
-  })
-
-  it('says false, and arms and shows nothing, when the episode cannot be opened', async () => {
-    const { opening, log, resume } = setup({ listed: [], open: episode('E1'), opens: false })
-    expect(await opening.goToItem(item('E2'))).toBe(false)
-    expect(log).toEqual(['open:E2:-'])
-    expect(resume.arm).not.toHaveBeenCalled()
   })
 })
