@@ -86,7 +86,6 @@ import {
 } from '../../../features/video/index.ts'
 import { holdsMouseFocus, keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
-import { gradeForKey } from '../../../shared/lib/grades.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
 import { segmentProgress } from '../../../shared/progress.ts'
 import type { EpisodeEntry, NotePhrase, VideoStatusPayload } from '../../../shared/protocol.ts'
@@ -115,6 +114,7 @@ import { TIMING_EXIT_MS, TimingStrip, useTimingEditor, type SavedTiming } from '
 import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import { useCardFit } from '../lib/useCardFit.ts'
+import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from '../lib/keymap.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
 
 /** Which view the page shows. */
@@ -171,6 +171,24 @@ function isTypingTarget(target: EventTarget | null): boolean {
   // must not switch the page's keys (Escape included) off for the rest of the visit.
   if (target instanceof HTMLInputElement) return !['checkbox', 'radio', 'button', 'submit', 'range', 'file'].includes(target.type)
   return tag === 'select' || tag === 'textarea' || target.isContentEditable
+}
+
+/** A keystroke as the keymap reads it: the key and modifiers, and the two questions only the DOM can answer. */
+function pressOf(event: ReactKeyboardEvent<HTMLDivElement>): KeyPress {
+  return {
+    key: event.key,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    altKey: event.altKey,
+    typing: isTypingTarget(event.target),
+    ownsKey: keepsKeyForTarget(event.target, event.key),
+  }
+}
+
+/** Stop a handled key here: the conversation lives in the same document, and its default would act behind the panel. */
+function stopKey(event: ReactKeyboardEvent<HTMLDivElement>): void {
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 /** The panel's centre-column page. */
@@ -974,237 +992,159 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // The end-of-episode card: shown once per time the audio ends, until it is answered.
   const finishOpen = view === 'practice' && finished && finishCount > dismissedFinish && cues.length > 0 && review === null
 
-  const onKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isTypingTarget(event.target)) return
-      // A chord belongs to the browser or the host: Ctrl+S is "save", Ctrl+C is "copy",
-      // Ctrl+A is "select all". Reading them as the plain letters meant the reflex of
-      // saving a page took the star off a sentence, with its note, and Ctrl+C stopped
-      // copying. Shift stays allowed because `[` and `]` can need it on some layouts.
-      if (event.ctrlKey || event.metaKey || event.altKey) return
-      // Space and Enter on a button that has the focus press that button (the browser does it): a reader who
-      // got there with Tab keeps that. A mouse click never leaves the focus on a button (see the mouse-down
-      // below), so after a click these keys are the page's again.
-      if (keepsKeyForTarget(event.target, event.key)) return
+  /**
+   * Do what a key (or a headset button) decided; which key decides what is `lib/keymap.ts`. The two actions that
+   * need the key event itself, the strip's own keys and the menu's Escape, are answered by the key handler.
+   */
+  const perform = useCallback(
+    (action: KeyAction): void => {
       const store = useMediaPlayer.getState
-      // Handled keys stop here. The conversation lives in the same document, and a
-      // space bar that scrolls or submits behind the panel is a stolen keystroke.
-      const handled = (): void => {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-      // Escape closes a layer in either view; everything else is practice-only, since
-      // the home has no transport for a shortcut to act on.
-      if (event.key === 'Escape') {
-        // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it
-        // must not also clear the A-B marks its own buttons set.
-        if (controlBar.current?.closeMenu() === true) {
-          handled()
-        } else if (settingsOpen) {
-          handled()
+      switch (action.type) {
+        case 'close-settings':
           setSettingsOpen(false)
-        } else if (timing.session !== null) {
-          handled()
+          return
+        case 'close-timing':
           timing.close()
-        } else if (review !== null) {
-          handled()
+          return
+        case 'end-review':
           endReview()
-        } else if (finishOpen) {
-          handled()
+          return
+        case 'dismiss-finish':
           setDismissedFinish(finishCount)
-        } else if (layer !== 'none') {
-          handled()
+          return
+        case 'close-layer':
           setLayer('none')
-        } else if (view === 'practice') {
-          handled()
-          if (stepsOpen) setStepsOpen(false)
-          else store().clearAB()
-        }
-        return
-      }
-      // The settings drawer owns the keyboard while it is open, as a layer does.
-      if (settingsOpen) return
-      if (view !== 'practice') return
-      // The timing strip owns the keyboard while it is open: the arrows move an edge, not the sentence.
-      if (timing.session !== null) {
-        if (timing.handleKey(event)) handled()
-        return
-      }
-      // A layer owns the keyboard while it is open: its own fields and buttons are the
-      // only things a keystroke should reach.
-      if (layer !== 'none') return
-      // So does the finish card: it is a dialog over the stage with its next action focused,
-      // and Enter there means that button, not "play the selected sentence" behind it. The card
-      // at the end of a review is the same kind of dialog.
-      if (finishOpen || (review !== null && isFinished(review))) return
-
-      // A grade goes to the review item while a review runs, and to the kept sentence on stage
-      // otherwise. The arrows move through the queue instead of through the sentences.
-      const grade = gradeForKey(event.key)
-      if (grade !== null) {
-        handled()
-        if (review !== null) answerReview(grade)
-        else gradeStage(grade)
-        return
-      }
-      if (review !== null && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
-        handled()
-        flash('arrows')
-        if (event.key === 'ArrowRight') answerReview('skipped')
-        else runReview(stepBack(review))
-        return
-      }
-
-      const current = selection ?? store().activeIndex
-      switch (event.key) {
-        case ' ':
-          handled()
-          flash('space')
+          return
+        case 'close-steps':
+          setStepsOpen(false)
+          return
+        case 'clear-ab':
+          store().clearAB()
+          return
+        case 'review-grade':
+          answerReview(action.grade)
+          return
+        case 'stage-grade':
+          gradeStage(action.grade)
+          return
+        case 'review-skip':
+          answerReview('skipped')
+          return
+        case 'review-back':
+          if (review !== null) runReview(stepBack(review))
+          return
+        case 'toggle-play':
           togglePlayback()
           return
-        case 'ArrowLeft':
-          handled()
-          flash('arrows')
+        case 'step':
           setSelection(null)
-          store().stepCue(-1)
+          store().stepCue(action.delta)
           return
-        case 'ArrowRight':
-          handled()
-          flash('arrows')
-          setSelection(null)
-          store().stepCue(1)
+        case 'select':
+          setSelection(action.index)
           return
-        case 'ArrowUp':
-          handled()
-          setSelection(Math.max(0, current - 1))
-          return
-        case 'ArrowDown':
-          handled()
-          setSelection(Math.min(Math.max(0, cues.length - 1), current + 1))
-          return
-        case 'Enter': {
-          handled()
-          const cue = cues[current]
-          if (cue !== undefined) {
+        case 'play-index':
+          if (cues[action.index] !== undefined) {
             setSelection(null)
-            store().seekCue(current)
+            store().seekCue(action.index)
             store().setPlaying(true)
           }
           return
-        }
-        case 'l':
-        case 'L':
-          handled()
-          flash('l')
+        case 'toggle-loop':
           if (store().loopMode === 'sentence') store().setLoopMode('none')
-          else store().loopSentence(current)
+          else store().loopSentence(action.index)
           return
-        case 's':
-        case 'S':
-          handled()
-          flash('s')
-          keep(selection ?? undefined)
+        case 'keep':
+          keep(action.index ?? undefined)
           return
-        case 'n':
-        case 'N':
-          handled()
+        case 'toggle-column':
           setColumn(column === 'kept' ? 'transcript' : 'kept')
           return
-        case 'c':
-        case 'C':
-          handled()
-          flash('c')
+        case 'cycle-zh':
           setZhMode(nextZhMode(zhMode))
           return
-        case 'r':
-        case 'R':
-          handled()
-          flash('r')
+        case 'reveal':
           store().reveal(store().activeIndex)
           return
-        case 'd':
-        case 'D':
+        case 'compare-take':
           // Plays the sentence and then the reader's take of it; a sentence with no take has nothing to play, and the key is spent on it anyway.
-          handled()
-          flash('d')
           primeTakeAudio()
           store().compareTake()
           return
-        case 'v':
-        case 'V':
-          // Only a segment with a video has a picture to cycle; the key is the page's own, never the host's.
-          if (!hasVideoFile) return
-          handled()
-          flash('v')
+        case 'cycle-picture':
           useSettings.getState().cyclePicture()
           return
-        case 'a':
-        case 'A':
-          handled()
+        case 'mark-a':
           if (store().pointA === null) store().setPoint('a')
           else store().clearAB()
           return
-        case 'b':
-        case 'B':
-          handled()
+        case 'mark-b':
           store().setPoint('b')
           return
-        case 't':
-        case 'T':
-          handled()
+        case 'retime':
           openTiming()
           return
-        case '[':
-          handled()
-          store().cycleSpeed(-1)
+        case 'speed':
+          store().cycleSpeed(action.delta)
           return
-        case ']':
-          handled()
-          store().cycleSpeed(1)
+        case 'close-menu':
+        case 'timing-key':
           return
-        default:
       }
     },
-    [
-      answerReview,
-      column,
-      cues,
-      endReview,
-      finishCount,
-      finishOpen,
-      flash,
-      gradeStage,
-      hasVideoFile,
-      keep,
-      layer,
-      openTiming,
-      review,
-      runReview,
-      selection,
-      settingsOpen,
-      stepsOpen,
-      timing,
-      view,
-      zhMode,
-    ],
+    [answerReview, column, cues, endReview, finishCount, gradeStage, keep, openTiming, review, runReview, setZhMode, timing, zhMode],
+  )
+
+  const onKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      let action = keyAction(pressOf(event), {
+        view,
+        settingsOpen,
+        timingOpen: timing.session !== null,
+        reviewing: review !== null,
+        reviewFinished: review !== null && isFinished(review),
+        finishOpen,
+        layerOpen: layer !== 'none',
+        stepsOpen,
+        hasVideo: hasVideoFile,
+        selection,
+        activeIndex: useMediaPlayer.getState().activeIndex,
+        cueCount: cues.length,
+      })
+      // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it must not also clear the
+      // A-B marks its own buttons set.
+      if (action?.type === 'close-menu') {
+        if (controlBar.current?.closeMenu() === true) {
+          stopKey(event)
+          return
+        }
+        action = action.otherwise
+      }
+      if (action === null) return
+      if (action.type === 'timing-key') {
+        if (timing.handleKey(event)) stopKey(event)
+        return
+      }
+      // Handled keys stop here. The conversation lives in the same document, and a space bar that scrolls or submits
+      // behind the panel is a stolen keystroke.
+      stopKey(event)
+      const lit = flashOf(action)
+      if (lit !== null) flash(lit)
+      perform(action)
+    },
+    [cues.length, finishOpen, flash, hasVideoFile, layer, perform, review, selection, settingsOpen, stepsOpen, timing, view],
   )
 
   // A headset's previous and next buttons, and the lock screen's, do what the arrow keys do: the sentence before or after,
   // or, while a review runs, the queue (`←` goes back, `→` skips). A finished review is a dialog the keys leave alone, and
   // so does the headset. Anything else a key does (a layer open, the settings drawer) is about focus, which a headset has
-  // none of, so those do not apply.
+  // none of, so those do not apply: the mapping is the keymap's, asked with those flags off.
   const stepFromHeadset = useCallback(
     (delta: number): void => {
-      if (review !== null) {
-        if (isFinished(review)) return
-        if (delta > 0) answerReview('skipped')
-        else runReview(stepBack(review))
-        return
-      }
-      setSelection(null)
-      useMediaPlayer.getState().stepCue(delta)
+      const action = headsetAction(delta, { reviewing: review !== null, reviewFinished: review !== null && isFinished(review) })
+      if (action !== null) perform(action)
     },
-    [review, answerReview, runReview],
+    [review, perform],
   )
   const headsetSteps = useMemo(
     () => ({ onPrevious: () => stepFromHeadset(-1), onNext: () => stepFromHeadset(1) }),
