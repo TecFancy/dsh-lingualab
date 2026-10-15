@@ -19,6 +19,15 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-10-15
+
+### Fixed
+
+- A step made right after the picture is shown or hidden (an arrow key, or the headset's previous and next) now lands on the
+  sentence the counter shows. Until the new source had loaded, the position kept across the swap was restored over the step,
+  so the counter said sentence 10 while the playhead sat at the start of sentence 9, and the load's reset to 0 could put the
+  counter back on sentence 1.
+
 ## [0.14.2] - 2026-10-15
 
 ### Changed
