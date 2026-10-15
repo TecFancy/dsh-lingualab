@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /**
- * The release step, run on `development` before the pull request into `main`.
+ * The bump step of a release, run on `development` before the pull request into `main`.
  *
- * This repository has no publish job, so "releasing" means three local facts
- * agreeing: the version in `package.json`, a dated section in `CHANGELOG.md`
- * holding what was unreleased, and a git tag on the commit that carries both.
- * This script does the first two and the commit; the tag is created after the
- * merge, when the commit that lands on `main` is known.
+ * This repository has no publish job, so "releasing" means three facts agreeing: the
+ * version in `package.json`, a dated section in `CHANGELOG.md` holding what was
+ * unreleased, and a git tag on the commit that carries both. This script does the
+ * first two and the commit. It never tags: the tag is created by
+ * `.github/workflows/release.yml` when the merge lands on `main`.
+ *
+ * Normally it is not run by hand: `npm run ship -- patch|minor|major` runs it, then
+ * the full verify, the push and the pull request. It stays a separate script so the
+ * bump logic exists once.
  *
  * The changelog is a bilingual pair, and the release body carries both sides, so
  * the move below happens in both files in one commit. Moving only the English side
@@ -16,7 +20,6 @@
  *
  * Usage:
  *   node scripts/release.mjs patch|minor|major [--dry-run]
- *   node scripts/release.mjs patch --tag        # also tag the new commit
  *
  * It refuses to run on a dirty tree: a release commit that silently includes
  * unrelated edits is the failure this check exists for.
@@ -30,10 +33,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
 const kind = argv.find((argument) => ['patch', 'minor', 'major'].includes(argument))
 const dryRun = argv.includes('--dry-run')
-const tag = argv.includes('--tag')
 
 if (kind === undefined) {
-  console.error('用法：node scripts/release.mjs patch|minor|major [--dry-run] [--tag]')
+  console.error('用法：node scripts/release.mjs patch|minor|major [--dry-run]')
   process.exit(2)
 }
 
@@ -121,14 +123,4 @@ if (sidecar !== undefined && existsSync(join(root, sidecar))) git('add', sidecar
 git('commit', '-m', `chore(release): v${next}`)
 console.log(`✅ 已提交 chore(release): v${next}`)
 
-if (tag) {
-  git('tag', '-a', `v${next}`, '-m', `v${next}`)
-  console.log(`✅ 已打标签 v${next}`)
-}
-
-console.log(`
-下一步：
-  1. git push origin development          # 推上去，开 PR 到 main
-  2. PR 合进 main 之后：git checkout main && git pull
-  3. git tag -a v${next} -m "v${next}" && git push origin v${next}${tag ? '（已打，跳过）' : ''}
-`)
+console.log('标签不在本地打：PR 合进 main 后，release.yml 建标签和 GitHub Release。完整流程用 npm run ship。')
