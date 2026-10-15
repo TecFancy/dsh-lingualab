@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-10-15
+
 ### Fixed
 
 - A step made right after the picture is shown or hidden (an arrow key, or the headset's previous and next) now lands on the
