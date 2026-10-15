@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-15
+
 ### Changed
 
 - Internal, no change in behaviour: the practice page is split into hooks and views. What a key means is now data (a pure
