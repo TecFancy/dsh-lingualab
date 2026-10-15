@@ -41,34 +41,45 @@ rendered to a string before and after, in twelve states, and is byte-identical.
 **Lock the size with a Betterer baseline.** `npm run betterer:ci` runs ESLint's
 `complexity` (15), `max-lines` (250) and `max-lines-per-function` (80) over `src/`, tests and
 `testing/` helpers excluded, against `.betterer.results`, which records what is over the line
-today. The thresholds and the mechanism are the ones fsd-react uses, so the same numbers
-mean the same thing in both projects. It runs in the full tier of `npm run verify` (about
+today. The thresholds are the ones fsd-react uses, so the same numbers mean the same thing in
+both projects. It runs in the full tier of `npm run verify` (about
 twenty seconds), not in the pre-commit hook.
 
-One thing differs from fsd-react's configuration. `@betterer/eslint` records `max-lines` on
-"line 251 to the end of the file" and hashes that text, so in a file over 250 lines every
-edit that changes its length (one more string in `locale.ts`, one more rule in the
-stylesheet) reads as "an old problem fixed, a new one appeared" and fails the gate. The gate
-wraps ESLint the same way `@betterer/eslint` does and records that one rule at the top of the
-file with a fixed hash, so a file that is still over the line is the same problem however it
-is edited.
+One thing differs from fsd-react's configuration, and it is what makes the gate a ratchet.
+`@betterer/eslint` identifies a problem by its place and the source text there, which has two
+consequences that were measured: an oversized function made longer is "the same problem", so
+it can grow without the gate noticing, and `max-lines` is recorded on "line 251 to the end of
+the file", so in a file over 250 lines every edit that changes its length (one more string in
+`locale.ts`, one more rule in the stylesheet) reads as "an old problem fixed, a new one
+appeared" and fails. The gate wraps ESLint the same way `@betterer/eslint` does and records
+the problems differently, in proportion to size and independent of position:
 
-What the gate was measured to do, by editing and running `betterer:ci`:
+- a file over 250 lines gets one problem per started 10 lines over, `ceil((lines - 250) / 10)`;
+- a function over 80 lines gets `ceil((lines - 80) / 10)`; a function over complexity 15 gets
+  one per point over;
+- every problem is recorded at the top of the file (line 0), identified by the rule, the
+  function's name (an anonymous function by the text of its line), which function of that name
+  it is and which bucket it is, never by a line number; the file's own hash is not recorded
+  either, only a stand-in that changes with its path.
 
+So the results file holds no positions and no hashes that an unrelated edit can move. What
+that was measured to do, by editing and running `betterer:ci`:
+
+- A function or file that grows past its current 10-line bucket gets one more problem and
+  fails ("got worse"). Inside a bucket it passes: the 10 lines are the slack, and the results
+  file does not change. Complexity has no slack, a point is a problem.
 - A new function over 80 lines, a new function over complexity 15 and a new file over 250
-  lines fail ("got worse"), including a new function added to a file that is already in the
-  baseline.
-- An already oversized function made one line longer is **not** caught: Betterer identifies a
-  problem by its place and the source text there, not by the number in the message, so it is
-  the same problem. It shows up as `(91)` becoming `(92)` in `.betterer.results`.
-- Any edit to a file in the baseline makes `betterer:ci` fail with "results stayed the same
-  but your code has changed", until `npm run betterer` rewrites the file and the change is
-  committed. That is how Betterer works (the file's hash is in the results key), and it is
-  also what puts the `(91)` to `(92)` in front of the reviewer.
-- A function brought under the threshold reports "got better" and fails the same way, until
-  `npm run betterer` tightens the baseline; from then on it cannot come back.
-- `npm run betterer` never records a worse result (it exits 7 and leaves the file alone);
-  only `--update` does, and nothing here uses it.
+  lines fail, including a new function added to a file that is already in the baseline.
+- A function or file shrunk past a bucket reports "got better" and exits 7 until
+  `npm run betterer` rewrites the results and the change is committed; from then on it cannot
+  come back. `npm run betterer` never records a worse result (it exits 7 and leaves the file
+  alone); only `--update` does, and nothing here uses it.
+- An edit that crosses no bucket does not fail and does not touch `.betterer.results`: one
+  more string in `locale.ts`, one more rule in the stylesheet, lines added above a complex
+  function in `store.ts` all pass with exit 0. Most features touch those files, so a gate that
+  asked for a baseline update on every pull request would not survive.
+- Renaming a baselined function, or editing the first line of an anonymous one, changes its
+  identity and reads as one problem fixed and one new, so it fails; split it in the same change.
 
 The rule for new work goes with it: new logic goes into a tested hook or pure function in the
 slice's `lib/`, and a component that would cross 80 lines is split, not added to the
@@ -84,15 +95,14 @@ long; that records what is, it does not grant room.
   old debt is paid down one split at a time.
 - **ESLint warnings.** A warning that is always present is read as noise within a week.
 - **`@betterer/eslint`'s `eslint()` as it is.** It is what fsd-react runs and it needs no
-  code of ours. It was tried first and set aside because of the `max-lines` behaviour above:
-  with it, adding a locale string needs a baseline update or a split of a dictionary that is
-  data, not design.
-- **A stricter ratchet that also catches growth.** Possible with a custom test that reports
-  one issue per ten lines over the line, so that growing a function past the next bucket is a
-  new issue and shrinking one fixes an issue. It was left out: the results file grows by a
-  few hundred lines, data files like `locale.ts` and the stylesheet would need excluding, and
-  the gain over a reviewer seeing `(91)` become `(92)` in the diff is small for a repository
-  of this size. It can be added to `.betterer.ts` without touching anything else.
+  code of ours. It was tried first and set aside twice over: it lets an oversized function or
+  file grow, which is the thing a ratchet is for (the page could drift back to a thousand
+  lines), and its `max-lines` record makes adding a locale string fail the gate.
+- **One issue per started 10 lines is a compromise.** One per line would stop growth exactly
+  but would make the results file as long as the oversized code is over its limits (thousands
+  of entries here, mostly from `styles.ts` and `locale.ts`);
+  one per whole function would be the plain gate. Ten lines keep it near 870 entries and give
+  the slack that an honest fix of a long function needs.
 - **Different thresholds for this repository.** The three numbers are fsd-react's on purpose:
   one set of limits across the projects that share an owner, so a split learned in one carries
   to the other.
@@ -108,10 +118,10 @@ extra step in the full run and one habit: after splitting a large function, run
 `npm run betterer` and commit `.betterer.results`; after a merge conflict in it, run
 `npx betterer merge`.
 
-Two limits are accepted. The gate does not stop an oversized function from growing, only from
-being joined by another one (the stricter ratchet above would). And the split moved the
-page's effects into hooks, which changed the relative order of four of them: the three that
-give the panel focus and unlock the take audio now run after the position bookkeeping's
-instead of between its effects, and the key cap's cleanup runs after the video notices'
-timers. None of them reads what another writes, and the order that does matter (the player is
-reset before a resume is applied) is kept and written down in `useResume.ts`.
+One limit is accepted. The 10-line bucket is slack, so a function can still gain up to nine
+lines before the gate notices, and the gate holds the line at the bucket, not at the line. And
+the split moved the page's effects into hooks, which changed the relative order of four of
+them: the three that give the panel focus and unlock the take audio now run after the position
+bookkeeping's instead of between its effects, and the key cap's cleanup runs after the video
+notices' timers. None of them reads what another writes, and the order that does matter (the
+player is reset before a resume is applied) is kept and written down in `useResume.ts`.

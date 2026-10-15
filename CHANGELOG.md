@@ -26,8 +26,8 @@ the plugin that was installed and used, not an artifact on a registry.
   the notes of the sentence on stage, the timing strip and what plays are hooks of their own. The page went from 1662 to
   about 600 lines.
 - `npm run verify` has a size gate in its full run (`betterer:ci`): a function over 80 lines or complexity 15, or a file over
-  250 lines, fails unless it is already in `.betterer.results`. After splitting a large function, run `npm run betterer` and
-  commit the file.
+  250 lines, fails unless it is already in `.betterer.results`, and one that is there cannot grow past its 10-line step. After
+  splitting a large function, run `npm run betterer` and commit the file.
 
 ## [0.14.1] - 2026-10-15
 
