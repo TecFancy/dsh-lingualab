@@ -35,7 +35,7 @@ src/shared/             跨半边契约、笔记格式与文件名配对（最�
 src/client/             客户端半边，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
   entities/cue/         字幕解析与双语分行
-  features/             library（读一集或其中一段）、media-player（播放与循环）、notes（收藏，无 7 条上限，按段分组）、
+  features/             library（读一集或其中一段）、media-player（播放与循环、跟读程序、耳机与锁屏按键）、notes（收藏，无 7 条上限，按段分组）、
                         import-media（拖入分组与上传）、resume（听到哪里按集或按段存，五步勾选按集：浏览器缓存加 host 同步）、
                         review（复习队列：本集或整个库，逐句评级）、
                         subtitle-choice（读写一集或一段手选的字幕文件）、

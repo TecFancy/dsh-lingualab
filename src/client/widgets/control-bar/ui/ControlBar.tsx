@@ -23,7 +23,9 @@ import {
   SHADOW_PLAYS,
   SPEED_PRESETS,
   canRecord,
+  isRunning,
   primeTakeAudio,
+  togglePlayback,
   useMediaPlayer,
   type Compare,
   type ShadowPause,
@@ -143,7 +145,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   const comparing = useMediaPlayer((state) => state.compare)
   const capturing = useMediaPlayer((state) => state.capturing > 0)
   const hasTake = useMediaPlayer((state) => state.takes[state.activeIndex] !== undefined)
-  const running = isPlaying || wait !== null || comparing !== null
+  const running = isRunning({ isPlaying, shadowWait: wait, compare: comparing })
   // The switch is off-limits only where recording cannot work; a refusal is found out when it is turned on.
   const micSupported = canRecord()
 
@@ -264,12 +266,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
           <button
             type="button"
             className="dsh-lingualab-play"
-            onClick={() => {
-              // A reader whose recording was already on from last time may start here; the take element must
-              // be unlocked inside a gesture, and this is the one.
-              if (program.record) primeTakeAudio()
-              store().toggle()
-            }}
+            onClick={togglePlayback}
             disabled={disabled}
             title={running ? t('pause') : t('play')}
           >

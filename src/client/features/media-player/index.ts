@@ -15,4 +15,7 @@ export { loopWindow, planLoop, stepCueIndex, type LoopDecision, type LoopMode } 
 export { SHADOW_PAUSES, SHADOW_PLAYS, type ShadowPause, type ShadowPlays, type ShadowSettings } from './lib/shadow.ts'
 export { canRecord } from './lib/recorder.ts'
 export { primeTakeAudio } from './lib/take-player.ts'
+export { isRunning, togglePlayback } from './lib/transport.ts'
+export { sessionMetadata, type SessionMetadata, type SessionText } from './lib/media-session.ts'
+export { useMediaSession, type SessionSteps } from './lib/useMediaSession.ts'
 export { type MicNotice, type Take } from './lib/take.ts'
