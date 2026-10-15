@@ -33,6 +33,17 @@ describe('readDeployConfig', () => {
     expect(readDeployConfig(env({ LINGUALAB_DEPLOY_HOST: 'h; rm -rf /' })).problems).toHaveLength(1)
   })
 
+  it('reads //data/x as /data/x, the spelling that keeps Git Bash from rewriting the path', () => {
+    expect(readDeployConfig(env({ LINGUALAB_DEPLOY_PATH: '//data/repo' })).config.path).toBe('/data/repo')
+  })
+
+  it('names the Git Bash rewrite when the path came out as a Windows path', () => {
+    const { problems } = readDeployConfig(env({ LINGUALAB_DEPLOY_PATH: 'C:/Program Files/Git/data/repo' }))
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('Windows 路径')
+    expect(readDeployConfig(env({ LINGUALAB_DEPLOY_PATH: String.raw`D:\x` })).problems[0]).toContain('Windows 路径')
+  })
+
   it('refuses a relative path and a service name with spaces or separators', () => {
     expect(readDeployConfig(env({ LINGUALAB_DEPLOY_PATH: 'repos/x' })).problems[0]).toContain('绝对路径')
     expect(readDeployConfig(env({ LINGUALAB_DEPLOY_SERVICE: 'a b' })).problems[0]).toContain('服务名')

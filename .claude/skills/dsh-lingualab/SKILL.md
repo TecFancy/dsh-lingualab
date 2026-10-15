@@ -301,6 +301,9 @@ npm run release:notes [版本号]                               # 打印这一�
 | `LINGUALAB_DEPLOY_PATH` | 远端仓库的绝对路径 | `/workspace/lingualab` |
 | `LINGUALAB_DEPLOY_SERVICE` | 可选，systemd 服务 | `dsh-web.service`（缺省） |
 
+**Git Bash 的坑**：它会把环境变量里的 `/data/...` 改写成 `C:/Program Files/Git/data/...`，部署路径就错了（脚本认得出来并报错）。
+先 `export MSYS2_ENV_CONV_EXCL=LINGUALAB_DEPLOY_PATH`，或者把路径写成 `//data/...`，或者在 PowerShell 里设。
+
 流程全走 `ssh -o BatchMode=yes`，参数用数组传，不拼本地 shell 字符串，Git Bash 与 PowerShell 都能跑：
 `git pull --ff-only`；打印服务器上 `package.json` 的版本并与 origin/main 的对比（不一致只警告）；
 `sudo -n systemctl restart`；等几秒后 `systemctl is-active` 必须是 `active`，否则退出码 1 并给出看日志的命令。
