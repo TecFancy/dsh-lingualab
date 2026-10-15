@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-15
+
 ### Added
 
 - Headset, AirPods and lock-screen buttons control the sentence through the Media Session. While the practice view is
