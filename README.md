@@ -192,27 +192,28 @@ root element and nowhere else.
 
 ## Releasing
 
-Work lands on `development`. A pull request into `main` is a release, and the
-version bump travels with it:
+Work lands on `development`. A pull request into `main` is a release, and one command
+runs it from `development`:
 
 ```sh
-npm run release -- patch|minor|major   # bump, move Unreleased into a dated section, commit
+npm run ship -- patch|minor|major   # check, bump, full verify, push, open the PR, watch its checks
+npm run ship -- --continue          # checks green: merge, then fast-forward development onto main
+npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
-`npm run verify` keeps both sides of the changelog and the manifest in step, and the
-`version-bump` job in CI fails a pull request into `main` that does not raise the
-version. After the merge, tag the commit that carries the release:
+`ship` bumps the version and moves both sides of the changelog under a dated heading
+(`scripts/release.mjs`), runs the full `npm run verify`, pushes `development` and opens
+the pull request into `main`. The merge is the release decision, so it is the separate
+`--continue` step, which reads the checks once and refuses to merge unless they are all
+green. The `version-bump` job in CI fails a pull request that does not raise the version.
+`--dry-run` prints every command that would change something instead of running it.
 
-```sh
-git checkout main && git pull
-git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
-```
-
-Pushing the tag publishes a GitHub Release whose body is that version's sections
-from the changelog pair, Chinese first and English after; the tag is the one manual
-step, and everything after it is mechanical. Nothing is published to npm — the plugin is installed from a local path
-or a tarball, so a version number here marks a state that was installed and used,
-not an artifact on a registry.
+The tag is not made by hand: when the merge lands on `main`, the `release` workflow creates
+the tag and a GitHub Release whose body is that version's sections from the changelog pair,
+Chinese first and English after. Nothing is published to npm: the plugin is installed from
+a local path or a tarball, so a version number here marks a state that was installed and
+used, not an artifact on a registry. `deploy` reads its target from `LINGUALAB_DEPLOY_HOST`
+and `LINGUALAB_DEPLOY_PATH`; see the repository skill for the details.
 
 ## Host routes
 
