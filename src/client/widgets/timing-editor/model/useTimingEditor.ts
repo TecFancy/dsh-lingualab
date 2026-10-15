@@ -27,7 +27,7 @@ import {
   type RetimeRange,
 } from '../../../entities/cue/index.ts'
 import type { SubtitleTracks } from '../../../features/library/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { togglePlayback, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { saveSubtitleTiming } from '../../../shared/lib/api.ts'
 
 /** One nudge, and one with Shift held. */
@@ -310,7 +310,7 @@ export function useTimingEditor({
           toPlayhead('end')
           return true
         case ' ':
-          useMediaPlayer.getState().toggle()
+          togglePlayback()
           return true
         case 'Enter':
           save()

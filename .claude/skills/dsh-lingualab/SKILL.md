@@ -198,6 +198,15 @@ node scripts/verify.mjs --list   # 看检查表
   英文用跟读的同一套遮挡，复习期间不写听到哪里；
   听完小结靠 store 的 `finishCount`，卡片按次数关闭，不按剧集。`reset` **不能**清掉 `duration`，字幕
   通常晚于音频元数据读完，清掉进度条就废了。
+- **耳机、AirPods 与锁屏按键走 Media Session，不走键盘**，决定与取舍见 `.agents/notes/implemented/feature/2026-10-14-shadowing-as-the-repeater-loop.md`。
+  `useMediaSession`（`features/media-player/lib/`，页面在练习视图打开时调用）注册 `play`、`pause`、`stop`（按暂停算）、`previoustrack`、`nexttrack`，
+  回首页或页面卸载就清掉处理函数、元数据与状态，没有开关：没有处理函数时浏览器会绕过 store 直接动媒体元素。几处别拆：
+  **播放按钮、空格键与这些处理函数都调 `togglePlayback`**（`lib/transport.ts`，录音开着时先 `primeTakeAudio`，再 store 的 `toggle`），不要在哪一处再写一份；
+  `play` 与 `pause` 带 `isRunning` 的条件，不是直接切换，因为复述停顿里媒体是暂停的而会话报告 `'playing'`，耳机发来的 `play` 不该把程序停掉。
+  **不要注册 `seekbackward`、`seekforward`、`seekto`**（前两个明确设成 `null`）：iOS 一旦有 seek 处理函数，锁屏和 AirPods 就改成「跳过 N 秒」，上一首、下一首没了。
+  上一首、下一首照页面的方向键映射：复习进行时是队列里往回和跳过（页面的 `stepFromHeadset`），复习小结打开时不动。元数据由纯函数 `sessionMetadata` 算，
+  标题复用 locale 的 `cueOf`，专辑复用 `appTitle`；浏览器那一半在 `media-session.ts` 的环境对象后面，用假 session 测，每次调用都包了 try/catch。
+  没有真机验过，AirPods 与锁屏的实际表现见 note 里「To verify on a real iPad」那一条。
 - **进度合并没有删除记号**：两边都是「每个键取最新」的并集，所以从 `.lingualab-progress.json` 删掉一条，
   任何见过它的浏览器缓存（`dsh-lingualab:progress` / `dsh-lingualab:steps`）下次同步都会把它写回来。
   清测试数据要连同测试用的浏览器缓存一起清。

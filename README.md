@@ -132,7 +132,12 @@ hand on it. Turning on the microphone switch (「录下我说的」) there recor
 sentence plays once more and then your own take, and the 「对比」 button or `D` plays that pair again later. A take is
 kept in memory for the open episode only, and the last one of each sentence: never saved, never sent anywhere, never
 scored. Recording needs an HTTPS page (localhost counts) and a microphone the browser may use; if it cannot, the switch turns
-itself off with a message and the program carries on without it. Reaching the end shows a summary with the next episode,
+itself off with a message and the program carries on without it. While the practice view is open, a headset, AirPods or
+the lock screen work as the repeater's physical keys through the browser's Media Session: play and pause do what the play
+button does (during a speaking pause that ends the program at the sentence's start), previous and next step one sentence
+(in a review they go back in the queue and skip an item), and the lock screen names the sentence and the episode. There is
+no skip-by-seconds button on purpose, so the track buttons stay sentence steps; it is always on, and these are not
+keyboard shortcuts, so the host's keys are untouched. Reaching the end shows a summary with the next episode,
 and the key caps under the player light up for the key the page just handled. Motion is off under
 the system's reduced-motion setting.
 

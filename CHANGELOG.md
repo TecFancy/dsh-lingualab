@@ -19,6 +19,23 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- Headset, AirPods and lock-screen buttons control the sentence through the Media Session. While the practice view is
+  open, play, pause and stop do what the play button does (during a speaking pause or a comparison that ends the program
+  at the sentence's start), previous and next track step one sentence like the arrow keys (in a review they go back in the
+  queue and skip an item, as `←` and `→` do), and the lock screen names the sentence ("Sentence 12 of 80"), the episode
+  with its open segment, and the plugin. The playback state reads playing through a speaking pause and a comparison, so a
+  press ends the program instead of being taken for a start. It is always on while the practice view is open, because
+  without handlers the browser plays or pauses the media element behind the player's back; the handlers, the metadata and
+  the state are cleared when the view closes. The seek actions are left out on purpose (`seekbackward` and `seekforward`
+  are set to `null`): on iOS they would turn the lock screen's and AirPods' track buttons into skip by seconds. They are not
+  keyboard shortcuts, so the host's keys are untouched.
+
+### Changed
+
+- The play button, `Space` (in the timing strip too) and the Media Session handlers share one play-or-pause action.
+
 ## [0.13.0] - 2026-10-14
 
 ### Added
