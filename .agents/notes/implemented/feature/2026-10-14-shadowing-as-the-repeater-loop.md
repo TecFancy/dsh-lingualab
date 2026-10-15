@@ -1,6 +1,6 @@
 # Agent Note: finish shadowing as the repeater's core loop
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -33,7 +33,7 @@ job, but none moved the loop above. This note fixes the yardstick for what comes
 its place when it adds ears-on or mouth-on time per minute, or takes the hands off the screen. The
 text is the answer key, not the material.
 
-## Proposal
+## Decision
 
 Four pieces, in this order. Each ships on its own and leaves the default behaviour unchanged until the
 reader turns it on.
@@ -100,7 +100,7 @@ reader turns it on.
   made while building them. A pause is measured at the playback speed, because a sentence heard at half speed is said about
   as slowly. During a pause the play button reads "pause" and pressing it ends the program at the sentence's start rather than
   skipping the rest of the pause, because a reader who reaches for the button mid-run wants it to stop. Any other way of
-  starting or stopping playback (a row, a review, going home) also ends the program. The note stays proposed until 3 and 4 ship.
+  starting or stopping playback (a row, a review, going home) also ends the program.
 - **Piece 3 is built (2026-10-15).** The microphone switch is `record` in `ShadowSettings`. Recording only exists inside a
   speaking pause, so the setting is kept in step with the pause instead of being disabled when the pause is off (a dead
   end the reader has to back out of): turning the switch on while the pause is off sets it to the sentence's own length,
@@ -126,12 +126,49 @@ reader turns it on.
   from the microphone switch, the 「对比」 button, the play button, the Space and `D` keys, and from a capture-phase
   listener on the panel container (never `window` or `document`) for a reader whose recording was already on from last
   time; the play button, Space and the container listener only do it while recording is on. A take then only changes the
-  element's `src`, and releasing it clears the handlers and the source but keeps the element. The note stays proposed until
-  4 ships.
+  element's `src`, and releasing it clears the handlers and the source but keeps the element.
+- **Piece 4 is built (2026-10-15).** `useMediaSession` (`features/media-player/lib/`, called by the page) holds the Media
+  Session while the practice view is open and lets go when it closes, whether by going home or by the page unmounting:
+  it clears the handlers, the metadata and the state (`'none'`). It registers `play`, `pause`, `stop` (the same as pause),
+  `previoustrack` and `nexttrack`. There is no setting, because without handlers the browser's default plays or pauses the
+  media element behind the store's back, and a speaking pause is paused media inside a running program, so the default
+  would be wrong exactly where the program matters. The browser code is in `media-session.ts` behind an environment object
+  (`navigator.mediaSession` can be missing, and `setActionHandler` throws for an action a browser does not know, so every
+  call is wrapped), tested with a fake session. The store stays free of browser objects. Choices made while building it:
+  - **One toggle.** `togglePlayback` (`lib/transport.ts`) is what the play button, `Space`, the timing strip's `Space` and
+    the Media Session handlers all call: it unlocks the take element when recording is on (harmless from a handler, it only
+    counts if the browser accepts it) and then runs the store's `toggle`, so a headset press during a speaking pause or a
+    comparison ends the program at the sentence's start, like the button. `isRunning` is the one definition of "the button
+    reads pause" (playing, waiting out a pause, or comparing).
+  - **Play and pause are guarded, not toggled.** `play` only acts when nothing is running and `pause` and `stop` only when
+    something is, because a headset can send `play` while the browser thinks the media is paused (it is, through a speaking
+    pause) and a bare toggle would stop the program the reader meant to start.
+  - **Previous and next mirror the arrow keys.** In practice they step one sentence and clear the stage's selection, as the
+    buttons and the arrows do. While a review runs the keys mean the queue, so the headset's previous goes back in the queue
+    and its next skips the item, and a finished review (a dialog the keys leave alone) is left alone. With the timing strip
+    open the arrows nudge an edge, which has no meaning on a headset, so previous and next step the sentence like the
+    strip's own buttons. What only matters for focus (a layer open, the settings drawer) does not apply to a headset.
+  - **No seek handlers; `seekbackward` and `seekforward` are set to `null`, and `seekto` is never registered.** This
+    deviates from the proposal, where `seekbackward` replays the sentence. On iOS, registering seek handlers makes the lock
+    screen and AirPods show and send skip by N seconds in place of previous and next track, which would cost the sentence
+    steps, and replaying the sentence is already what play does after shadowing has stopped at its start. Clearing the two
+    explicitly guards against a handler registered by anything else on the page.
+  - **Metadata.** The title is the sentence's place in the words the top bar already uses (「第 12 / 80 句」,
+    "Sentence 12 of 80"), the artist is the episode with the open segment after it when there is one, and the album is the
+    plugin's name. Before any sentence is active the episode takes the title's place. `sessionMetadata` is a pure function,
+    tested; the object is rebuilt only when a word of it changes.
+  - **Playback state.** `'playing'` while a program runs (playing, a speaking pause, a comparison), `'paused'` otherwise,
+    kept in step by a store subscription that sends a value only when it changes. Reporting `'playing'` through a speaking
+    pause is what keeps the lock screen showing "pause" while the program runs, so a press ends it instead of being
+    mistaken for a start.
+
+  All four pieces are built, so the note moved from `proposed/` to `implemented/`. What is still open is the list below,
+  which needs a real device.
 - **To verify on a real iPad before calling 3 and 4 done.** `MediaRecorder` records `audio/mp4` in
   Safari; playback volume comes back after the microphone is stopped; takes play hands-free;
-  the Media Session actions reach the page with AirPods; and the live site is served over HTTPS, because `getUserMedia` refuses an
-  insecure origin (localhost is exempt).
+  the Media Session actions reach the page with AirPods, and the AirPods and the lock screen show previous and next
+  track (not skip by seconds) and "pause" through a speaking pause; and the live site is served over HTTPS, because
+  `getUserMedia` refuses an insecure origin (localhost is exempt).
 
 Related: [the first version ships without a waveform, video or shadowing scores](../../implemented/simplification/2026-10-08-v1-without-waveform.md),
 [review kept sentences](../../implemented/feature/2026-10-11-review-kept-sentences.md).

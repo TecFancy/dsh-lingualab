@@ -39,7 +39,15 @@ import { splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
-import { primeTakeAudio, useMediaBinding, useMediaPlayer, type MicNotice } from '../../../features/media-player/index.ts'
+import {
+  primeTakeAudio,
+  sessionMetadata,
+  togglePlayback,
+  useMediaBinding,
+  useMediaPlayer,
+  useMediaSession,
+  type MicNotice,
+} from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
 import {
   continueSegment,
@@ -1052,8 +1060,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         case ' ':
           handled()
           flash('space')
-          if (store().shadow.record) primeTakeAudio()
-          store().toggle()
+          togglePlayback()
           return
         case 'ArrowLeft':
           handled()
@@ -1181,6 +1188,44 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       zhMode,
     ],
   )
+
+  // A headset's previous and next buttons, and the lock screen's, do what the arrow keys do: the sentence before or after,
+  // or, while a review runs, the queue (`←` goes back, `→` skips). A finished review is a dialog the keys leave alone, and
+  // so does the headset. Anything else a key does (a layer open, the settings drawer) is about focus, which a headset has
+  // none of, so those do not apply.
+  const stepFromHeadset = useCallback(
+    (delta: number): void => {
+      if (review !== null) {
+        if (isFinished(review)) return
+        if (delta > 0) answerReview('skipped')
+        else runReview(stepBack(review))
+        return
+      }
+      setSelection(null)
+      useMediaPlayer.getState().stepCue(delta)
+    },
+    [review, answerReview, runReview],
+  )
+  const headsetSteps = useMemo(
+    () => ({ onPrevious: () => stepFromHeadset(-1), onNext: () => stepFromHeadset(1) }),
+    [stepFromHeadset],
+  )
+  const albumName = t('appTitle')
+  const episodeName = episode?.title ?? ''
+  const segmentName = segment === null ? null : segmentLabel(segment)
+  const lockScreen = useMemo(
+    () =>
+      sessionMetadata({
+        index: activeIndex,
+        total: cues.length,
+        episode: episodeName,
+        segment: segmentName,
+        album: albumName,
+        sentence: (n, total) => t('cueOf', { n, total }),
+      }),
+    [activeIndex, cues.length, episodeName, segmentName, albumName, t],
+  )
+  useMediaSession(view === 'practice', headsetSteps, lockScreen)
 
   // Something to play or to read: a video-only segment that is not prepared has its subtitles and no sound yet.
   const hasAudio = library.media !== null
