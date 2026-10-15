@@ -26,6 +26,7 @@
     "build": "tsdown",
     "build:check": "node scripts/check-build.mjs",
     "changelog:check": "node scripts/check-changelog.mjs",
+    "deploy": "node scripts/deploy.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "links:check": "node scripts/check-links.mjs",
     "lint": "eslint .",
