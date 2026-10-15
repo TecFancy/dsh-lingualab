@@ -28,6 +28,8 @@ npm run watch        # 开发时常驻
 npm run verify       # 全套检查（CI 与发布前跑这个）
 node scripts/verify.mjs --fast   # 提交前钩子跑的轻档
 node scripts/verify.mjs --list   # 看检查表
+npm run betterer     # 体量门：把现状记进 .betterer.results（拆小之后收紧用）
+npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这个）
 ```
 
 `npm run verify` 里的每一条都可以单独跑，命令名见 `package.json`。
@@ -102,6 +104,29 @@ node scripts/verify.mjs --list   # 看检查表
 
 ## 已经踩过的坑
 
+- **页面的键盘是数据（2026-10-15 起）**：`pages/lingualab/lib/keymap.ts` 的 `keyAction(按键, 上下文)` 是纯函数，返回一个动作
+  （`toggle-play`、`step`、`review-back`……）或 `null`（不归面板）。按键怎么判是它的，判完做什么是 `key-actions.ts` 的一张表，
+  事件怎么拦、哪个键帽亮是 `useKeyboard.ts`。新增快捷键就是三处各加一条：keymap 里的判定与它的测试、key-actions 里这个动作做什么
+  （类型会提醒漏了哪个）、需要亮键帽就在 `flashOf` 里加。DOM 才答得了的两个问题（在输入框里、焦点在按钮上）由 `useKeyboard` 问好当布尔值传进去，
+  所以 keymap 不碰 DOM。「更多」菜单的 Escape 是动作 `close-menu`，带着菜单没开时 Escape 的含义（`otherwise`），一次按键只关一层。
+- **体量门，`npm run betterer:ci`（2026-10-15 起）**：Betterer 用 ESLint 数 `src/` 两个半边里超标的点（`complexity` 15、`max-lines` 250、
+  `max-lines-per-function` 80，后两个不数空行与注释；测试与 `testing/` 不管；阈值与 fsd-react 一致），现状记在 `.betterer.results`。
+  这是一道棘轮：**超标的点只能变少、变小，不能变多、不能变大**。`.betterer.ts` 没有直接用 `@betterer/eslint` 的 `eslint()`，而是照它的写法包了一层，
+  把问题记成「与大小成比例、与位置无关」的一组，原因与取舍见 `.agents/notes/implemented/process/2026-10-15-size-gate-and-page-split.md`：
+  - **记法**：文件每超出 250 行（不足 10 行按 10 行算）一档记一个问题，函数每超出 80 行一档记一个，复杂度每超出 15 一点记一个；问题都记在文件开头，
+    身份是规则、函数名（匿名函数用它那一行的文本）、同名的第几个、第几档，不含行号。所以 `.betterer.results` 里没有行号，也没有文件哈希。
+  - **变大就失败**：已超标的函数或文件长过当前这一档，多出一个问题，`betterer:ci` 说「变差了」。一档里的 10 行是松动，档内多写几行不失败；
+    复杂度每多一点就失败。
+  - **新超标也失败**：新写一个超 80 行或复杂度超 15 的函数、一个超 250 行的文件，包括加在 baseline 里已有文件里的新函数，一样失败，并指出那一处。
+  - **改文案、改样式、在上面加行都不碍事**：只要没有跨档，`.betterer.results` 就不变，`betterer:ci` 照过，不需要为此重跑 `npm run betterer`。
+    改了函数名，或改了匿名函数那一行的文本，身份就变了，会读成「修好一个、出现一个」而失败。这时要么改回去，要么顺手拆小；
+    `npm run betterer` 遇到变差不会写（退出码 7），只有在评审里说明之后才用 `--update`。
+  - **拆小之后收紧**：把超标的函数或文件缩过一档，`betterer:ci` 说「变好了」并因为文件过期失败（退出码 7）；跑 `npm run betterer`，baseline 里对应的
+    问题消失，把改过的 `.betterer.results` 一起提交，之后它就回不去了。
+  - **`.betterer.results` 合并冲突不要手改**，跑 `npx betterer merge`，再跑一遍 `npm run betterer` 确认。
+  - **给新工作的规矩**：新逻辑进切片自己 `lib/` 里带测试的 hook 或纯函数；一个组件眼看要过 80 行就拆成几个小组件，不是把它记进 baseline。
+    页面（`LingualabPage`）因为要组合很多 feature 仍在 baseline 里，那是现状，不是许可：它回不到更大。
+  - 它只在全档里跑，约 20 秒，所以提交前钩子不拦；拆了大函数的提交要自己记得跑一遍 `npm run betterer`。
 - **TypeScript 钉在 6.0.2**：`typescript-eslint@8` 的 peer 范围还不接受 TS 7。升级前先确认。
 - **`zod-validation-error` 直接钉在 4.x**：`eslint-plugin-react-hooks@7` 要
   `zod-validation-error/v4` 这个子路径，而 steiger 依赖的 3.x 会被 npm 提到顶层导致 ESLint
@@ -204,7 +229,8 @@ node scripts/verify.mjs --list   # 看检查表
   **播放按钮、空格键与这些处理函数都调 `togglePlayback`**（`lib/transport.ts`，录音开着时先 `primeTakeAudio`，再 store 的 `toggle`），不要在哪一处再写一份；
   `play` 与 `pause` 带 `isRunning` 的条件，不是直接切换，因为复述停顿里媒体是暂停的而会话报告 `'playing'`，耳机发来的 `play` 不该把程序停掉。
   **不要注册 `seekbackward`、`seekforward`、`seekto`**（前两个明确设成 `null`）：iOS 一旦有 seek 处理函数，锁屏和 AirPods 就改成「跳过 N 秒」，上一首、下一首没了。
-  上一首、下一首照页面的方向键映射：复习进行时是队列里往回和跳过（页面的 `stepFromHeadset`），复习小结打开时不动。元数据由纯函数 `sessionMetadata` 算，
+  上一首、下一首照页面的方向键映射：复习进行时是队列里往回和跳过，复习小结打开时不动；映射就是键盘那一份（`lib/keymap.ts` 的
+  `headsetAction`，用同一个 `keyAction` 把只关乎焦点的状态关掉再问），不要在页面里再抄一遍。元数据由纯函数 `sessionMetadata` 算，
   标题复用 locale 的 `cueOf`，专辑复用 `appTitle`；浏览器那一半在 `media-session.ts` 的环境对象后面，用假 session 测，每次调用都包了 try/catch。
   没有真机验过，AirPods 与锁屏的实际表现见 note 里「To verify on a real iPad」那一条。
 - **进度合并没有删除记号**：两边都是「每个键取最新」的并集，所以从 `.lingualab-progress.json` 删掉一条，

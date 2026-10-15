@@ -9,10 +9,11 @@
  *
  *   · `--fast` (the pre-commit hook) — does the source still typecheck, lint, pass
  *     its tests and keep its documents consistent? Runs in a few seconds.
- *   · the full run (CI, before a release) — the same, plus the artifact checks
- *     that need a build: the two bundles parse, they register under the right id,
- *     they ask the module table only for modules the host seeds, and `lib/` is
- *     byte-identical to a fresh build of `src/`.
+ *   · the full run (CI, before a release) — the same, plus the size gate (it lints
+ *     all of `src/` once more, about twenty seconds, so not on every commit) and the
+ *     artifact checks that need a build: the two bundles parse, they register under
+ *     the right id, they ask the module table only for modules the host seeds, and
+ *     `lib/` is byte-identical to a fresh build of `src/`.
  *
  * A failing step prints its own output and stops the run: the first broken thing
  * is the one worth reading, and a later step's failure is usually its shadow.
@@ -51,6 +52,7 @@ const STEPS = [
   { name: 'zh:prose', cmd: ['npm', 'run', '--silent', 'zh:prose'], fast: true, about: '中文标点、空格与术语' },
   { name: 'skills:check', cmd: ['npm', 'run', '--silent', 'skills:check'], fast: true, about: '.claude/skills 镜像没漂移' },
   { name: 'changelog:check', cmd: ['npm', 'run', '--silent', 'changelog:check'], fast: true, about: 'CHANGELOG 与 package.json 版本一致' },
+  { name: 'betterer:ci', cmd: ['npm', 'run', '--silent', 'betterer:ci'], fast: false, about: '文件与函数体量不回退（Betterer，不写回）' },
   { name: 'syntax', cmd: ['node', 'scripts/check-syntax.mjs'], fast: false, about: '两个产物都能被解析' },
   { name: 'host', cmd: ['node', 'scripts/check-host.mjs'], fast: false, about: '包名、Loader 行、路由与模块表一致' },
   { name: 'build:check', cmd: ['node', 'scripts/check-build.mjs'], fast: false, about: 'lib/ 与 src/ 的新构建逐字节一致' },
