@@ -299,16 +299,18 @@ CI 跑完之后 `ship -- --continue` 找到开着的 development 到 main 的 PR
 一次建出标签与 GitHub Release。这一版的更新日志节找不到就让这次运行失败。人只做一个决定：运行 `ship`。
 `release.mjs` 因此不再有 `--tag`。
 
-**部署**（`scripts/deploy.mjs`）：目标从环境变量读，缺了会报并给出设置办法。
+**部署**（`scripts/deploy.mjs`）：目标从环境变量读，缺了会报并给出设置办法。仓库里不写任何一台真实服务器：
+服务器会换，换的时候只改本机的环境变量，不改仓库。脚本对服务器的要求只有两条：上面有这个仓库的一份检出，
+宿主 dsh-web 作为 systemd 服务运行。
 
-| 变量 | 含义 | 当前值（示例，不是秘密） |
+| 变量 | 含义 | 示例（占位，不是真实值） |
 |---|---|---|
-| `LINGUALAB_DEPLOY_HOST` | ssh 主机（`~/.ssh/config` 别名） | `tencent-cloud` |
-| `LINGUALAB_DEPLOY_PATH` | 远端仓库的绝对路径 | `/workspace/lingualab` |
+| `LINGUALAB_DEPLOY_HOST` | ssh 主机（`~/.ssh/config` 别名） | `my-server` |
+| `LINGUALAB_DEPLOY_PATH` | 远端仓库的绝对路径 | `/srv/dsh/repos/dsh-lingualab` |
 | `LINGUALAB_DEPLOY_SERVICE` | 可选，systemd 服务 | `dsh-web.service`（缺省） |
 
-**Git Bash 的坑**：它会把环境变量里的 `/data/...` 改写成 `C:/Program Files/Git/data/...`，部署路径就错了（脚本认得出来并报错）。
-先 `export MSYS2_ENV_CONV_EXCL=LINGUALAB_DEPLOY_PATH`，或者把路径写成 `//data/...`，或者在 PowerShell 里设。
+**Git Bash 的坑**：它会把环境变量里以 `/` 开头的路径改写成 `C:/Program Files/Git/...`，部署路径就错了（脚本认得出来并报错）。
+先 `export MSYS2_ENV_CONV_EXCL=LINGUALAB_DEPLOY_PATH`，或者把路径写成 `//srv/...`，或者在 PowerShell 里设。
 
 流程全走 `ssh -o BatchMode=yes`，参数用数组传，不拼本地 shell 字符串，Git Bash 与 PowerShell 都能跑：
 `git pull --ff-only`；打印服务器上 `package.json` 的版本并与 origin/main 的对比（不一致只警告）；

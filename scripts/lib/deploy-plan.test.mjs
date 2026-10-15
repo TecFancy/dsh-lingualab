@@ -4,16 +4,16 @@ import {
 } from './deploy-plan.mjs'
 
 const env = (changes = {}) => ({
-  LINGUALAB_DEPLOY_HOST: 'tencent-cloud',
-  LINGUALAB_DEPLOY_PATH: '/workspace/lingualab',
+  LINGUALAB_DEPLOY_HOST: 'my-server',
+  LINGUALAB_DEPLOY_PATH: '/srv/dsh/repos/dsh-lingualab',
   ...changes,
 })
 
 describe('readDeployConfig', () => {
   it('reads host and path, and defaults the service', () => {
     expect(readDeployConfig(env()).config).toEqual({
-      host: 'tencent-cloud',
-      path: '/workspace/lingualab',
+      host: 'my-server',
+      path: '/srv/dsh/repos/dsh-lingualab',
       service: DEFAULT_SERVICE,
     })
   })
@@ -60,7 +60,7 @@ describe('shQuote', () => {
 
 describe('sshArgs and remoteCommands', () => {
   it('builds an argument array with BatchMode, so no local shell parses the command', () => {
-    expect(sshArgs('tencent-cloud', 'uptime')).toEqual(['-o', 'BatchMode=yes', 'tencent-cloud', 'uptime'])
+    expect(sshArgs('my-server', 'uptime')).toEqual(['-o', 'BatchMode=yes', 'my-server', 'uptime'])
   })
 
   it('builds the four remote commands from the configured path and service', () => {

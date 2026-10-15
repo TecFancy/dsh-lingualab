@@ -17,16 +17,16 @@ export const ENV_HELP = [
   '  LINGUALAB_DEPLOY_PATH      远端仓库的绝对路径',
   `  LINGUALAB_DEPLOY_SERVICE   可选，要重启的 systemd 服务，缺省 ${DEFAULT_SERVICE}`,
   '',
-  '例（Git Bash，要先让它别改写路径，见下面的说明）：',
+  '例（主机与路径换成你自己的；Git Bash 要先让它别改写路径，见下面的说明）：',
   '  export MSYS2_ENV_CONV_EXCL=LINGUALAB_DEPLOY_PATH',
-  '  export LINGUALAB_DEPLOY_HOST=tencent-cloud',
-  '  export LINGUALAB_DEPLOY_PATH=/workspace/lingualab',
+  '  export LINGUALAB_DEPLOY_HOST=my-server',
+  '  export LINGUALAB_DEPLOY_PATH=/srv/dsh/repos/dsh-lingualab',
   '例（PowerShell）：',
-  '  $env:LINGUALAB_DEPLOY_HOST = "tencent-cloud"',
-  '  $env:LINGUALAB_DEPLOY_PATH = "/workspace/lingualab"',
+  '  $env:LINGUALAB_DEPLOY_HOST = "my-server"',
+  '  $env:LINGUALAB_DEPLOY_PATH = "/srv/dsh/repos/dsh-lingualab"',
   '',
-  'Git Bash 会把环境变量里的 /data/... 改写成 C:/Program Files/Git/data/...。',
-  '用上面的 MSYS2_ENV_CONV_EXCL，或者把路径写成 //data/...（开头两个斜杠），或者换 PowerShell。',
+  'Git Bash 会把环境变量里以 / 开头的路径改写成 C:/Program Files/Git/...。',
+  '用上面的 MSYS2_ENV_CONV_EXCL，或者把路径写成 //srv/...（开头两个斜杠），或者换 PowerShell。',
 ].join('\n')
 
 /** Quote one value for a POSIX shell: single quotes, with embedded ones closed and reopened. */
