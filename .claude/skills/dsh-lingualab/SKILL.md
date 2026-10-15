@@ -146,6 +146,9 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
   整页只有**一个媒体元素**，一个 `<video>`（`useMediaBinding`），音频文件也走它，这样视频的声音和字幕、循环、跟读在一条时间线上，
   不用管两个元素漂不漂；它画在练习页的 `VideoStage` 里，所以元素既在 ref 里（effect 里改它）也在 state 里（出现时让 effect 重跑），
   光放 state 会被 `react-hooks/immutability` 拦。同一段里换来源（先放音频，视频准备好了换成视频）靠 `session` 保持位置，换集不保持。
+  换来源与 seek 一起由 `media-player/lib/load-source.ts` 管：保留的位置等新来源的 `loadedmetadata` 才还原，等的期间来的 seek（切句、耳机下一首）
+  改成这次换来源的起点（`swap.ts` 的 `seekDuringSwap`），否则会被还原盖掉，计数和播放位置对不上；等的期间元素报的位置是加载归 0，
+  `positionKnown` 让它不进 store。换集时没有等着的起点，seek 照旧直接给元素。
   放什么由 `features/video/lib/source.ts` 的 `playSource` 一处决定，浏览器报解不了的 URL 记进 `failedUrl`，退回音频文件。
   ffmpeg 与 ffprobe 在 `PATH` 里或可选的 `ffmpegPath`（volatile 字段，同样 `.get()`，配了就只认它）；没有 ffprobe 时 mp4 与 webm 当直接放、
   mkv 与 mov 报需要 ffmpeg。规划（`video-plan.ts`）只认 H.264、VP9、AV1，H.264 还要 yuv420p：10 位的一律「只取声音」，这是拿真 ffmpeg 测出来的
