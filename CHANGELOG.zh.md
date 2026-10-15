@@ -17,6 +17,8 @@
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-10-15
+
 ### 新增
 
 - `npm run ship -- patch|minor|major` 在 `development` 上用一条命令发版：先查现场（在 `development`、工作区干净、

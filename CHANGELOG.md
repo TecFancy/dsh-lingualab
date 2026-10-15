@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-10-15
+
 ### Added
 
 - `npm run ship -- patch|minor|major` releases from `development` with one command: it checks the ground (on `development`,
