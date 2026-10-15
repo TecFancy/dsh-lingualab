@@ -19,6 +19,16 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- Internal, no change in behaviour: the practice page is split into hooks and views. What a key means is now data (a pure
+  keymap that the headset's previous and next buttons share, with tests), and the review, the resume, opening and replaying,
+  the notes of the sentence on stage, the timing strip and what plays are hooks of their own. The page went from 1662 to
+  about 600 lines.
+- `npm run verify` has a size gate in its full run (`betterer:ci`): a function over 80 lines or complexity 15, or a file over
+  250 lines, fails unless it is already in `.betterer.results`. After splitting a large function, run `npm run betterer` and
+  commit the file.
+
 ## [0.14.1] - 2026-10-15
 
 ### Fixed

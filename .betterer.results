@@ -1,0 +1,161 @@
+// BETTERER RESULTS V2.
+//
+// If this file contains merge conflicts, use `betterer merge` to automatically resolve them:
+// https://phenomnomnominal.github.io/betterer/docs/results-file/#merge
+//
+exports[`no-size-regression`] = {
+  value: `{
+    "src/client/entities/cue/lib/retime.ts:3606929903": [
+      [176, 7, 20, "eslint(complexity): Function \'timingEdits\' has a complexity of 23. Maximum allowed is 15.", "2438731768"]
+    ],
+    "src/client/features/import-media/model/useImport.ts:94323446": [
+      [76, 7, 18, "eslint(max-lines-per-function): Function \'useImport\' has too many lines (91). Maximum allowed is 80.", "3358658521"]
+    ],
+    "src/client/features/library/model/useLibrary.ts:1820811576": [
+      [124, 7, 19, "eslint(max-lines-per-function): Function \'useLibrary\' has too many lines (153). Maximum allowed is 80.", "3877339451"],
+      [197, 19, 2, "eslint(complexity): Async arrow function has a complexity of 19. Maximum allowed is 15.", "5859494"]
+    ],
+    "src/client/features/media-player/lib/useMediaBinding.ts:2661363441": [
+      [44, 7, 24, "eslint(max-lines-per-function): Function \'useMediaBinding\' has too many lines (103). Maximum allowed is 80.", "1403854625"]
+    ],
+    "src/client/features/media-player/model/store.ts:2716293563": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (505). Maximum allowed is 250.", "max-lines"],
+      [262, 66, 2, "eslint(max-lines-per-function): Arrow function has too many lines (368). Maximum allowed is 80.", "5859494"],
+      [471, 4, 8, "eslint(complexity): Method \'onTime\' has a complexity of 33. Maximum allowed is 15.", "982795051"]
+    ],
+    "src/client/features/notes/model/useNotes.ts:3449921622": [
+      [95, 7, 17, "eslint(max-lines-per-function): Function \'useNotes\' has too many lines (145). Maximum allowed is 80.", "3749623431"]
+    ],
+    "src/client/features/video/lib/source.ts:2940116195": [
+      [40, 7, 19, "eslint(complexity): Function \'playSource\' has a complexity of 17. Maximum allowed is 15.", "932376542"]
+    ],
+    "src/client/features/video/model/useLocalVideo.ts:3860253296": [
+      [78, 7, 22, "eslint(max-lines-per-function): Function \'useLocalVideo\' has too many lines (118). Maximum allowed is 80.", "2980296632"],
+      [78, 7, 22, "eslint(complexity): Function \'useLocalVideo\' has a complexity of 22. Maximum allowed is 15.", "2980296632"]
+    ],
+    "src/client/features/video/model/useVideo.ts:3263352993": [
+      [51, 7, 17, "eslint(max-lines-per-function): Function \'useVideo\' has too many lines (91). Maximum allowed is 80.", "3759465685"]
+    ],
+    "src/client/locale.ts:797436982": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (809). Maximum allowed is 250.", "max-lines"]
+    ],
+    "src/client/pages/lingualab/lib/useKeyboard.ts:2036458880": [
+      [104, 7, 20, "eslint(max-lines-per-function): Function \'useKeyboard\' has too many lines (145). Maximum allowed is 80.", "1230534601"]
+    ],
+    "src/client/pages/lingualab/ui/LingualabPage.tsx:3265366013": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (467). Maximum allowed is 250.", "max-lines"],
+      [92, 7, 22, "eslint(max-lines-per-function): Function \'LingualabPage\' has too many lines (422). Maximum allowed is 80.", "3937910531"],
+      [92, 7, 22, "eslint(complexity): Function \'LingualabPage\' has a complexity of 35. Maximum allowed is 15.", "3937910531"]
+    ],
+    "src/client/shared/lib/api.ts:855164775": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (328). Maximum allowed is 250.", "max-lines"]
+    ],
+    "src/client/shared/lib/sha256.ts:3626115796": [
+      [34, 7, 18, "eslint(complexity): Function \'sha256Hex\' has a complexity of 27. Maximum allowed is 15.", "1317196281"]
+    ],
+    "src/client/shared/lib/styles.ts:233136261": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (1219). Maximum allowed is 250.", "max-lines"]
+    ],
+    "src/client/shared/ui/icons.tsx:2867212428": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (256). Maximum allowed is 250.", "max-lines"]
+    ],
+    "src/client/widgets/control-bar/ui/ControlBar.tsx:364280687": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (459). Maximum allowed is 250.", "max-lines"],
+      [130, 72, 19, "eslint(max-lines-per-function): Function \'ControlBar\' has too many lines (364). Maximum allowed is 80.", "4269237361"],
+      [130, 72, 19, "eslint(complexity): Function \'ControlBar\' has a complexity of 48. Maximum allowed is 15.", "4269237361"]
+    ],
+    "src/client/widgets/control-bar/ui/SubtitleMenu.tsx:2732067115": [
+      [38, 7, 21, "eslint(complexity): Function \'SubtitleMenu\' has a complexity of 24. Maximum allowed is 15.", "2162369104"]
+    ],
+    "src/client/widgets/episode-picker/ui/EpisodePicker.tsx:2468613895": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (392). Maximum allowed is 250.", "max-lines"],
+      [60, 7, 22, "eslint(max-lines-per-function): Function \'EpisodePicker\' has too many lines (289). Maximum allowed is 80.", "1896296448"],
+      [60, 7, 22, "eslint(complexity): Function \'EpisodePicker\' has a complexity of 41. Maximum allowed is 15.", "1896296448"]
+    ],
+    "src/client/widgets/library-home/ui/LibraryHome.tsx:850848508": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (375). Maximum allowed is 250.", "max-lines"],
+      [130, 7, 20, "eslint(max-lines-per-function): Function \'LibraryHome\' has too many lines (123). Maximum allowed is 80.", "1462020855"],
+      [130, 7, 20, "eslint(complexity): Function \'LibraryHome\' has a complexity of 23. Maximum allowed is 15.", "1462020855"]
+    ],
+    "src/client/widgets/notes-panel/ui/NotesPanel.tsx:1713085976": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (272). Maximum allowed is 250.", "max-lines"],
+      [77, 7, 19, "eslint(max-lines-per-function): Function \'NotesPanel\' has too many lines (229). Maximum allowed is 80.", "1200170834"],
+      [187, 28, 2, "eslint(max-lines-per-function): Arrow function has too many lines (116). Maximum allowed is 80.", "5859494"],
+      [192, 48, 2, "eslint(max-lines-per-function): Arrow function has too many lines (109). Maximum allowed is 80.", "5859494"],
+      [192, 48, 2, "eslint(complexity): Arrow function has a complexity of 18. Maximum allowed is 15.", "5859494"]
+    ],
+    "src/client/widgets/practice-stage/ui/Stage.tsx:2415178725": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (328). Maximum allowed is 250.", "max-lines"],
+      [101, 7, 14, "eslint(max-lines-per-function): Function \'Stage\' has too many lines (281). Maximum allowed is 80.", "4028707619"],
+      [101, 7, 14, "eslint(complexity): Function \'Stage\' has a complexity of 36. Maximum allowed is 15.", "4028707619"]
+    ],
+    "src/client/widgets/segment-picker/ui/SegmentPicker.tsx:1702361723": [
+      [89, 0, 20, "eslint(max-lines-per-function): Function \'SegmentList\' has too many lines (81). Maximum allowed is 80.", "1107715142"]
+    ],
+    "src/client/widgets/settings-panel/ui/SettingsPanel.tsx:3603603254": [
+      [103, 7, 22, "eslint(max-lines-per-function): Function \'SettingsPanel\' has too many lines (125). Maximum allowed is 80.", "3608136692"]
+    ],
+    "src/client/widgets/step-tracker/ui/StepTracker.tsx:52936623": [
+      [87, 7, 20, "eslint(max-lines-per-function): Function \'StepTracker\' has too many lines (180). Maximum allowed is 80.", "3868386349"],
+      [213, 39, 2, "eslint(complexity): Arrow function has a complexity of 16. Maximum allowed is 15.", "5859494"]
+    ],
+    "src/client/widgets/subtitle-panel/ui/SubtitlePanel.tsx:917149732": [
+      [70, 7, 22, "eslint(max-lines-per-function): Function \'SubtitlePanel\' has too many lines (113). Maximum allowed is 80.", "2651759285"]
+    ],
+    "src/client/widgets/timing-editor/model/useTimingEditor.ts:915906477": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (275). Maximum allowed is 250.", "max-lines"],
+      [125, 7, 24, "eslint(max-lines-per-function): Function \'useTimingEditor\' has too many lines (193). Maximum allowed is 80.", "4191305941"]
+    ],
+    "src/client/widgets/timing-editor/ui/TimingStrip.tsx:2415336832": [
+      [67, 0, 17, "eslint(complexity): Function \'EdgeCard\' has a complexity of 16. Maximum allowed is 15.", "781449872"],
+      [149, 7, 20, "eslint(max-lines-per-function): Function \'TimingStrip\' has too many lines (134). Maximum allowed is 80.", "2735275515"],
+      [149, 7, 20, "eslint(complexity): Function \'TimingStrip\' has a complexity of 27. Maximum allowed is 15.", "2735275515"]
+    ],
+    "src/client/widgets/video-stage/ui/VideoStage.tsx:3182415006": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (405). Maximum allowed is 250.", "max-lines"],
+      [89, 7, 19, "eslint(max-lines-per-function): Function \'VideoStage\' has too many lines (148). Maximum allowed is 80.", "2570682994"],
+      [89, 7, 19, "eslint(complexity): Function \'VideoStage\' has a complexity of 42. Maximum allowed is 15.", "2570682994"],
+      [270, 0, 13, "eslint(max-lines-per-function): Function \'Card\' has too many lines (136). Maximum allowed is 80.", "4286345331"],
+      [270, 0, 13, "eslint(complexity): Function \'Card\' has a complexity of 39. Maximum allowed is 15.", "4286345331"]
+    ],
+    "src/host/entities/episode/model/file-media.ts:2235908627": [
+      [37, 7, 25, "eslint(complexity): Function \'resolveFileMedia\' has a complexity of 20. Maximum allowed is 15.", "1282616817"]
+    ],
+    "src/host/entities/episode/model/library.ts:3088803161": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (263). Maximum allowed is 250.", "max-lines"]
+    ],
+    "src/host/entities/episode/model/pairing.ts:2185536378": [
+      [245, 7, 22, "eslint(complexity): Function \'pairSubtitles\' has a complexity of 38. Maximum allowed is 15.", "4053293498"],
+      [305, 7, 21, "eslint(complexity): Function \'subtitleHint\' has a complexity of 22. Maximum allowed is 15.", "2594644952"]
+    ],
+    "src/host/features/library-config/api/library-config.route.ts:4233135152": [
+      [20, 7, 20, "eslint(max-lines-per-function): Function \'configRoute\' has too many lines (94). Maximum allowed is 80.", "1343019700"],
+      [24, 4, 15, "eslint(max-lines-per-function): Async method \'handler\' has too many lines (88). Maximum allowed is 80.", "2021676065"],
+      [24, 4, 15, "eslint(complexity): Async method \'handler\' has a complexity of 24. Maximum allowed is 15.", "2021676065"]
+    ],
+    "src/host/features/subtitle-choice/model/subtitle-choice-rules.ts:3909363837": [
+      [97, 0, 21, "eslint(complexity): Function \'locateFolder\' has a complexity of 16. Maximum allowed is 15.", "710704193"],
+      [200, 7, 27, "eslint(complexity): Function \'saveSubtitleChoice\' has a complexity of 16. Maximum allowed is 15.", "3988019177"]
+    ],
+    "src/host/features/timing/model/timing.ts:3576946405": [
+      [199, 0, 18, "eslint(complexity): Function \'readEdits\' has a complexity of 18. Maximum allowed is 15.", "1536778938"]
+    ],
+    "src/host/features/video/lib/video-plan.ts:2287554420": [
+      [180, 7, 18, "eslint(complexity): Function \'planVideo\' has a complexity of 16. Maximum allowed is 15.", "2069120261"]
+    ],
+    "src/host/features/video/model/video-jobs.ts:561477113": [
+      [146, 7, 24, "eslint(max-lines-per-function): Function \'createVideoJobs\' has too many lines (109). Maximum allowed is 80.", "1451929766"]
+    ],
+    "src/host/features/video/model/video.ts:2441106818": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (313). Maximum allowed is 250.", "max-lines"],
+      [229, 7, 26, "eslint(complexity): Async function \'videoStatus\' has a complexity of 27. Maximum allowed is 15.", "825755076"],
+      [269, 0, 28, "eslint(complexity): Async function \'settledStatus\' has a complexity of 23. Maximum allowed is 15.", "3076342862"]
+    ],
+    "src/host/shared/http/media.ts:2433086541": [
+      [56, 7, 25, "eslint(complexity): Function \'resolveMediaPath\' has a complexity of 18. Maximum allowed is 15.", "1262493882"]
+    ],
+    "src/shared/protocol.ts:1870954426": [
+      [0, 0, 0, "eslint(max-lines): File has too many lines (329). Maximum allowed is 250.", "max-lines"]
+    ]
+  }`
+};

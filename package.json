@@ -20,6 +20,8 @@
     "locale/*.json"
   ],
   "scripts": {
+    "betterer": "betterer",
+    "betterer:ci": "betterer ci",
     "bilingual:check": "node scripts/check-bilingual.mjs",
     "build": "tsdown",
     "build:check": "node scripts/check-build.mjs",
@@ -48,6 +50,9 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@betterer/betterer": "^6.0.0-alpha.1",
+    "@betterer/cli": "^6.0.0-alpha.1",
+    "@betterer/eslint": "^6.0.0-alpha.1",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@feature-sliced/steiger-plugin": "^0.6.0",

@@ -46,7 +46,10 @@ src/client/             客户端半边，FSD 分层，没有 app 层
                         timing-editor（舞台下面调整一句开头和结尾的横栏）、review-strip（复习横栏与结束卡片）、
                         settings-panel（右侧「设置」抽屉：主题卡片、明暗、舞台字号、提前起播）、
                         video-stage（舞台顶部的画面或代替它的卡片，与提示条）
-  pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature
+  pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature。`ui/LingualabPage.tsx` 只放状态、接线与组合，
+                        视图（HomeView、PracticeView 与它的顶栏和两个面板）也在 `ui/`；页面自己的 hook 与纯函数在 `lib/`：
+                        keymap 与 useKeyboard（键盘）、useResume、useOpening、useReplay（听到哪里与打开）、useReviewRun、
+                        useStageNotes、useRetime、useVideoSource、useVideoNotices，每个带单测
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像
 scripts/                检查脚本，入口是 verify.mjs
@@ -55,8 +58,8 @@ scripts/                检查脚本，入口是 verify.mjs
 ## 检查表
 
 `node scripts/verify.mjs --list` 打出全部。轻档含 typecheck、ESLint、Steiger 的 FSD 规则、单测、
-notes 树与链接（各带自测）、docs、全仓链接、中英配对与它的自测、中文语体、技能镜像；全档再加两个产物能否解析、包名与
-Loader 行与路由是否一致、`lib/` 是否与新构建逐字节相同。
+notes 树与链接（各带自测）、docs、全仓链接、中英配对与它的自测、中文语体、技能镜像；全档再加体量门（`betterer:ci`，约 20 秒，
+不进提交前钩子）、两个产物能否解析、包名与 Loader 行与路由是否一致、`lib/` 是否与新构建逐字节相同。
 
 ## 写东西的规矩
 
@@ -64,4 +67,6 @@ Loader 行与路由是否一致、`lib/` 是否与新构建逐字节相同。
 - 每篇 note 三件套，中文那份是真翻译。改一侧就跑
   `npm run bilingual:check -- --write` 重记哈希。
 - 新增跨半边形状放 `src/shared/`，客户端通过桥导入；新增能力新建切片并给它写 `index.ts`。
+- 新逻辑进切片自己 `lib/` 里带测试的 hook 或纯函数，不往页面或组件里堆；一个组件或函数要过 80 行就拆开，不要记进
+  `.betterer.results` 的 baseline。体量门怎么用见 `.agents/skills/dsh-lingualab/SKILL.md`。
 - 素材（音频、视频）不进仓库，见 `.agents/skills/dsh-lingualab/SKILL.md` 的踩坑一节。
