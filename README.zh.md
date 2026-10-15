@@ -137,23 +137,22 @@ Inter 字体，页面本身读宿主的 `--dsw-alias-*` 令牌和字体，所以
 
 ## 发版
 
-改动落在 `development`。往 `main` 开 PR 就是一次发版，版本号的抬高跟着 PR 一起走：
+改动落在 `development`。往 `main` 开 PR 就是一次发版，在 `development` 上一条命令走完：
 
 ```sh
-npm run release -- patch|minor|major   # bump, move Unreleased into a dated section, commit
+npm run ship -- patch|minor|major   # check, bump, verify, push, open the PR, wait for green, merge, sync back
+npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
-`npm run verify` 会让更新日志的中英两侧与 manifest 保持一致，CI 里的 `version-bump` job 会把
-没有抬高版本的 PR 拦在 `main` 外面。合并之后，在承载这次发版的提交上打标签：
+`ship` 抬高版本，把更新日志中英两侧的未发版条目挪到带日期的标题下面（`scripts/release.mjs`），
+跑完整的 `npm run verify`，推送 `development`，再开往 `main` 的 PR，等它的检查，全绿就用合并提交合进去，并把
+`development` 快进到合并后的 `main`。运行 `ship` 就是发版的决定。不该轮询 CI 的调用方（比如 agent）用
+`npm run ship -- patch --no-wait`，开完 PR 就停，之后用 `npm run ship -- --continue`：它只读一次检查，全绿才合并。
+CI 里的 `version-bump` job 会把没有抬高版本的 PR 拦住。`--dry-run` 把每条会改动东西的命令打印出来而不执行。
 
-```sh
-git checkout main && git pull
-git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
-```
-
-标签推上去之后会建一个 GitHub Release，正文取自更新日志那一对文件里这一版的两段，先中文后
-英文。打标签是唯一需要人做的动作，之后的都是机械的。这里不发 npm，插件从本地路径或 tar 包装，所以版本号标记的是
-一个装过、用过的状态，而不是注册表上的一个包。
+标签不用手打：合并落到 `main` 之后，`release` 工作流建标签和 GitHub Release，正文取自更新日志那一对文件里这一版的
+两段，先中文后英文。这里不发 npm，插件从本地路径或 tar 包装，所以版本号标记的是一个装过、用过的状态，而不是注册表上
+的一个包。`deploy` 从 `LINGUALAB_DEPLOY_HOST` 和 `LINGUALAB_DEPLOY_PATH` 读部署目标，细节见仓库自带的技能。
 
 ## 宿主路由
 

@@ -17,6 +17,26 @@
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-10-15
+
+### 新增
+
+- `npm run ship -- patch|minor|major` 在 `development` 上用一条命令发版：先查现场（在 `development`、工作区干净、
+  不落后于 origin、`gh` 已登录、中英两侧更新日志都有未发版条目、标签还没被占用），再用 `release.mjs` 抬版本，跑完整
+  verify，推送，开往 `main` 的 PR（正文是这一版的发行说明），等它的检查，全绿就用合并提交合进 `main`，再把
+  `development` 快进到合并后的 `main`。运行它就是发版的决定。`--no-wait` 开完 PR 就停，给不该轮询 CI 的调用方（比如 agent）；
+  之后 `npm run ship -- --continue` 只读一次检查，再做合并和同步。`--dry-run` 把每条会改动东西的命令打印出来而不执行。
+- `npm run deploy` 在服务器上拉取（只允许快进），把那边的版本与 origin/main 的对一下，重启服务，不是 `active` 就报错。
+  目标从 `LINGUALAB_DEPLOY_HOST`、`LINGUALAB_DEPLOY_PATH` 和可选的 `LINGUALAB_DEPLOY_SERVICE` 读；`--dry-run`
+  打印 ssh 命令。
+
+### 变更
+
+- 发版标签与 GitHub Release 现在由 `release` 工作流在合并落到 `main` 时建出，不再靠手推标签；这一版的标签已经存在就跳过。
+  `release.mjs` 不再接受 `--tag`。
+- 发版不再走发布分支，也不再有往 `development` 的 PR：推到 `development` 本来就会跑完整 verify，往 `main` 的 PR
+  保留 `version-bump` 这道把关。
+
 ## [0.14.3] - 2026-10-15
 
 ### 修复

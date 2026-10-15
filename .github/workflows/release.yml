@@ -1,10 +1,18 @@
-# A tag pushed to `main` becomes a GitHub Release.
+# A merge into `main` becomes a tag and a GitHub Release.
 #
-# The tag is created by hand after the release pull request merges
-# (`git tag -a vX.Y.Z && git push origin vX.Y.Z`), which is deliberate: it is the
-# one moment where "this version is going out" gets a human decision. Everything
-# after that moment is mechanical, so it lives here: take the version's section out
-# of the changelog and publish it as the release body.
+# The one human decision in a release is running `npm run ship -- patch|minor|major`,
+# which ends by merging the pull request from `development` into `main` once its
+# checks are green. That merge is the moment "this version is going out", so
+# everything after it is mechanical and lives here:
+# read the version from `package.json`, and if its tag does not exist yet, take that
+# version's section out of the changelog pair and publish it as the release body.
+# `gh release create` creates the tag on the merged commit as part of the same call,
+# so nobody tags by hand and a tag can never point at the wrong commit.
+#
+# Most pushes to `main` are not new versions (a merge that reuses a version, a manual
+# fix), and they skip cleanly: the tag already exists, so there is nothing to do.
+# A version with no changelog section is the one failure that is not a skip: it fails
+# the run, because publishing a release that says nothing is worse than not publishing.
 #
 # There is no publish job and no artifact: this repository is installed from a
 # local path or a tarball, not from a registry.
@@ -12,40 +20,57 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+# Two merges close together must not race to create the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # Full history with tags, so "does this tag exist" is a local question.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # The tag and the manifest must agree. A tag that does not match the version
-      # in `package.json` means the wrong commit was tagged, and publishing notes
-      # for it would make the mistake permanent.
-      - name: Check the tag against package.json
+      - name: Read the version and look for its tag
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          manifest="$(node -p "require('./package.json').version")"
-          if [ "$tag" != "$manifest" ]; then
-            echo "tag $GITHUB_REF_NAME 与 package.json 的 $manifest 不一致" >&2
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse --quiet --verify "refs/tags/v$version" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "v$version already has a tag; nothing to release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `release-notes.mjs` exits non-zero when either side of the changelog pair has
+      # no section for the version, which is the failure path: no tag, no release.
+      - name: Build the release body from CHANGELOG.md
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          if ! node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" --write release-body.md; then
+            echo "::error::package.json says ${{ steps.version.outputs.version }} but the changelog pair has no usable section for it; run npm run release first."
             exit 1
           fi
 
-      - name: Build the release body from CHANGELOG.md
-        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" --write release-body.md
-
-      - name: Publish the release
+      - name: Create the tag and publish the release
+        if: steps.version.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file release-body.md \
-            --verify-tag
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --target "$GITHUB_SHA" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --notes-file release-body.md

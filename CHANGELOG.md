@@ -19,6 +19,28 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-10-15
+
+### Added
+
+- `npm run ship -- patch|minor|major` releases from `development` with one command: it checks the ground (on `development`,
+  clean tree, not behind origin, `gh` signed in, both changelog sides have unreleased entries, the tag is free), bumps with
+  `release.mjs`, runs the full verify, pushes, opens the pull request into `main` with the release notes as its body, waits
+  for its checks and, when they are green, merges with a merge commit and fast-forwards `development` onto the merged
+  `main`. Running it is the release decision. `--no-wait` stops after opening the pull request, for a caller that must not
+  poll CI (an agent); `npm run ship -- --continue` then reads the checks once and does the merge and the sync back.
+  `--dry-run` prints every command that would change something instead of running it.
+- `npm run deploy` pulls on the server (fast-forward only), compares the version there with origin/main's, restarts the
+  service and fails unless it reports `active`. The target comes from `LINGUALAB_DEPLOY_HOST`, `LINGUALAB_DEPLOY_PATH` and
+  optionally `LINGUALAB_DEPLOY_SERVICE`; `--dry-run` prints the ssh commands.
+
+### Changed
+
+- The release tag and the GitHub Release now come from the `release` workflow when a merge lands on `main`, not from a
+  tag pushed by hand. It skips a version whose tag already exists. `release.mjs` no longer takes `--tag`.
+- Releasing no longer goes through a release branch or a pull request into `development`: a push to `development` already
+  runs the full verify, and the pull request into `main` keeps the `version-bump` guard.
+
 ## [0.14.3] - 2026-10-15
 
 ### Fixed
