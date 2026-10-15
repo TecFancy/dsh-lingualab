@@ -1,5 +1,6 @@
 import { BettererFileTest } from "@betterer/betterer";
 import { ESLint } from "eslint";
+import { relative, sep } from "node:path";
 
 /**
  * Betterer 体量回归门
@@ -75,8 +76,9 @@ function size() {
     for (const { messages, source, filePath } of lintResults) {
       // ESLint 只在有问题的文件上带回 `source`。
       if (!source) continue;
-      // 登记时给的「文件文本」只随路径变，所以文件怎么改，结果里它的哈希都不动。
-      const file = fileTestResult.addFile(filePath, filePath);
+      // 登记时给的「文件文本」只随路径变，所以文件怎么改，结果里它的哈希都不动。用相对仓库根、以 `/` 分隔的路径，
+      // 绝对路径会让每个检出目录（各个 worktree、CI）算出不同的哈希，`betterer:ci` 在别处就过不了。
+      const file = fileTestResult.addFile(filePath, relative(resolver.baseDirectory, filePath).split(sep).join("/"));
       const seen = new Map<string, number>();
       for (const { ruleId, message, line } of messages) {
         const amount = numberIn(message);
