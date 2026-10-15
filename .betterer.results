@@ -35,8 +35,7 @@ exports[`no-size-regression`] = {
     ],
     "src/client/features/media-player/lib/useMediaBinding.ts:3523370116": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useMediaBinding\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'useMediaBinding\'@0#1"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'useMediaBinding\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'useMediaBinding\'@0#2"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'useMediaBinding\' is over 80 lines (more than 100)", "max-lines-per-function:Function \'useMediaBinding\'@0#3"]
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'useMediaBinding\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'useMediaBinding\'@0#2"]
     ],
     "src/client/features/media-player/model/store.ts:207520789": [
       [0, 0, 0, "eslint(max-lines-per-function): Arrow function export const useMediaPlayer = create<MediaPlayerState>((set, get) => { is over 80 lines (more than 80)", "max-lines-per-function:Arrow function export const useMediaPlayer = create<MediaPlayerState>((set, get) => {@0#1"],

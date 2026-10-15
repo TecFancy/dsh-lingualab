@@ -15,11 +15,13 @@
  * again when it appears. It is kept in a ref, which the effects read and write to the element, and in state,
  * which is what makes them run again and what the page can depend on. Swapping the source inside one session (the
  * audio file for the video that was just prepared, or the audio again when the video cannot be decoded)
- * keeps the position; a source of another session starts from the top, as it always did.
+ * keeps the position, unless a seek is asked for before the new source has loaded, which then wins; a source of
+ * another session starts from the top, as it always did (`load-source.ts`).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { currentSpeed, useMediaPlayer } from '../model/store.ts'
-import { swapStart, type Loaded } from './swap.ts'
+import { loadSource, positionKnown, seekElement } from './load-source.ts'
+import type { Loaded } from './swap.ts'
 import { useTakes } from './useTakes.ts'
 
 /** `MediaError.code` values that mean the file cannot be decoded, as opposed to a network hiccup. */
@@ -76,23 +78,8 @@ export function useMediaBinding(
     useMediaPlayer.getState().setDuration(0)
     const element = node.current
     if (element === null) return
-    const keep = swapStart(loaded.current, { element, src, session }, element)
-    loaded.current = { element, src, session, start: keep }
-    if (src === null) {
-      element.removeAttribute('src')
-      element.load()
-      return
-    }
-    element.src = src
-    element.load()
-    if (keep <= 0) return
-    const restore = (): void => {
-      element.currentTime = keep
-    }
-    element.addEventListener('loadedmetadata', restore, { once: true })
-    return () => element.removeEventListener('loadedmetadata', restore)
+    return loadSource(element, loaded, src, session)
   }, [src, session, element])
-
 
   // Playback intent.
   useEffect(() => {
@@ -120,7 +107,8 @@ export function useMediaBinding(
     const element = node.current
     if (element === null || seekRequest === null || seekToken === appliedSeek.current) return
     appliedSeek.current = seekToken
-    element.currentTime = seekRequest
+    // During a swap that is still loading, this is where the swap starts instead.
+    seekElement(element, loaded, seekRequest)
   }, [seekToken, seekRequest, element])
 
   // A shadowing pause runs out on a timeout. The store holds when it ends, so a pause that outlived the
@@ -137,7 +125,9 @@ export function useMediaBinding(
     if (element === null) return
     const store = useMediaPlayer.getState
 
-    const onTime = (): void => store().onTime(element.currentTime)
+    const onTime = (): void => {
+      if (positionKnown(loaded)) store().onTime(element.currentTime)
+    }
     const onMeta = (): void => store().setDuration(element.duration)
     const onEnded = (): void => store().markFinished()
     const onError = (): void => {
