@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-15
+
 ### Fixed
 
 - A headset or lock-screen `play` during a speaking pause, or while a take plays in a comparison, now ends the program at
