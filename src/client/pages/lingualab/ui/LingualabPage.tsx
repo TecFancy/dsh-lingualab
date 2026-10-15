@@ -60,19 +60,11 @@ import {
   type Progress,
 } from '../../../features/resume/index.ts'
 import {
-  currentItem,
-  episodeQueue,
-  isFinished,
-  libraryQueue,
-  recordOutcome,
   retryNotYet,
-  startReview,
   stepBack,
   tallyReview,
   useReviewList,
   type ReviewItem,
-  type ReviewOutcome,
-  type ReviewSession,
 } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
 import {
@@ -116,6 +108,7 @@ import type { PanelProps, Translate } from '../../../context.ts'
 import { useCardFit } from '../lib/useCardFit.ts'
 import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from '../lib/keymap.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
+import { useReviewRun } from '../lib/useReviewRun.ts'
 
 /** Which view the page shows. */
 type View = 'home' | 'practice'
@@ -206,7 +199,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const setZhMode = useSettings((state) => state.setZhMode)
   const [layer, setLayer] = useState<Layer>('none')
   const [column, setColumn] = useState<Column>('transcript')
-  const [review, setReview] = useState<ReviewSession | null>(null)
   /**
    * Whether a review is running, for the bookmark: a review jumps between kept sentences, and
    * writing those places down would move 「继续」 to wherever the review last was. A ref, set in the
@@ -455,23 +447,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // Share progress with the host for as long as the page is open: what another device left
   // arrives here, and the home picks it up the moment it does.
   useEffect(() => startProgressSync(() => setProgress(readAllProgress())), [])
-
-  /** Go home: save the position first, then refresh what the home shows about it. */
-  const goHome = useCallback(() => {
-    bookmark()
-    reviewing.current = false
-    setReview(null)
-    // A grade given a moment ago may still be waiting for its write; the home's review count is
-    // read again once it has landed, so it does not show the sentence just graded.
-    void notes.flush().then(reviewList.reload)
-    useMediaPlayer.getState().setPlaying(false)
-    // The takes belong to the episode that was open: going home closes it.
-    useMediaPlayer.getState().dropTakes()
-    setProgress(readAllProgress())
-    setLayer('none')
-    setStepsOpen(false)
-    setView('home')
-  }, [bookmark, notes, reviewList.reload])
 
   /** The segments of this episode that are finished, which the segment list marks. */
   const finishedIds = useMemo(
@@ -796,94 +771,39 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [episodeId, replayPhrase, entryFor, library],
   )
 
-  /**
-   * Move a review to the session given, and put its current item on stage.
-   *
-   * An item whose episode cannot be opened is recorded as gone and the next one is tried, so a
-   * renamed folder costs a line in the summary rather than a stuck review.
-   */
-  const runReview = useCallback(
-    (session: ReviewSession): void => {
-      void (async () => {
-        let next = session
-        for (;;) {
-          setReview(next)
-          const item = currentItem(next)
-          if (item === null) {
-            useMediaPlayer.getState().setPlaying(false)
-            return
-          }
-          if (await goToItem(item)) return
-          next = recordOutcome(next, 'gone')
-        }
-      })()
-    },
-    [goToItem],
-  )
+  /** Close what is over the practice view, because a review takes it over. */
+  const closeReviewLayers = useCallback((): void => {
+    setLayer('none')
+    setStepsOpen(false)
+    timing.close()
+  }, [timing])
+  const { review, reviewItem, reviewIndex, reviewOn, reviewDone, runReview, reviewEpisode, reviewLibrary, endReview, answerReview } =
+    useReviewRun({
+      episode,
+      segments,
+      notes,
+      libraryReview: reviewList.payload,
+      goToItem,
+      reviewing,
+      bookmark,
+      closeLayers: closeReviewLayers,
+    })
 
-  /** Start a review over these items; nothing happens for an empty queue. */
-  const beginReview = useCallback(
-    (items: readonly ReviewItem[], scope: ReviewSession['scope']): void => {
-      const session = startReview(items, scope)
-      if (session === null) return
-      // The place the reader was listening is written down before the review starts moving it.
-      bookmark()
-      reviewing.current = true
-      setLayer('none')
-      setStepsOpen(false)
-      timing.close()
-      runReview(session)
-    },
-    [bookmark, runReview, timing],
-  )
-
-  /** Review this episode's sentences still being practised. */
-  const reviewEpisode = useCallback((): void => {
-    if (episode === null) return
-    beginReview(
-      episodeQueue(
-        episode.id,
-        episode.title,
-        notes.phrases,
-        segments.map((item) => item.id),
-      ),
-      'episode',
-    )
-  }, [episode, notes.phrases, segments, beginReview])
-
-  /** Review every episode's, from the home. */
-  const reviewLibrary = useCallback((): void => {
-    if (reviewList.payload === null) return
-    beginReview(libraryQueue(reviewList.payload), 'library')
-  }, [reviewList.payload, beginReview])
-
-  /** End the review where it is: the sentence on stage stays there. */
-  const endReview = useCallback((): void => {
-    reviewing.current = false
-    setReview(null)
-  }, [])
-
-  const reviewItem = review === null ? null : currentItem(review)
-  /** The stored index of the review item in the open episode's notes, once they are read; -1 before. */
-  const reviewIndex =
-    reviewItem === null || notes.episode !== reviewItem.episode
-      ? -1
-      : notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, reviewItem.phrase))
-
-  /** Record what happened to the item on stage and go on to the next one. */
-  const answerReview = useCallback(
-    (outcome: ReviewOutcome): void => {
-      if (review === null || isFinished(review)) return
-      if (outcome !== 'skipped' && outcome !== 'gone') {
-        const phrase = notes.phrases[reviewIndex]
-        // A grade needs somewhere to go: the item's episode open and its notes read.
-        if (phrase === undefined) return
-        notes.update(reviewIndex, withGrade(phrase, outcome))
-      }
-      runReview(recordOutcome(review, outcome))
-    },
-    [review, notes, reviewIndex, runReview],
-  )
+  /** Go home: save the position first, then refresh what the home shows about it. */
+  const goHome = useCallback(() => {
+    bookmark()
+    endReview()
+    // A grade given a moment ago may still be waiting for its write; the home's review count is
+    // read again once it has landed, so it does not show the sentence just graded.
+    void notes.flush().then(reviewList.reload)
+    useMediaPlayer.getState().setPlaying(false)
+    // The takes belong to the episode that was open: going home closes it.
+    useMediaPlayer.getState().dropTakes()
+    setProgress(readAllProgress())
+    setLayer('none')
+    setStepsOpen(false)
+    setView('home')
+  }, [bookmark, endReview, notes, reviewList.reload])
 
   /**
    * Take dropped files into the library.
@@ -1102,7 +1022,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         settingsOpen,
         timingOpen: timing.session !== null,
         reviewing: review !== null,
-        reviewFinished: review !== null && isFinished(review),
+        reviewFinished: reviewDone,
         finishOpen,
         layerOpen: layer !== 'none',
         stepsOpen,
@@ -1132,7 +1052,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       if (lit !== null) flash(lit)
       perform(action)
     },
-    [cues.length, finishOpen, flash, hasVideoFile, layer, perform, review, selection, settingsOpen, stepsOpen, timing, view],
+    [cues.length, finishOpen, flash, hasVideoFile, layer, perform, review, reviewDone, selection, settingsOpen, stepsOpen, timing, view],
   )
 
   // A headset's previous and next buttons, and the lock screen's, do what the arrow keys do: the sentence before or after,
@@ -1141,10 +1061,10 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   // none of, so those do not apply: the mapping is the keymap's, asked with those flags off.
   const stepFromHeadset = useCallback(
     (delta: number): void => {
-      const action = headsetAction(delta, { reviewing: review !== null, reviewFinished: review !== null && isFinished(review) })
+      const action = headsetAction(delta, { reviewing: review !== null, reviewFinished: reviewDone })
       if (action !== null) perform(action)
     },
-    [review, perform],
+    [review, reviewDone, perform],
   )
   const headsetSteps = useMemo(
     () => ({ onPrevious: () => stepFromHeadset(-1), onNext: () => stepFromHeadset(1) }),
@@ -1191,7 +1111,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     notes.has({ at: stageCue.start, text: stageLines.english, segment: segmentId ?? undefined })
   // Shadowing hides the English of the sentence being repeated until it has been heard, and a
   // review hides it until the reader asks for it: saying it from what was heard comes first.
-  const reviewOn = review !== null && !isFinished(review)
   const masked = (shadow || reviewOn) && stageCue !== undefined && revealed !== activeIndex
   const practising = segmentPhrases.filter((phrase) => !phrase.done).length
   const reviewSegment = reviewItem?.phrase.segment === undefined ? null : findSegment(segments, reviewItem.phrase.segment)
