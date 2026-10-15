@@ -5,16 +5,17 @@
  * panel holds the headset's buttons exactly as long as there is a sentence to step through. There is no setting for it:
  * without handlers the browser would play or pause the media element behind the store's back, which is worse.
  *
- * Play and pause are guarded by whether a program is running, not simply toggled, because a headset can send `play`
- * while the browser believes the media is paused (a speaking pause is paused media, and the session says "playing"
- * through it) and a toggle would then stop the program the reader meant to start. Each one still does what the play
- * button does, through {@link togglePlayback}. What previous and next do is the page's: it knows whether a review is
+ * Play and pause are guarded, not simply toggled. `pause` and `stop` act only while a program runs. `play` acts when
+ * nothing runs, and also while a program runs with the media paused (a speaking pause, or a take playing in a
+ * comparison): iOS may decide which button to send from the media element rather than from the session's "playing", so
+ * a press there arrives as `play`, and a press mid-run means stop, as it does on the play button. Only a `play` while the
+ * media really plays is ignored ({@link playPresses}). Each one does what the play button does, through {@link togglePlayback}. What previous and next do is the page's: it knows whether a review is
  * running and the keys mean something else there, so it passes the mapping in.
  */
 import { useEffect, useRef } from 'react'
 import { useMediaPlayer } from '../model/store.ts'
 import { openSession, type SessionControl, type SessionMetadata } from './media-session.ts'
-import { isRunning, togglePlayback } from './transport.ts'
+import { isRunning, playPresses, togglePlayback } from './transport.ts'
 
 /** What previous track and next track do. */
 export interface SessionSteps {
@@ -41,7 +42,7 @@ export function useMediaSession(enabled: boolean, steps: SessionSteps, metadata:
     if (!enabled) return
     const opened = openSession({
       play: () => {
-        if (!isRunning(useMediaPlayer.getState())) togglePlayback()
+        if (playPresses(useMediaPlayer.getState())) togglePlayback()
       },
       pause: () => {
         if (isRunning(useMediaPlayer.getState())) togglePlayback()

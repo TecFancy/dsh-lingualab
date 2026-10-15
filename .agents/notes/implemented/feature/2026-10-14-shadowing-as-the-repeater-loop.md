@@ -140,9 +140,11 @@ reader turns it on.
     counts if the browser accepts it) and then runs the store's `toggle`, so a headset press during a speaking pause or a
     comparison ends the program at the sentence's start, like the button. `isRunning` is the one definition of "the button
     reads pause" (playing, waiting out a pause, or comparing).
-  - **Play and pause are guarded, not toggled.** `play` only acts when nothing is running and `pause` and `stop` only when
-    something is, because a headset can send `play` while the browser thinks the media is paused (it is, through a speaking
-    pause) and a bare toggle would stop the program the reader meant to start.
+  - **Play and pause are guarded, not toggled.** `pause` and `stop` only act while something is running. `play` acts when
+    nothing is running, and also while a program runs with the media paused (a speaking pause, or a take in a comparison),
+    where it ends the program like the button: iOS may pick the button from the media element, which is paused there,
+    so the reader's press to stop arrives as `play`. Only a `play` while the media really plays is ignored. (The first
+    build ignored `play` whenever a program ran, which would have made a press during a speaking pause do nothing.)
   - **Previous and next mirror the arrow keys.** In practice they step one sentence and clear the stage's selection, as the
     buttons and the arrows do. While a review runs the keys mean the queue, so the headset's previous goes back in the queue
     and its next skips the item, and a finished review (a dialog the keys leave alone) is left alone. With the timing strip
