@@ -18,9 +18,7 @@
  */
 import { gradeForKey } from '../../../shared/lib/grades.ts'
 import type { GivenGrade } from '../../../shared/notes-format.ts'
-
-/** Which view the page shows; the same two values as the page's own state. */
-export type KeyView = 'home' | 'practice'
+import type { View } from './panel.ts'
 
 /** A keystroke, reduced to what the decision reads. */
 export interface KeyPress {
@@ -36,7 +34,7 @@ export interface KeyPress {
 
 /** What the page is showing and doing while a key arrives. */
 export interface KeyContext {
-  readonly view: KeyView
+  readonly view: View
   /** The settings drawer is open: it owns the keyboard, as a layer does. */
   readonly settingsOpen: boolean
   /** The timing strip is open: it owns the keyboard, and the arrows move an edge instead of the sentence. */

@@ -35,7 +35,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { splitCue, type Cue } from '../../../entities/cue/index.ts'
+import { splitCue } from '../../../entities/cue/index.ts'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
 import { findSegment, hasMedia, nextSegment, segmentLabel, useLibrary } from '../../../features/library/index.ts'
@@ -49,23 +49,8 @@ import {
   type MicNotice,
 } from '../../../features/media-player/index.ts'
 import { addWordToNote, noteHasWord, removeWordFromNote, useNotes } from '../../../features/notes/index.ts'
-import {
-  continueSegment,
-  finishedSegments,
-  progressKeyOf,
-  readAllProgress,
-  readProgress,
-  startProgressSync,
-  writeProgress,
-  type Progress,
-} from '../../../features/resume/index.ts'
-import {
-  retryNotYet,
-  stepBack,
-  tallyReview,
-  useReviewList,
-  type ReviewItem,
-} from '../../../features/review/index.ts'
+import { finishedSegments } from '../../../features/resume/index.ts'
+import { retryNotYet, stepBack, tallyReview, useReviewList } from '../../../features/review/index.ts'
 import { resolveThemeVars, useHostDark, useSettings } from '../../../features/settings/index.ts'
 import {
   cardOf,
@@ -79,8 +64,7 @@ import {
 import { holdsMouseFocus, keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { keptSentenceKey, sameKeptSentence, withGrade, type GivenGrade } from '../../../shared/notes-format.ts'
-import { segmentProgress } from '../../../shared/progress.ts'
-import type { EpisodeEntry, NotePhrase, VideoStatusPayload } from '../../../shared/protocol.ts'
+import type { VideoStatusPayload } from '../../../shared/protocol.ts'
 import { STYLES } from '../../../shared/lib/styles.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { BackIcon, NoteIcon, SettingsIcon } from '../../../shared/ui/icons.tsx'
@@ -107,17 +91,11 @@ import { VideoNotice, VideoStage, type VideoNoticeData } from '../../../widgets/
 import type { PanelProps, Translate } from '../../../context.ts'
 import { useCardFit } from '../lib/useCardFit.ts'
 import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from '../lib/keymap.ts'
+import type { Column, Layer, View } from '../lib/panel.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
+import { useOpening } from '../lib/useOpening.ts'
+import { useResume } from '../lib/useResume.ts'
 import { useReviewRun } from '../lib/useReviewRun.ts'
-
-/** Which view the page shows. */
-type View = 'home' | 'practice'
-
-/** Which layer is over the page. Only one at a time; the steps popover is not a layer. */
-type Layer = 'none' | 'browse' | 'folder' | 'segments'
-
-/** What the right column shows: the subtitles, or the sentences kept from them. */
-type Column = 'transcript' | 'kept'
 
 /** The set of finished segments of an episode that has none. One value, so the memo below stays stable. */
 const NO_FINISHED: ReadonlySet<string> = new Set()
@@ -125,9 +103,6 @@ const NO_FINISHED: ReadonlySet<string> = new Set()
 export interface LingualabPageProps extends PanelProps {
   readonly t: Translate
 }
-
-/** How often the listening position is written down while an episode plays. */
-const BOOKMARK_MS = 5000
 
 /** How long a key cap stays lit after the page handles its key. */
 const FLASH_MS = 260
@@ -141,19 +116,6 @@ const MIC_NOTICE_KEYS: Readonly<Record<MicNotice, string>> = {
   denied: 'micDenied',
   unavailable: 'micUnavailable',
   blocked: 'micBlocked',
-}
-
-/**
- * Where a kept sentence starts in the cue list on screen.
- *
- * `notes.md` holds whole seconds, so a sentence that starts at 135.08 s reads back as 135,
- * which can sit in the gap before it: seeking there made the previous sentence the active
- * one, and that was the sentence the replay looped. The cue with the same second and the
- * same English is the one that was kept, by the rule the star already uses.
- */
-function keptCueStart(cues: readonly Cue[], at: number, text: string): number {
-  const key = keptSentenceKey({ at, text })
-  return cues.find((cue) => keptSentenceKey({ at: cue.start, text: splitCue(cue).english }) === key)?.start ?? at
 }
 
 /** Whether a keystroke belongs to a field the reader is typing in. */
@@ -231,7 +193,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const [flashed, setFlashed] = useState<string | null>(null)
   const [dismissedFinish, setDismissedFinish] = useState(0)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
   const containerRef: RefObject<HTMLDivElement> = useRef<HTMLDivElement>(null)
   const controlBar = useRef<ControlBarHandle>(null)
 
@@ -317,57 +278,20 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     reset(cues)
   }, [cues, reset])
 
-  /**
-   * Where to start the episode that was just opened, or `null` when it starts at the top.
-   *
-   * A ref, not state: it is a note to the effect below, set in an event handler and
-   * consumed once, and nothing on screen depends on it.
-   */
-  const resumeAt = useRef<number | null>(null)
-  /** Whether to loop the sentence at `resumeAt` once it has been seeked to: a replayed note, not a resume. */
-  const resumeLoop = useRef(false)
-  /** The English of the replayed note, so the seek lands on its cue rather than on its whole second. */
-  const resumeText = useRef<string | null>(null)
-
-  // Apply the bookmark. This has to come after the reset effect above and after the audio
-  // element knows its length: the reset zeroes the position, and a seek issued before the
-  // new source has loaded is discarded by the audio binding on purpose, so that a request
-  // from the previous episode cannot move the next one. Every open hands back a fresh media,
-  // so opening an episode that is already loaded re-runs this too. In that case the library
-  // keeps the cue list it has (it does not parse the same subtitles again), so the reset
-  // above does not fire afterwards and zero the position this seek has just set.
-  const media = library.media
-  const subtitled = media !== null && (media.subtitleEnUrl !== null || media.subtitleZhUrl !== null)
-  const cuesReady = cues.length > 0 || (media !== null && !subtitled)
-  useEffect(() => {
-    const target = resumeAt.current
-    const audio = binding.element
-    if (target === null || audio === null || !cuesReady) return
-    const apply = (): void => {
-      if (resumeAt.current === null) return
-      const text = resumeText.current
-      const at = text === null ? resumeAt.current : keptCueStart(cues, resumeAt.current, text)
-      const loop = resumeLoop.current
-      resumeAt.current = null
-      resumeLoop.current = false
-      resumeText.current = null
-      // A bookmark past the end (the file was replaced by a shorter one, or the segment was
-      // listened to the end) starts over.
-      if (Number.isFinite(audio.duration) && at >= audio.duration - 1) return
-      useMediaPlayer.getState().seek(at)
-      // A loop is only asked for by replaying a kept sentence, which plays it, as in the same segment.
-      if (loop) {
-        useMediaPlayer.getState().setLoopMode('sentence')
-        useMediaPlayer.getState().setPlaying(true)
-      }
-    }
-    if (audio.readyState >= 1) {
-      apply()
-      return
-    }
-    audio.addEventListener('loadedmetadata', apply, { once: true })
-    return () => audio.removeEventListener('loadedmetadata', apply)
-  }, [binding.element, cues, cuesReady, media, source.url])
+  // Where the listening is: a resume armed by whatever opens something, applied once the player can take the seek, and
+  // the position written down as it plays. After the reset effect above, which zeroes the position it then restores.
+  const resume = useResume({
+    view,
+    episodeId,
+    segmentId,
+    element: binding.element,
+    cues,
+    media: library.media,
+    sourceUrl: source.url,
+    finishCount,
+    reviewing,
+  })
+  const { progress, bookmark, arm: armResume, disarm: disarmResume, refreshProgress } = resume
 
   // The segment list takes the keyboard when it opens. When it closes the focused list is gone, and
   // focus that falls to the document would switch the page's shortcuts off, so it comes back here.
@@ -400,53 +324,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
       for (const name of events) panel.removeEventListener(name, unlock, true)
     }
   }, [library.loading, view])
-
-  /** What the position is stored under: the episode's id, or its segment's key. */
-  const positionKey = episodeId === null ? null : progressKeyOf(episodeId, segmentId)
-
-  /**
-   * Write the listening position down while an episode is on screen.
-   *
-   * On an interval and on the way out, not on every `timeupdate`: that event fires
-   * several times a second, and a `localStorage` write per tick is wasted work for a
-   * bookmark nobody reads until the next visit.
-   */
-  const bookmark = useCallback(() => {
-    if (positionKey === null) return
-    // Not while a resume is still waiting to be applied: the player sits at the start
-    // until it is, and writing that would overwrite the very bookmark it is about to use.
-    if (resumeAt.current !== null || reviewing.current) return
-    const state = useMediaPlayer.getState()
-    writeProgress(positionKey, state.currentTime, state.duration)
-  }, [positionKey])
-
-  useEffect(() => {
-    if (view !== 'practice') return
-    const timer = setInterval(bookmark, BOOKMARK_MS)
-    return () => {
-      clearInterval(timer)
-      bookmark()
-    }
-  }, [view, bookmark])
-
-  // Audio that plays to its end is finished, and "finished" is read off the stored position
-  // being within a second of the length. The five-second interval would usually get there, but
-  // not always, so the end of the audio writes it down itself. The count is the store's, which
-  // outlives this page, so only a change after mounting counts. The segment list and the home
-  // read the table fresh when they open.
-  const seenFinishCount = useRef(finishCount)
-  useEffect(() => {
-    if (finishCount === seenFinishCount.current) return
-    seenFinishCount.current = finishCount
-    const state = useMediaPlayer.getState()
-    if (positionKey !== null && view === 'practice' && state.duration > 0 && !reviewing.current) {
-      writeProgress(positionKey, state.duration, state.duration)
-    }
-  }, [finishCount, positionKey, view])
-
-  // Share progress with the host for as long as the page is open: what another device left
-  // arrives here, and the home picks it up the moment it does.
-  useEffect(() => startProgressSync(() => setProgress(readAllProgress())), [])
 
   /** The segments of this episode that are finished, which the segment list marks. */
   const finishedIds = useMemo(
@@ -570,89 +447,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     return at >= 0 ? (playable[at + 1] ?? null) : null
   }, [playable, library.episode])
 
-  /** The entry for an episode id: from the listing, or the open one when it lives outside it. */
-  const entryFor = useCallback(
-    (id: string): EpisodeEntry | null =>
-      [...(library.payload?.episodes ?? []), ...(library.payload?.files ?? [])].find((entry) => entry.id === id) ??
-      (library.episode?.id === id ? library.episode : null),
-    [library.payload, library.episode],
-  )
-
-  /**
-   * Open an episode by id and move to the practice view when the host agrees.
-   *
-   * For an episode cut into segments this is where 「继续」 is decided, in one place: the segment
-   * listened to most recently, or the first when none has been. The host opens whichever it is
-   * told, because the host knows no more than the progress file and the page has the reader's
-   * positions to hand.
-   */
-  const openEpisode = useCallback(
-    (id: string): void => {
-      void (async () => {
-        const entry = entryFor(id)
-        const positions = readAllProgress()
-        const chosen = entry === null || entry.segments.length === 0 ? null : continueSegment(positions, entry)
-        if (!(await library.openEpisode(id, chosen ?? undefined))) return
-        // Set before the view switches, so the effect that applies it sees it.
-        resumeAt.current =
-          chosen === null
-            ? (readProgress(id)?.at ?? null)
-            : (segmentProgress(positions, id, chosen, entry?.segments.map((item) => item.id) ?? [])?.at ?? null)
-        resumeLoop.current = false
-        setSelection(null)
-        setLayer('none')
-        setView('practice')
-      })()
-    },
-    [library, entryFor],
-  )
-
-  /**
-   * Move to another segment of the open episode.
-   *
-   * The outgoing segment's position is saved first. The incoming one resumes where it was left
-   * unless `to` says where to go, which is what replaying a kept sentence does: it names the
-   * second to seek to and asks for the sentence to be looped, and the drawer it came from stays open.
-   */
-  const openSegment = useCallback(
-    (id: string, to?: { readonly at: number; readonly loop: boolean; readonly text?: string }): void => {
-      if (episode === null || id === segmentId) return
-      void (async () => {
-        bookmark()
-        if (!(await library.openEpisode(episode.id, id))) return
-        const ids = episode.segments.map((item) => item.id)
-        const positions = readAllProgress()
-        resumeAt.current = to?.at ?? segmentProgress(positions, episode.id, id, ids)?.at ?? null
-        resumeLoop.current = to?.loop === true
-        resumeText.current = to?.text ?? null
-        setSelection(null)
-        if (to === undefined) setLayer('none')
-        setProgress(positions)
-      })()
-    },
-    [episode, segmentId, bookmark, library],
-  )
-
-  /**
-   * Replay a kept sentence: seek to it and loop it, opening its segment first when it is in another.
-   *
-   * A segment the episode no longer has (the file was renamed) cannot be opened, so the
-   * sentence is replayed at its second in the one on screen rather than doing nothing.
-   */
-  const replayPhrase = useCallback(
-    (phrase: NotePhrase): void => {
-      if (phrase.segment !== undefined && phrase.segment !== segmentId && findSegment(segments, phrase.segment) !== null) {
-        openSegment(phrase.segment, { at: phrase.at, loop: true, text: phrase.text })
-        return
-      }
-      useMediaPlayer.getState().seekCueAt(keptCueStart(cues, phrase.at, phrase.text))
-      useMediaPlayer.getState().setLoopMode('sentence')
-      // A seek alone leaves paused audio paused, and the card's play icon then did nothing.
-      useMediaPlayer.getState().setPlaying(true)
-    },
-    [cues, segmentId, segments, openSegment],
-  )
-
   /**
    * Why this episode's subtitles cannot be saved from the timing strip, or `null`.
    *
@@ -683,22 +477,17 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
         const index = notes.phrases.findIndex((phrase) => sameKeptSentence(phrase, key))
         if (index >= 0) notes.update(index, { at: after })
       }
-      const after = saved.after.start / 1000
-      resumeAt.current = after
-      resumeLoop.current = useMediaPlayer.getState().isPlaying
-      resumeText.current = null
+      armResume(saved.after.start / 1000, useMediaPlayer.getState().isPlaying, null)
       library.reloadCues()
     },
-    [notes, segmentId, library],
+    [notes, segmentId, library, armResume],
   )
 
   /** The file changed under the page: read it again and stay where the playhead is. */
   const onTimingStale = useCallback((): void => {
-    resumeAt.current = useMediaPlayer.getState().currentTime
-    resumeLoop.current = false
-    resumeText.current = null
+    armResume(useMediaPlayer.getState().currentTime, false, null)
     library.reloadCues()
-  }, [library])
+  }, [library, armResume])
 
   /**
    * After the 「字幕」 popover saved a choice: open the same episode and segment again, so the host
@@ -707,14 +496,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
    */
   const onSubtitlesSaved = useCallback((): void => {
     if (episodeId === null) return
-    resumeAt.current = useMediaPlayer.getState().currentTime
-    resumeLoop.current = false
-    resumeText.current = null
+    armResume(useMediaPlayer.getState().currentTime, false, null)
     void library.openEpisode(episodeId, segmentId ?? undefined).then((opened) => {
-      if (!opened) resumeAt.current = null
+      if (!opened) disarmResume()
       library.refreshListing()
     })
-  }, [episodeId, segmentId, library])
+  }, [episodeId, segmentId, library, armResume, disarmResume])
 
   const timing = useTimingEditor({
     cues,
@@ -743,33 +530,14 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     timing.open(activeIndex)
   }, [cues, activeIndex, timing])
 
-  /**
-   * Put one review item on stage: replay it in the open episode, or open its episode (at its
-   * segment) first and replay it there, the way a kept sentence from another segment is replayed.
-   * @returns false when its episode could not be opened, which the review counts as gone.
-   */
-  const goToItem = useCallback(
-    async (item: ReviewItem): Promise<boolean> => {
-      if (item.episode === episodeId) {
-        // A review started from the home can begin in the episode that is already loaded.
-        setSelection(null)
-        setView('practice')
-        replayPhrase(item.phrase)
-        return true
-      }
-      const entry = entryFor(item.episode)
-      const wanted = item.phrase.segment
-      const segmentOf = wanted !== undefined && entry !== null && findSegment(entry.segments, wanted) !== null ? wanted : undefined
-      if (!(await library.openEpisode(item.episode, segmentOf))) return false
-      resumeAt.current = item.phrase.at
-      resumeLoop.current = true
-      resumeText.current = item.phrase.text
-      setSelection(null)
-      setView('practice')
-      return true
-    },
-    [episodeId, replayPhrase, entryFor, library],
-  )
+  const { openEpisode, openFile, openSegment, replayPhrase, goToItem } = useOpening({
+    library,
+    cues,
+    resume,
+    setView,
+    setLayer,
+    setSelection,
+  })
 
   /** Close what is over the practice view, because a review takes it over. */
   const closeReviewLayers = useCallback((): void => {
@@ -799,11 +567,11 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     useMediaPlayer.getState().setPlaying(false)
     // The takes belong to the episode that was open: going home closes it.
     useMediaPlayer.getState().dropTakes()
-    setProgress(readAllProgress())
+    refreshProgress()
     setLayer('none')
     setStepsOpen(false)
     setView('home')
-  }, [bookmark, endReview, notes, reviewList.reload])
+  }, [bookmark, endReview, notes, reviewList.reload, refreshProgress])
 
   /**
    * Take dropped files into the library.
@@ -1239,7 +1007,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
                 onToggle={() => {
                   setStepsOpen(false)
                   setSettingsOpen(false)
-                  if (layer !== 'segments') setProgress(readAllProgress())
+                  if (layer !== 'segments') refreshProgress()
                   setLayer(layer === 'segments' ? 'none' : 'segments')
                 }}
                 onClose={() => setLayer('none')}
@@ -1485,14 +1253,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           opening={library.opening}
           openError={library.openError}
           onOpenEpisode={(id) => openEpisode(id)}
-          onOpenFile={(place, rel) => {
-            void (async () => {
-              if (!(await library.openFile(place, rel))) return
-              setSelection(null)
-              setLayer('none')
-              setView('practice')
-            })()
-          }}
+          onOpenFile={openFile}
           onUseFolder={(place, rel) => {
             void (async () => {
               if (await folder.useAsLibrary(place, rel)) {
