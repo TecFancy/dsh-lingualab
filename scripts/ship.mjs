@@ -120,7 +120,7 @@ async function startRelease() {
   if (watched.status !== 0) fail('PR 的检查没有全过', `看 ${url}，修好后推到 development，全绿后：npm run ship -- --continue`)
   say('\n✅ 检查全绿')
   if (!run.dryRun) judge(checkContinueReadiness(gatherContinueFacts(run, root)))
-  mergeAndSync(number, target)
+  mergeAndSync(number, target, 5)
 }
 
 function reportChecks(number) {
@@ -134,15 +134,18 @@ function reportChecks(number) {
   process.exit(3)
 }
 
-/** Merge the pull request with a merge commit, then fast-forward development onto main. */
-function mergeAndSync(number, version) {
-  say('\n5. 合并')
+/**
+ * Merge the pull request with a merge commit, then fast-forward development onto main.
+ * `step` is the merge's number in the caller's list, so each mode counts without gaps.
+ */
+function mergeAndSync(number, version, step) {
+  say(`\n${step}. 合并`)
   const merge = must(
     'gh', ['pr', 'merge', String(number), '--merge', '--subject', mergeSubject(version, number)],
     `合并没成功，看 PR 页面；成功后用 git fetch origin && git merge --ff-only origin/main && git push origin development 同步`,
   )
 
-  say('\n6. 把 main 同步回 development')
+  say(`\n${step + 1}. 把 main 同步回 development`)
   const sync = '合并已经完成。排查后手动：git fetch origin && git merge --ff-only origin/main && git push origin development'
   must('git', ['fetch', 'origin'], sync)
   must('git', ['merge', '--ff-only', 'origin/main'], sync)
@@ -166,7 +169,7 @@ function finishRelease() {
   const version = pr === null ? 'X.Y.Z' : (versionFromTitle(pr.title) ?? 'X.Y.Z')
   if (pr !== null) say(`  PR #${pr.number}：${pr.title}\n  ${pr.url}`)
   if (pr !== null) reportChecks(pr.number)
-  mergeAndSync(number, version)
+  mergeAndSync(number, version, 2)
 }
 
 if (args.mode === 'ship') await startRelease()

@@ -285,7 +285,7 @@ npm run release:notes [版本号]                               # 打印这一�
 
 **`--no-wait` 与 `--continue`** 是两步的形式，给不该轮询 CI 的调用方（agent）用：`ship -- patch --no-wait` 开完 PR 就停；
 CI 跑完之后 `ship -- --continue` 找到开着的 development 到 main 的 PR，**只读一次**检查，不轮询。还在跑退出码 3
-（等一等再来）；有失败退出码 1 并点名；全绿才做第 5、6 步。状态一律从 git 和 gh 现查，没有状态文件。
+（等一等再来）；有失败退出码 1 并点名；全绿才合并、同步回来（上面的第 5、6 步，`--continue` 自己的输出里编为第 2、3 步）。状态一律从 git 和 gh 现查，没有状态文件。
 
 **`--dry-run`**：检查是真跑的（它们只读），会改东西的命令（`release.mjs`、verify、push、`pr create`、`pr merge`、ssh）
 只打印不执行。检查没过时 dry-run 只报告、继续演示计划，所以在功能分支上也能看全流程。
