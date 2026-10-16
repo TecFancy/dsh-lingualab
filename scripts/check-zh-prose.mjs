@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * Chinese prose gate — the mechanical half of `docs/i18n/prose-rules.md`.
+ * Chinese prose gate: the mechanical half of the prose rules in `AGENTS.md`
+ * ("写东西的规矩").
  *
  * It checks what a machine can check: punctuation width, quoting style,
  * mixed-script spacing, digit width, second person, proper-noun casing, and the
- * 「不要译作」 column of the terminology table. It cannot read, so a green run
+ * 「不要译作」 column of the terminology table (`docs/i18n/terminology.md`,
+ * optional: the term check runs only when that file exists). It cannot read, so a green run
  * means the mechanics hold, not that the prose is good — that stays with review.
  *
  * Usage: node scripts/check-zh-prose.mjs
@@ -225,7 +227,7 @@ if (violations.length > 0) {
     for (const item of items.slice(0, 6)) console.log(`       ${item.line}:${item.id} ${item.hint}  ← ${item.snippet}`)
     if (items.length > 6) console.log(`       …另有 ${items.length - 6} 处`)
   }
-  console.log('     规范见 docs/i18n/prose-rules.md，术语表见 docs/i18n/terminology.md')
+  console.log('     规范见 AGENTS.md 的「写东西的规矩」，术语表（可选）见 docs/i18n/terminology.md')
   process.exit(1)
 }
 console.log('  ✅ 中文写作规范（标点／空格／数字／语声／术语）')
