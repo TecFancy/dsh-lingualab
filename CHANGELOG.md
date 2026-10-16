@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-10-16
+
 ### Fixed
 
 - `npm run test:coverage` runs: `@vitest/coverage-v8` is now a dev dependency, and the `coverage/` output is ignored by

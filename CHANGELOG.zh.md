@@ -17,6 +17,8 @@
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-10-16
+
 ### 修复
 
 - `npm run test:coverage` 能跑了：`@vitest/coverage-v8` 加进开发依赖，`coverage/` 产物不进 git。
