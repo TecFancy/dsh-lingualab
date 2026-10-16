@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.5] - 2026-10-16
+
+### Fixed
+
+- `npm run ship -- --continue` numbers its own steps 1, 2, 3. It used to print 1, 5, 6, borrowing the merge and sync-back
+  numbers from the full flow.
+
 ## [0.14.4] - 2026-10-15
 
 ### Added
