@@ -19,6 +19,17 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-10-16
+
+### Fixed
+
+- `npm run test:coverage` runs: `@vitest/coverage-v8` is now a dev dependency, and the `coverage/` output is ignored by
+  git.
+- The skill says TypeScript is pinned at 5.9.3 and why (steiger's `@feature-sliced/filesystem` needs `typescript ^5.8.3`;
+  a 6.x pin puts two copies in the lock and breaks `npm ci` on CI). It used to say 6.0.2.
+- `zh:prose` and `bilingual:check` point at the prose rules in `AGENTS.md` instead of a `docs/i18n/prose-rules.md` that
+  never existed, and say the terminology table is optional.
+
 ## [0.14.5] - 2026-10-16
 
 ### Fixed

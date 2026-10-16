@@ -15,8 +15,9 @@
  *      is visible instead of silent.
  *
  * What it cannot see (inline code, emphasis, wording inside lists and tables,
- * meaning, terminology, tone) belongs to review. `docs/i18n/prose-rules.md`
- * owns the Chinese side and `npm run zh:prose` owns its mechanical half.
+ * meaning, terminology, tone) belongs to review. The prose rules in `AGENTS.md`
+ * ("写东西的规矩") own the Chinese side and `npm run zh:prose` owns their
+ * mechanical half.
  *
  * Usage:
  *   node scripts/check-bilingual.mjs                    # compare against the records

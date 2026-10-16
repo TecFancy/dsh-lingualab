@@ -17,6 +17,16 @@
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-10-16
+
+### 修复
+
+- `npm run test:coverage` 能跑了：`@vitest/coverage-v8` 加进开发依赖，`coverage/` 产物不进 git。
+- 技能里写明 TypeScript 钉在 5.9.3 以及原因（steiger 依赖的 `@feature-sliced/filesystem` 要 `typescript ^5.8.3`，
+  钉 6.x 会让 lock 里出现两份，CI 上 `npm ci` 失败）。以前写的是 6.0.2。
+- `zh:prose` 与 `bilingual:check` 指向 `AGENTS.md` 里的写作规矩，不再指向从来不存在的 `docs/i18n/prose-rules.md`，
+  并说明术语表是可选的。
+
 ## [0.14.5] - 2026-10-16
 
 ### 修复

@@ -127,7 +127,9 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
   - **给新工作的规矩**：新逻辑进切片自己 `lib/` 里带测试的 hook 或纯函数；一个组件眼看要过 80 行就拆成几个小组件，不是把它记进 baseline。
     页面（`LingualabPage`）因为要组合很多 feature 仍在 baseline 里，那是现状，不是许可：它回不到更大。
   - 它只在全档里跑，约 20 秒，所以提交前钩子不拦；拆了大函数的提交要自己记得跑一遍 `npm run betterer`。
-- **TypeScript 钉在 6.0.2**：`typescript-eslint@8` 的 peer 范围还不接受 TS 7。升级前先确认。
+- **TypeScript 钉在 5.9.3（`~5.9.3`）**：steiger 依赖的 `@feature-sliced/filesystem` 要 `typescript ^5.8.3`，
+  根上钉 6.x 会让 lock 里出现两份，干净的 CI runner 上 `npm ci` 报 `Missing: typescript@5.9.3 from lock file`。
+  升级前先确认它放宽了范围。
 - **`zod-validation-error` 直接钉在 4.x**：`eslint-plugin-react-hooks@7` 要
   `zod-validation-error/v4` 这个子路径，而 steiger 依赖的 3.x 会被 npm 提到顶层导致 ESLint
   起不来。根上放一份 4.x，steiger 自己那份嵌在它下面。
