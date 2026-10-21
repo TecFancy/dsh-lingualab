@@ -267,6 +267,19 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
   只在这台设备上，不进 host，也不进进度文件。舞台字号靠根元素的 `data-ll-stage-size` 与 `--ll-stage-scale`。「中文显示」也在这份设置里，控制栏按钮和 `C` 键都写 `setZhMode`，页面不再自己存一份。设置抽屉（`widgets/settings-panel`）
   照着五步法抽屉做，和它互相关闭，抽屉里的按键不冒泡给页面快捷键。
 
+## 分支与改动流程（2026-10-21 定）
+
+- **不允许直接在 `main` 上修改。** `main` 只接从 `development` 来的发布 PR。
+- **可以直接在 `development` 上修改。**
+- 改动要基于 `origin/development` 时，按三步走：
+  1. 先把本地 `development` 从 `origin/development` 更新同步，例如 `git fetch origin development:development`，
+     或切到 `development` 后跑 `git pull --ff-only`。
+  2. 基于本地 `development` 创建 worktree，改动都在 worktree 里做：
+     `git worktree add -b <分支名> ../dsh-lingualab-<主题> development`。
+  3. worktree 里改完，提交并推分支，开 PR 到 `development`。
+- 主工作树留在 `main`：线上那台 dsh 用 `link:` 装到主工作树，只该跑发布版代码。worktree 在仓库目录之外，
+  和它互不影响。PR 合了就删掉 worktree 和分支。
+
 ## 发版与 Release（2026-10-08 定，2026-10-15 改成一条命令）
 
 ```sh
@@ -339,3 +352,6 @@ CI 跑完之后 `ship -- --continue` 找到开着的 development 到 main 的 PR
 
 **为什么** → `.agents/notes/`；**是什么** → README 与源码注释；**怎么干活** → 这份技能；
 **每轮必读** → `AGENTS.md`。没有 `docs/INDEX.md`，README 加链接就是索引。
+
+新规矩默认写进这份技能，其次写成一篇 note；`AGENTS.md` 只留每轮都要知道的事。它每轮都会注入上下文，
+写得越长，每轮占的上下文越多，真正要紧的几条也会被挤淡。
