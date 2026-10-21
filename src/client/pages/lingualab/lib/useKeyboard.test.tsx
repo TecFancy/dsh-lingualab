@@ -69,8 +69,7 @@ function setup(over: Partial<KeyboardOptions> = {}, handlers: { menuOpen?: boole
     setSettingsOpen: (open) => log.push(`settings:${String(open)}`),
     stepsOpen: false,
     setStepsOpen: (open) => log.push(`steps:${String(open)}`),
-    column: 'transcript',
-    setColumn: (column) => log.push(`column:${column}`),
+    side: { toggleKept: () => log.push('side:kept'), toggleCollapsed: () => log.push('side:collapse') },
     zhMode: 'dim',
     setZhMode: (mode) => log.push(`zh:${mode}`),
     selection: null,
@@ -226,13 +225,12 @@ describe('useKeyboard: what a key does', () => {
     expect(picked.log).toEqual(['keep:2'])
   })
 
-  it('switches the right column on N', () => {
-    const transcript = setup({ column: 'transcript' })
-    press(transcript.keyboard, 'n')
-    const kept = setup({ column: 'kept' })
-    press(kept.keyboard, 'N')
-    expect(transcript.log).toEqual(['column:kept'])
-    expect(kept.log).toEqual(['column:transcript'])
+  it('switches the right column on N, and collapses or expands it on a backslash', () => {
+    const { keyboard, log } = setup()
+    expect(press(keyboard, 'n')).toBe(true)
+    expect(press(keyboard, 'N')).toBe(true)
+    expect(press(keyboard, '\\')).toBe(true)
+    expect(log).toEqual(['side:kept', 'side:kept', 'side:collapse'])
   })
 
   it('cycles the Chinese display on C', () => {

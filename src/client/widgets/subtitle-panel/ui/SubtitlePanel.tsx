@@ -13,7 +13,7 @@
  * The column is shared with the kept sentences; the switch between the two is the page's and
  * sits in this heading in place of a title.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { visibleCueLines, type Cue, type SubtitleZhMode } from '../../../entities/cue/index.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
@@ -21,6 +21,7 @@ import { formatClock } from '../../../shared/lib/format.ts'
 import { LoopIcon, StarIcon } from '../../../shared/ui/icons.tsx'
 import { ListSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { Translate } from '../../../context.ts'
+import { bringIntoView } from '../lib/scroll.ts'
 
 export interface SubtitlePanelProps {
   readonly t: Translate
@@ -43,28 +44,6 @@ export interface SubtitlePanelProps {
   readonly onPlay: (index: number) => void
   /** Keeps the sentence, or takes it back when it is already kept. */
   readonly onKeep: (index: number) => void
-}
-
-/** Whether the reader asked the system for less motion. */
-function reducedMotion(): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/**
- * Bring one row into the list's middle band by scrolling the list itself.
- *
- * `scrollIntoView` also scrolls every ancestor, which on a page that shares a document
- * with a conversation moves the wrong thing. Scrolling the one container we own does not.
- */
-function bringIntoView(list: HTMLElement, row: HTMLElement, smooth: boolean): void {
-  const top = row.offsetTop
-  const bottom = top + row.offsetHeight
-  const margin = list.clientHeight * 0.28
-  if (top >= list.scrollTop + margin && bottom <= list.scrollTop + list.clientHeight - margin) return
-  list.scrollTo({
-    top: Math.max(0, top - list.clientHeight / 2 + row.offsetHeight / 2),
-    behavior: smooth && !reducedMotion() ? 'smooth' : 'auto',
-  })
 }
 
 /** The scrolling list of cues. */
@@ -95,6 +74,13 @@ export function SubtitlePanel({
     if (!follow || listRef.current === null || activeRef.current === null) return
     bringIntoView(listRef.current, activeRef.current, true)
   }, [activeIndex, follow])
+
+  // The list appearing (the column expanded, or switched back from the kept sentences) lands on the playing sentence at
+  // once, follow or not: it was not following while it was not there, and a list at its top is no place to keep.
+  const hasList = cues.length > 0
+  useLayoutEffect(() => {
+    if (hasList && listRef.current !== null && activeRef.current !== null) bringIntoView(listRef.current, activeRef.current, false)
+  }, [hasList])
 
   // A keyboard move is a deliberate jump, so that one is scrolled to even without follow.
   useEffect(() => {

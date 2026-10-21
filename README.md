@@ -121,7 +121,7 @@ type with its neighbours faded around it; the column on the right lists every se
 playback unless you switch 「Auto-follow」 off, and marks the kept ones. A few details earn their
 place by being used every session. The progress bar spans the episode with a hairline at every
 sentence start, shows the time and the sentence under the pointer on hover, and seeks once, on
-release, when dragged. Clicking an English word copies it or adds it to that sentence's note
+release, when dragged; moving the finger away from the bar while dragging scrubs at half and then a quarter speed. Clicking an English word copies it or adds it to that sentence's note
 without stopping the audio; dragging across words, or `Shift`-clicking a second one, does the same
 for the phrase between them, and a second click on 「已记下」 takes it out again. **Shadowing** stops after each sentence with the English blurred
 and uncovers it at the stop; `R` uncovers it any time. In 「更多」 it becomes a repeater's program: each sentence played
@@ -156,6 +156,11 @@ stays on one line), so they stay readable in an editor and greppable by
 the agent that runs the next-day review; a file episode's notes live in the plugin's profile,
 because the plugin does not write anywhere in the material folder except to add the files you
 hand it.
+
+**The right column collapses.** The panel icon beside 「收藏」 in the top bar, or `\`, takes the column out of
+the row so the stage has the whole width (on an iPad the stage is otherwise 440 to 630px wide), and the picture grows
+with it. `N` or the 「收藏」 chip on a collapsed column opens it straight into the kept sentences; opening it on the
+subtitles lands on the sentence playing. Whether it is collapsed is kept in this browser, with the settings below.
 
 **Settings** are the sliders icon at the right end of the top bar, on the home and in the practice
 view. They open a drawer that changes only this page and never dsh itself: a theme (「默认」, 「墨蓝」,

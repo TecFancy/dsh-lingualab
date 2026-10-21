@@ -23,6 +23,7 @@ describe('parseSettings', () => {
       stageSize: 'l',
       zhMode: 'hidden',
       picture: 'large',
+      sideCollapsed: false,
     })
   })
 
@@ -33,6 +34,7 @@ describe('parseSettings', () => {
       stageSize: 'm',
       zhMode: 'dim',
       picture: 'shown',
+      sideCollapsed: false,
     })
     expect(parseSettings('{"theme":"dusk","appearance":3}')).toEqual({
       theme: 'dusk',
@@ -40,6 +42,7 @@ describe('parseSettings', () => {
       stageSize: 'm',
       zhMode: 'dim',
       picture: 'shown',
+      sideCollapsed: false,
     })
   })
 
@@ -81,8 +84,29 @@ describe('the store', () => {
       stageSize: 's',
       zhMode: 'dim',
       picture: 'shown',
+      sideCollapsed: false,
     })
-    expect(readSettings()).toEqual({ theme: 'ink', appearance: 'dark', stageSize: 's', zhMode: 'dim', picture: 'shown' })
+    expect(readSettings()).toEqual({
+      theme: 'ink',
+      appearance: 'dark',
+      stageSize: 's',
+      zhMode: 'dim',
+      picture: 'shown',
+      sideCollapsed: false,
+    })
+  })
+
+  it('remembers the collapsed right column across a reload, and expands for anything but a stored true', () => {
+    expect(useSettings.getState().sideCollapsed).toBe(false)
+    useSettings.getState().setSideCollapsed(true)
+    expect(useSettings.getState().sideCollapsed).toBe(true)
+    expect(JSON.parse(data.get(SETTINGS_KEY) ?? 'null')).toMatchObject({ sideCollapsed: true })
+    expect(readSettings().sideCollapsed).toBe(true)
+    useSettings.getState().setSideCollapsed(false)
+    expect(readSettings().sideCollapsed).toBe(false)
+    expect(parseSettings('{"sideCollapsed":"yes"}').sideCollapsed).toBe(false)
+    expect(parseSettings('{"sideCollapsed":1}').sideCollapsed).toBe(false)
+    expect(parseSettings('{"sideCollapsed":true,"theme":"ink"}')).toEqual({ ...DEFAULT_SETTINGS, theme: 'ink', sideCollapsed: true })
   })
 
   it('remembers 「中文显示」 across a reload, and refuses a mode that is not one', () => {
@@ -183,6 +207,13 @@ describe('the picture state', () => {
 
   it('does not remember what the steps will put back', () => {
     useSettings.getState().blindStarted()
-    expect(Object.keys(JSON.parse(data.get(SETTINGS_KEY) ?? '{}'))).toEqual(['theme', 'appearance', 'stageSize', 'zhMode', 'picture'])
+    expect(Object.keys(JSON.parse(data.get(SETTINGS_KEY) ?? '{}'))).toEqual([
+      'theme',
+      'appearance',
+      'stageSize',
+      'zhMode',
+      'picture',
+      'sideCollapsed',
+    ])
   })
 })

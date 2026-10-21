@@ -19,6 +19,24 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-21
+
+### Added
+
+- The practice view's right column collapses: a toggle in the top bar beside the kept chip, or `\`. Collapsed, the
+  column is not drawn and the picture takes its share of the whole width. `N` or the kept chip opens a collapsed column
+  straight into the kept sentences, and the subtitle list lands on the sentence playing when it appears. The choice is
+  kept per browser with the other settings.
+- Fine scrubbing on the progress bar. While the thumb is held, moving the finger away from the bar, up or down, scrubs
+  at half speed from 44px and at a quarter from 88px, and a label above the thumb shows the speed, the time, the
+  sentence number and the sentence. Changing speed never moves the thumb, and release still seeks once.
+
+### Changed
+
+- The top bar's kept chip says 「收藏」 (Kept in English), the column's own word, instead of 「笔记」 (Notes).
+- In a top bar of 720px or less the back chip and the kept chip show only their icon (and the count), so the title
+  keeps room; on a touch screen the top bar's chips and buttons have a 44px hit area at their usual size.
+
 ## [0.14.6] - 2026-10-16
 
 ### Fixed

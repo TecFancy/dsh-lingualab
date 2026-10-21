@@ -18,7 +18,7 @@ moves to the next sentence and plays it. Four gaps follow from that, checked on 
    to compare", and there is no recording anywhere in the source. Comparing your voice with the
    original is the feature a repeater is bought for.
 2. **The reveal contradicts the copy.** `shadowHint` and the README say "you say it first, then press
-   R"; the store reveals at the stop, so the answer is on screen before the reader has opened their
+   R"; the store reveals at the stop, so the answer is on screen before the user has opened their
    mouth.
 3. **Shadowing and looping exclude each other.** The stop only fires when `loopMode` is `none`, and the
    repeat count is offered only for A-B loops. A repeater's basic program, "each sentence twice, a
@@ -36,7 +36,7 @@ text is the answer key, not the material.
 ## Decision
 
 Four pieces, in this order. Each ships on its own and leaves the default behaviour unchanged until the
-reader turns it on.
+user turns it on.
 
 1. **Shadowing as a sentence program.** In shadowing mode the 「更多」 menu offers three settings: plays
    per sentence (1, 2 or 3), a speaking pause after each play (off, the sentence's own length, or
@@ -99,22 +99,22 @@ reader turns it on.
   the timeout that ends it is in `useMediaBinding`, so a pause outlives neither the program nor the page. Three choices were
   made while building them. A pause is measured at the playback speed, because a sentence heard at half speed is said about
   as slowly. During a pause the play button reads "pause" and pressing it ends the program at the sentence's start rather than
-  skipping the rest of the pause, because a reader who reaches for the button mid-run wants it to stop. Any other way of
+  skipping the rest of the pause, because a user who reaches for the button mid-run wants it to stop. Any other way of
   starting or stopping playback (a row, a review, going home) also ends the program.
 - **Piece 3 is built (2026-10-15).** The microphone switch is `record` in `ShadowSettings`. Recording only exists inside a
   speaking pause, so the setting is kept in step with the pause instead of being disabled when the pause is off (a dead
-  end the reader has to back out of): turning the switch on while the pause is off sets it to the sentence's own length,
+  end the user has to back out of): turning the switch on while the pause is off sets it to the sentence's own length,
   and turning the pause off turns the switch off (`mergeShadow`, one place, tested). A recorded pause hands over to a
   comparison through `planShadow` (`compare` goes in, `{ do: 'compare' }` comes out). The store's `compare` state then plays
   the sentence through the source, and a take through the shared take `Audio` element while the source waits at the
   sentence's start, and then asks `planShadow` again as if the pause had just ended, so the comparison is not one of the
   plays and the program goes on exactly as it would have. `compare` is cleared by `IDLE_PROGRAM` like a pause, which is what
-  stops a recording or a take when the reader plays, steps, seeks or loops. The browser code is in
+  stops a recording or a take when the user plays, steps, seeks or loops. The browser code is in
   `features/media-player/lib/recorder.ts` (`MediaRecorder` and `getUserMedia` behind an environment object, tested with
   fakes) and is driven by one hook, `useTakes`, so the store stays free of browser objects. The key is `D`, the first letter of the
   button's pinyin name (`C` is the Chinese display). The last take of each sentence lives in the store and is dropped with the cue list, on going home and
   when the page unmounts; an epoch counter discards a recording that finishes after that, so it cannot land in the next
-  episode. A pause the reader cuts short keeps what was said so far, and a take under 0.4 seconds is thrown away so a stray
+  episode. A pause the user cuts short keeps what was said so far, and a take under 0.4 seconds is thrown away so a stray
   press does not replace a good one. The permission prompt comes when the switch is turned on (a probe that gives the
   microphone straight back), not in the middle of the first pause; a recording whose permission arrives after its pause is
   over is discarded; any failure switches the switch off with a short notice and leaves the program as it was. A take plays
@@ -124,7 +124,7 @@ reader turns it on.
   after the last touch, so a fresh element per take would be refused every time. `primeTakeAudio` plays a silent clip on the
   element and counts as done only when the browser accepted it, so a refused try is repeated at the next gesture. It is called
   from the microphone switch, the 「对比」 button, the play button, the Space and `D` keys, and from a capture-phase
-  listener on the panel container (never `window` or `document`) for a reader whose recording was already on from last
+  listener on the panel container (never `window` or `document`) for a user whose recording was already on from last
   time; the play button, Space and the container listener only do it while recording is on. A take then only changes the
   element's `src`, and releasing it clears the handlers and the source but keeps the element.
 - **Piece 4 is built (2026-10-15).** `useMediaSession` (`features/media-player/lib/`, called by the page) holds the Media
@@ -143,7 +143,7 @@ reader turns it on.
   - **Play and pause are guarded, not toggled.** `pause` and `stop` only act while something is running. `play` acts when
     nothing is running, and also while a program runs with the media paused (a speaking pause, or a take in a comparison),
     where it ends the program like the button: iOS may pick the button from the media element, which is paused there,
-    so the reader's press to stop arrives as `play`. Only a `play` while the media really plays is ignored. (The first
+    so the user's press to stop arrives as `play`. Only a `play` while the media really plays is ignored. (The first
     build ignored `play` whenever a program ran, which would have made a press during a speaking pause do nothing.)
   - **Previous and next mirror the arrow keys.** In practice they step one sentence and clear the stage's selection, as the
     buttons and the arrows do. While a review runs the keys mean the queue, so the headset's previous goes back in the queue

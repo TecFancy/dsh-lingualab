@@ -93,6 +93,8 @@ export type KeyAction =
   /** Keep or un-keep a sentence: the picked row, or the one on stage when `index` is `null`. */
   | { readonly type: 'keep'; readonly index: number | null }
   | { readonly type: 'toggle-column' }
+  /** `\`: collapse or expand the right column. */
+  | { readonly type: 'toggle-side' }
   | { readonly type: 'cycle-zh' }
   | { readonly type: 'reveal' }
   | { readonly type: 'compare-take' }
@@ -134,6 +136,9 @@ const PRACTICE_KEYS: ReadonlyMap<string, Decide> = new Map<string, Decide>([
   ...letters('l', (context) => ({ type: 'toggle-loop', index: current(context) })),
   ...letters('s', (context) => ({ type: 'keep', index: context.selection })),
   ...letters('n', () => ({ type: 'toggle-column' })),
+  // No other key of the page, and beside the brackets (the speed) on a US layout. Where it needs AltGr it is a chord and
+  // not ours, and the top bar's button is the way.
+  ['\\', () => ({ type: 'toggle-side' })],
   ...letters('c', () => ({ type: 'cycle-zh' })),
   ...letters('r', () => ({ type: 'reveal' })),
   ...letters('d', () => ({ type: 'compare-take' })),

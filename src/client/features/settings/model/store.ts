@@ -1,6 +1,7 @@
 /**
  * The page's settings: the colour theme, whether it follows the host's day and night, the size of the
- * sentence on stage, how the Chinese lines are shown and how the video's picture is.
+ * sentence on stage, how the Chinese lines are shown, how the video's picture is, and whether the practice view's
+ * right column is collapsed.
  *
  * They are preferences of the reader about how the page looks, so they live in this browser and
  * nowhere else: `localStorage` under one JSON key, the same place the lead-in is remembered.
@@ -44,6 +45,8 @@ export interface Settings {
   readonly zhMode: SubtitleZhMode
   /** How the video's picture is shown; it only matters for a segment that has a playable video. */
   readonly picture: Picture
+  /** The practice view's right column is collapsed, so the stage has the whole width. */
+  readonly sideCollapsed: boolean
 }
 
 /** What a browser that has chosen nothing gets: the host's own look, at the page's own size, the picture above the sentence. */
@@ -53,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stageSize: 'm',
   zhMode: DEFAULT_SUBTITLE_ZH_MODE,
   picture: DEFAULT_PICTURE,
+  sideCollapsed: false,
 }
 
 /** The choice among `choices` that equals `value`, or `fallback` when none does. */
@@ -76,6 +80,8 @@ export function parseSettings(raw: string | null): Settings {
     stageSize: pick(STAGE_SIZES, record.stageSize, DEFAULT_SETTINGS.stageSize),
     zhMode: pick(SUBTITLE_ZH_MODES, record.zhMode, DEFAULT_SETTINGS.zhMode),
     picture: pick(PICTURES, record.picture, DEFAULT_SETTINGS.picture),
+    // Only a stored `true` collapses: anything else (missing, a string, a number) is the expanded default.
+    sideCollapsed: record.sideCollapsed === true,
   }
 }
 
@@ -99,6 +105,7 @@ function writeSettings(settings: Settings): void {
         stageSize: settings.stageSize,
         zhMode: settings.zhMode,
         picture: settings.picture,
+        sideCollapsed: settings.sideCollapsed,
       }),
     )
   } catch {
@@ -119,6 +126,8 @@ export interface SettingsState extends Settings {
   setZhMode: (mode: SubtitleZhMode) => void
   /** The reader chose a picture state (the button, the notice's 「撤销」): it is kept, and wins over the steps. */
   setPicture: (picture: Picture) => void
+  /** The right column's collapse, from its button in the top bar or `\`. */
+  setSideCollapsed: (collapsed: boolean) => void
   /** `V`: the next state. */
   cyclePicture: () => void
   /** The blind-watch timer started. Returns whether the picture was switched, which is when the notice is shown. */
@@ -147,6 +156,7 @@ export const useSettings = create<SettingsState>((set, get) => {
     setAppearance: (appearance) => change({ appearance: pick(APPEARANCES, appearance, get().appearance) }),
     setStageSize: (size) => change({ stageSize: pick(STAGE_SIZES, size, get().stageSize) }),
     setZhMode: (mode) => change({ zhMode: pick(SUBTITLE_ZH_MODES, mode, get().zhMode) }),
+    setSideCollapsed: (collapsed) => change({ sideCollapsed: collapsed === true }),
     setPicture: (picture) => applyPicture(choose(pick(PICTURES, picture, get().picture))),
     cyclePicture: () => applyPicture(choose(nextPicture(get().picture))),
     blindStarted: () => {

@@ -1,4 +1,4 @@
-# Agent Note: play the picture from a file on the reader's own machine
+# Agent Note: play the picture from a file on the user's own machine
 
 Status: implemented
 
@@ -9,7 +9,7 @@ few kilobytes, a hidden picture plays the audio file (55 MB for an episode), but
 prepared video at about 5.5 Mbps over a link that measured about 8.5 Mbps. The smooth version proposed the
 same day brings that down to about 1.9 Mbps, at the cost of encoding on the server and a smaller picture.
 
-A reader often has the same video on the machine in front of them: it is where the episode was imported
+A user often has the same video on the machine in front of them: it is where the episode was imported
 from. Played from there, the picture needs no link at all, seeks at disk speed, and keeps its full quality.
 The question raised on 2026-10-13 was whether the page can play such a file without putting it in the
 library.
@@ -19,7 +19,7 @@ The gain is on a remote dsh.
 
 ## Decision
 
-**「用本地文件播放」 on the video stage: the reader picks the episode's video from their own disk, and the
+**「用本地文件播放」 on the video stage: the user picks the episode's video from their own disk, and the
 page plays it in place of the served one, for this segment, without uploading it.**
 
 - **Nothing leaves the browser.** The file is opened with a file picker (or dropped on the stage) and
@@ -43,9 +43,9 @@ page plays it in place of the served one, for this segment, without uploading it
 - **It lasts for the page session, or longer where the browser allows.** An object URL dies with the page.
   Where the File System Access API is available (Chromium on HTTPS, which the live site is), the file
   handle is kept per segment in IndexedDB, and opening the segment again asks once for permission to read
-  it instead of asking for the file. Elsewhere the reader picks it again. Nothing about it goes to the
+  it instead of asking for the file. Elsewhere the user picks it again. Nothing about it goes to the
   host, so it is per device, like the settings.
-- **It is visible.** The stage labels a local picture (「本地文件」) with a way to stop using it, so a reader
+- **It is visible.** The stage labels a local picture (「本地文件」) with a way to stop using it, so a user
   is never unsure which file is playing.
 
 ## Alternatives considered
@@ -58,11 +58,11 @@ page plays it in place of the served one, for this segment, without uploading it
 - **Download the served video into the browser's storage (OPFS) once, then play it from there.** Needs no
   local copy, but a 941 MB download at 1 MB/s is about 15 minutes, browsers cap and may evict that much
   storage, and the cache validators from v0.9.3 already let the HTTP cache keep what it can. It stays an
-  option if readers without a local copy ask for it.
+  option if users without a local copy ask for it.
 - **Fold this into the smooth version note.** The two answer the same complaint but share no code: the
   smooth version is a host job that changes a file, this is a client-only source. They are kept apart so
-  each can be built or dropped on its own, and they combine: a reader with the file plays it locally, a
-  reader without it gets the smooth version.
+  each can be built or dropped on its own, and they combine: a user with the file plays it locally, a
+  user without it gets the smooth version.
 
 ## Settled details
 
@@ -71,7 +71,7 @@ Two questions were open when this was proposed. They were settled on 2026-10-13,
 - **A format the browser cannot play is a hint, not a check.** The picker says that an `mp4` (H.264 with AAC) plays
   everywhere and that an `mkv` often plays with no sound, and does nothing more about sound. Detecting a missing audio
   track (the non-standard `webkitAudioDecodedByteCount`) or reading the container's track list would be code for a case
-  the reader fixes in a minute by choosing an `mp4`. A file the browser cannot decode at all does fall back to the served
+  the user fixes in a minute by choosing an `mp4`. A file the browser cannot decode at all does fall back to the served
   source, with a notice that says to use an `mp4`, and the file is forgotten, since it will not decode next time either.
 - **The reference length falls back to the audio file.** The served video's probed length is compared first. When the
   host never probed it (the video was never prepared), the segment's audio file stands in, since the subtitles were timed
@@ -92,7 +92,7 @@ Decisions made while building:
 - **Only where the browser has `showOpenFilePicker` is a choice remembered.** The handle is kept per segment in
   IndexedDB, on this device only. Opening the segment again offers 「继续用本地文件」 with the file's name, because
   asking permission to read it needs a click; 「忘记」 removes it, 「停用」 keeps it (stopping is not a verdict on the
-  file), and a handle whose file is gone is dropped after saying so. Elsewhere the page uses a plain file input and the reader picks the file again in
+  file), and a handle whose file is gone is dropped after saying so. Elsewhere the page uses a plain file input and the user picks the file again in
   each page session. Every IndexedDB call is allowed to fail, and then nothing is remembered.
 - **The object URL lives as long as the file is in use.** It is revoked when the file is replaced or stopped, when the
   segment changes (the remembered handle offers the file back) and when the page goes.
