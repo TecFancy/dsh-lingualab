@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-21
+
 ### Added
 
 - The practice view's right column collapses: a toggle in the top bar beside the kept chip, or `\`. Collapsed, the
