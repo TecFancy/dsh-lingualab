@@ -14,8 +14,8 @@ export interface IconProps {
   readonly size?: number
 }
 
-/** Shared geometry: one viewBox, one stroke weight, one set of caps. */
-function Svg({ size = 16, children, ...rest }: IconProps & SVGProps<SVGSVGElement>) {
+/** Shared geometry: one viewBox, one stroke weight, one set of caps. Exported for icons kept in their own file. */
+export function Svg({ size = 16, children, ...rest }: IconProps & SVGProps<SVGSVGElement>) {
   return (
     <svg
       width={size}

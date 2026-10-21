@@ -111,6 +111,21 @@ describe('keyAction: the keys of the practice view', () => {
     expect(act('N')).toEqual({ type: 'toggle-column' })
   })
 
+  it('collapses or expands the right column on a backslash, and leaves the brackets to the speed', () => {
+    expect(act('\\')).toEqual({ type: 'toggle-side' })
+    expect(act('[')).toEqual({ type: 'speed', delta: -1 })
+    expect(act(']')).toEqual({ type: 'speed', delta: 1 })
+  })
+
+  it('leaves the backslash alone in a chord, a field, a layer, the timing strip and on the home', () => {
+    expect(act('\\', {}, { ctrlKey: true })).toBeNull()
+    expect(act('\\', {}, { typing: true })).toBeNull()
+    expect(act('\\', { layerOpen: true })).toBeNull()
+    expect(act('\\', { settingsOpen: true })).toBeNull()
+    expect(act('\\', { timingOpen: true })).toEqual({ type: 'timing-key' })
+    expect(act('\\', { view: 'home' })).toBeNull()
+  })
+
   it('cycles the Chinese display on C', () => {
     expect(act('c')).toEqual({ type: 'cycle-zh' })
     expect(act('C')).toEqual({ type: 'cycle-zh' })
@@ -379,6 +394,7 @@ describe('flashOf', () => {
       { type: 'select', index: 0 },
       { type: 'play-index', index: 0 },
       { type: 'toggle-column' },
+      { type: 'toggle-side' },
       { type: 'mark-a' },
       { type: 'mark-b' },
       { type: 'retime' },

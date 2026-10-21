@@ -23,7 +23,8 @@ import { nextZhMode, type ControlBarHandle } from '../../../widgets/control-bar/
 import type { TimingEditor } from '../../../widgets/timing-editor/index.ts'
 import { performKey } from './key-actions.ts'
 import { flashOf, headsetAction, keyAction, type KeyAction, type KeyPress } from './keymap.ts'
-import type { Column, Layer, View } from './panel.ts'
+import type { Layer, View } from './panel.ts'
+import type { SideColumn } from './useSideColumn.ts'
 import type { ReviewRun } from './useReviewRun.ts'
 
 /** How long a key cap stays lit after the page handles its key. */
@@ -66,8 +67,8 @@ export interface KeyboardOptions {
   readonly setSettingsOpen: (open: boolean) => void
   readonly stepsOpen: boolean
   readonly setStepsOpen: (open: boolean) => void
-  readonly column: Column
-  readonly setColumn: (column: Column) => void
+  /** The right column: `N` switches its view (or opens it into the kept sentences), `\` collapses it. */
+  readonly side: Pick<SideColumn, 'toggleKept' | 'toggleCollapsed'>
   readonly zhMode: SubtitleZhMode
   readonly setZhMode: (mode: SubtitleZhMode) => void
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
@@ -110,8 +111,7 @@ export function useKeyboard({
   setSettingsOpen,
   stepsOpen,
   setStepsOpen,
-  column,
-  setColumn,
+  side,
   zhMode,
   setZhMode,
   selection,
@@ -166,14 +166,14 @@ export function useKeyboard({
         select: setSelection,
         hasCue: (index) => cues[index] !== undefined,
         keep,
-        toggleColumn: () => setColumn(column === 'kept' ? 'transcript' : 'kept'),
+        toggleColumn: side.toggleKept,
+        toggleSide: side.toggleCollapsed,
         cycleZh: () => setZhMode(nextZhMode(zhMode)),
         retime: openTiming,
       })
     },
     [
       answerReview,
-      column,
       cues,
       dismissFinish,
       endReview,
@@ -182,12 +182,12 @@ export function useKeyboard({
       openTiming,
       review,
       runReview,
-      setColumn,
       setLayer,
       setSelection,
       setSettingsOpen,
       setStepsOpen,
       setZhMode,
+      side,
       timing,
       zhMode,
     ],

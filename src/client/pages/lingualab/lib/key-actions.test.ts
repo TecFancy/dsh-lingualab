@@ -28,6 +28,7 @@ function effects(): { fx: KeyEffects; log: string[] } {
     hasCue: (index) => cues[index] !== undefined,
     keep: (index) => log.push(`keep:${String(index)}`),
     toggleColumn: () => log.push('toggleColumn'),
+    toggleSide: () => log.push('toggleSide'),
     cycleZh: () => log.push('cycleZh'),
     retime: () => log.push('retime'),
   }
@@ -71,6 +72,7 @@ describe('performKey: what the page is asked to do', () => {
     expect(run({ type: 'close-steps' })).toEqual(['closeSteps'])
     expect(run({ type: 'review-back' })).toEqual(['reviewBack'])
     expect(run({ type: 'toggle-column' })).toEqual(['toggleColumn'])
+    expect(run({ type: 'toggle-side' })).toEqual(['toggleSide'])
     expect(run({ type: 'cycle-zh' })).toEqual(['cycleZh'])
     expect(run({ type: 'retime' })).toEqual(['retime'])
   })
