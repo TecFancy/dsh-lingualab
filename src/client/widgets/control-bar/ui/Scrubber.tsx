@@ -8,6 +8,10 @@
  * time and the sentence under the pointer without moving anything, and a click or a drag
  * lands on the sentence that contains the point.
  *
+ * Holding the thumb and moving away from the bar, up or down, scrubs slower in steps
+ * (`lib/fine-scrub.ts`), and while the thumb is held a label above it says the speed, the
+ * time, the sentence number and the sentence.
+ *
  * A drag is previewed locally and committed once on release. A seek per pointer move
  * would raise the player's seek gate dozens of times a second and make the audio stutter
  * through every sentence the pointer crossed.
@@ -15,18 +19,17 @@
  * It is not a tab stop. The arrow keys already mean "previous / next sentence" on the
  * page, and a focused slider would claim them for itself.
  */
-import { memo, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
-import { findActiveCue, splitCue, type Cue } from '../../../entities/cue/index.ts'
+import { memo, useMemo, useRef } from 'react'
+import type { Cue } from '../../../entities/cue/index.ts'
 import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import type { Translate } from '../../../context.ts'
+import { placeLabel, SCRUB_SPEED_KEYS, type LabelPlacement } from '../lib/fine-scrub.ts'
+import { scrubPoint, type ScrubPoint } from '../lib/scrub-point.ts'
+import { useScrubGesture } from '../lib/useScrubGesture.ts'
 
 /** The SVG's own coordinate width; the element is stretched over the bar. */
 const TICK_SPACE = 1000
-
-/** Half the tooltip's width, so it stays inside the bar near either end. */
-const TIP_HALF = 110
 
 export interface ScrubberProps {
   readonly t: Translate
@@ -52,33 +55,64 @@ const Ticks = memo(function Ticks({ cues, duration }: { readonly cues: readonly 
   )
 })
 
+interface ScrubTipProps {
+  readonly t: Translate
+  readonly point: ScrubPoint
+  readonly place: LabelPlacement
+  /** The fine-scrub step while the thumb is held; null for a hover, which shows only the time and the sentence. */
+  readonly step: number | null
+}
+
+/** The label above the bar: the place under the pointer on a hover, the thumb's place and speed during a drag. */
+function ScrubTip({ t, point, place, step }: ScrubTipProps) {
+  const clock = <b>{formatClock(point.time)}</b>
+  return (
+    <div
+      className={`dsh-lingualab-scrub-tip${step === null ? '' : ' is-held'}`}
+      style={{ left: `${String(place.left)}px`, maxWidth: `${String(place.maxWidth)}px` }}
+    >
+      {step === null ? (
+        clock
+      ) : (
+        <div className="dsh-lingualab-scrub-tip-head">
+          <span className={`dsh-lingualab-scrub-speed${step > 0 ? ' is-slow' : ''}`}>{t(SCRUB_SPEED_KEYS[step] ?? 'scrubFull')}</span>
+          {clock}
+          {point.index >= 0 ? <i>{t('scrubCue', { n: point.index + 1 })}</i> : null}
+        </div>
+      )}
+      {point.english.length > 0 ? <span>{point.english}</span> : null}
+    </div>
+  )
+}
+
 /** The scrubber with its two clocks. */
 export function Scrubber({ t, disabled = false }: ScrubberProps) {
   const currentTime = useMediaPlayer((state) => state.currentTime)
   const duration = useMediaPlayer((state) => state.duration)
   const cues = useMediaPlayer((state) => state.cues)
   const track = useRef<HTMLDivElement>(null)
-  const [hover, setHover] = useState<{ readonly fraction: number; readonly x: number; readonly width: number } | null>(null)
-  const [drag, setDrag] = useState<number | null>(null)
-
   const usable = !disabled && duration > 0
+  const { hover, drag, geometry, handlers } = useScrubGesture(track, usable, (fraction) => {
+    // Never exactly the end: a seek to the last frame fires `ended` before it plays.
+    useMediaPlayer.getState().seek(Math.min(fraction * duration, Math.max(0, duration - 0.05)))
+  })
 
-  /** Where along the bar a pointer is, as 0..1, with the bar's pixel width for the tooltip. */
-  const measure = (event: ReactPointerEvent<HTMLDivElement>): { fraction: number; x: number; width: number } => {
-    const rect = (track.current ?? event.currentTarget).getBoundingClientRect()
-    const x = Math.min(rect.width, Math.max(0, event.clientX - rect.left))
-    return { fraction: rect.width > 0 ? x / rect.width : 0, x, width: rect.width }
-  }
-
-  const live = drag ?? (duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0)
-  const pointed = hover === null ? null : hover.fraction * duration
-  const cueIndex = pointed === null ? -1 : findActiveCue(cues, pointed)
-  const cue = cueIndex >= 0 ? cues[cueIndex] : undefined
-  const preview = cue === undefined ? '' : splitCue(cue).english
+  const live = drag?.fraction ?? (duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0)
+  // While the thumb is held the label follows the thumb, which a slow step moves slower than the finger.
+  const labelAt = drag === null ? hover : drag.fraction
+  const tip =
+    labelAt === null || geometry === null ? null : (
+      <ScrubTip
+        t={t}
+        point={scrubPoint(cues, duration, labelAt)}
+        place={placeLabel({ x: labelAt * geometry.width, ...geometry })}
+        step={drag?.step ?? null}
+      />
+    )
 
   return (
-    <div className={`dsh-lingualab-scrub${usable ? '' : ' is-disabled'}`}>
-      <span className="dsh-lingualab-time">{formatClock(drag === null ? currentTime : drag * duration)}</span>
+    <div className={`dsh-lingualab-scrub${usable ? '' : ' is-disabled'}${drag === null ? '' : ' is-held'}`}>
+      <span className="dsh-lingualab-time">{formatClock(drag === null ? currentTime : drag.fraction * duration)}</span>
       <div
         ref={track}
         className="dsh-lingualab-scrub-track"
@@ -89,46 +123,17 @@ export function Scrubber({ t, disabled = false }: ScrubberProps) {
         aria-valuenow={Math.floor(currentTime)}
         aria-valuetext={formatClock(currentTime)}
         aria-disabled={!usable}
-        onPointerMove={(event) => {
-          if (!usable) return
-          const next = measure(event)
-          setHover(next)
-          if (drag !== null) setDrag(next.fraction)
-        }}
-        onPointerLeave={() => setHover(null)}
-        onPointerDown={(event) => {
-          if (!usable || event.button !== 0) return
-          event.currentTarget.setPointerCapture(event.pointerId)
-          const next = measure(event)
-          setHover(next)
-          setDrag(next.fraction)
-        }}
-        onPointerUp={(event) => {
-          if (drag === null) return
-          const next = measure(event)
-          setDrag(null)
-          // Never exactly the end: a seek to the last frame fires `ended` before it plays.
-          useMediaPlayer.getState().seek(Math.min(next.fraction * duration, Math.max(0, duration - 0.05)))
-        }}
-        onPointerCancel={() => setDrag(null)}
+        {...handlers}
       >
         <div className="dsh-lingualab-scrub-rail">
           <Ticks cues={cues} duration={duration} />
           <div className="dsh-lingualab-scrub-fill" style={{ width: `${String(live * 100)}%` }} />
           {hover !== null ? (
-            <div className="dsh-lingualab-scrub-ghost" style={{ left: `${String(hover.fraction * 100)}%` }} />
+            <div className="dsh-lingualab-scrub-ghost" style={{ left: `${String(hover * 100)}%` }} />
           ) : null}
         </div>
         <div className="dsh-lingualab-scrub-knob" style={{ left: `${String(live * 100)}%` }} />
-        {hover !== null && pointed !== null ? (
-          <div
-            className="dsh-lingualab-scrub-tip"
-            style={{ left: `${String(Math.min(Math.max(hover.x, TIP_HALF), Math.max(TIP_HALF, hover.width - TIP_HALF)))}px` }}
-          >
-            <b>{formatClock(pointed)}</b>
-            {preview.length > 0 ? <span>{preview}</span> : null}
-          </div>
-        ) : null}
+        {tip}
       </div>
       <span className="dsh-lingualab-time">{formatClock(duration)}</span>
     </div>

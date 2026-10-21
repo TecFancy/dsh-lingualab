@@ -406,9 +406,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1160)", "max-lines:file@0#92"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1170)", "max-lines:file@0#93"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1180)", "max-lines:file@0#94"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1190)", "max-lines:file@0#95"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1200)", "max-lines:file@0#96"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1210)", "max-lines:file@0#97"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1190)", "max-lines:file@0#95"]
     ],
     "src/client/shared/ui/icons.tsx:1740066914": [
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"]

@@ -21,7 +21,7 @@ that skips the question cannot write one anyway.
 
 - **Enforce it only in the panel.** The shortest path, and a rule that a script, a
   second client or a hand edit can break.
-- **Enforce it only in the host.** Correct, but the reader would meet a rejected save
+- **Enforce it only in the host.** Correct, but the user would meet a rejected save
   instead of a question, which is exactly the scolding tone the method avoids.
 - **Warn instead of enforcing.** Turns a decision-forcing device into advice, and
   advice loses to convenience every time.

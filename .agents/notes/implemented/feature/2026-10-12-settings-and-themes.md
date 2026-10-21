@@ -4,10 +4,10 @@ Status: implemented
 
 ## Problem
 
-The page took every colour from dsh and had no preferences of its own, so a reader could not make it
+The page took every colour from dsh and had no preferences of its own, so a user could not make it
 easier on the eyes. Listening practice runs for an hour at a stretch, and the page is mostly text:
 the sentence on stage, the subtitle column, the kept cards. dsh's black, white and gray is a fair
-default, but some readers want a warmer page for reading at a desk, a cooler one at night, or
+default, but some users want a warmer page for reading at a desk, a cooler one at night, or
 stronger borders and text, and the stage text is one size for every screen and every pair of eyes.
 
 The page also had one preference that had nowhere to live. The lead-in (start each sentence a little
@@ -68,10 +68,10 @@ and restyling anything outside the page.
   theme is exactly the host's look because nothing is overridden. Two colour systems would also drift
   the first time a rule reached for the wrong one.
 - **CSS selectors keyed on `body[data-ds-dark-theme]`.** Light and dark could live in the stylesheet
-  with no JavaScript. But the reader's 「明暗」 pin has to beat the host's attribute, which needs the
+  with no JavaScript. But the user's 「明暗」 pin has to beat the host's attribute, which needs the
   choice on the page's root as an attribute anyway, and the cards need the palette as data to paint
   their previews. Resolving in JavaScript keeps one table that both the page and the cards read.
-- **Syncing the settings through the host, with the progress file.** The reader would get their theme
+- **Syncing the settings through the host, with the progress file.** The user would get their theme
   on every device. But the progress file merges by newest timestamp per key and is shared with the
   library folder, so a look preference would travel to whoever else holds a copy of it, and it adds a
   route and a merge rule for something that is cheap to set again. A device may reasonably want a
@@ -96,4 +96,4 @@ and restyling anything outside the page.
 - A theme sets `color-scheme`, so native controls and scrollbars inside the page match it.
 - The lead-in is now reachable from two places bound to one state, so a change in either shows in the
   other.
-- Settings are per browser by design, so a reader with two devices sets them twice.
+- Settings are per browser by design, so a user with two devices sets them twice.

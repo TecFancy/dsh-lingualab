@@ -6,7 +6,7 @@ Status: implemented
 
 Opened for the first time, the page was a player with nothing in it. The empty state spoke
 in the plugin's own vocabulary: a "media folder", an absolute path in a text box, and a
-list of thirteen candidate paths, every one of them marked as not existing. A reader who
+list of thirteen candidate paths, every one of them marked as not existing. A user who
 had come to listen had to learn what a media folder was, create it by hand, and copy files
 into it before the page could do anything at all. Once there was material the picture did
 not improve: choosing an episode meant clicking a small title in the top bar, opening a
@@ -72,11 +72,11 @@ while that seek is still pending, so a fresh episode cannot overwrite the bookma
 ## Alternatives considered
 
 - **Keep the folder-first empty state and make the instructions clearer.** It would still
-  have asked a new reader to create a directory and copy files before anything worked. The
+  have asked a new user to create a directory and copy files before anything worked. The
   instructions were never the problem; needing them was.
 - **Ship a generated sample episode.** It makes the first minute work and teaches nothing
   about the real flow, and it needs a speech engine or bundled audio. Dropping a real file is
-  the same number of steps and exercises the path the reader will use from then on.
+  the same number of steps and exercises the path the user will use from then on.
 - **Keep the ceiling and make the replace chooser less intrusive.** The rule asked for a
   decision at the worst moment however it was dressed. A filter on the notes list gives the
   short working set the ceiling was meant to produce without asking anything mid-sentence.
@@ -85,7 +85,7 @@ while that seek is still pending, so a fresh episode cannot overwrite the bookma
   failure mode worth the saved click.
 - **Upload with multipart form data.** It buffers a whole episode in memory on one side or
   the other. A raw body streams straight to disk with a fixed ceiling.
-- **Store the bookmark on the host.** It would follow the reader across browsers, at the
+- **Store the bookmark on the host.** It would follow the user across browsers, at the
   cost of a write route and a place in the profile for something that is cheap to lose.
 
 ## Consequences
@@ -95,9 +95,9 @@ while that seek is still pending, so a fresh episode cannot overwrite the bookma
   one, and never writes outside the library root. Everything in the scan, browse and open
   paths is still read-only.
 - An episode's folder is named after its audio file, so two drops of unrelated files with the
-  same name share a folder and the second reports `exists`. Renaming is left to the reader.
+  same name share a folder and the second reports `exists`. Renaming is left to the user.
 - Notes files of episodes that had seven or fewer phrases are unchanged. Nothing is migrated.
 - The bookmark is per browser. A second browser starts every episode from the top, and the
   home shows no progress there.
 - A list of five hundred kept sentences is possible. The drawer's views make it navigable,
-  and it is the reader's list to prune.
+  and it is the user's list to prune.

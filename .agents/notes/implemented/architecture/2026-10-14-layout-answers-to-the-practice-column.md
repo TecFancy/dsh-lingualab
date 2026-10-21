@@ -74,7 +74,7 @@ transcript is a width container for the one rule about the transcript.
   about whether the picture is drawn), because they need about that much to keep clear of each other, as screenshots at 231
   by 130 showed.
 - **A card that stands in for a picture gives way in steps, found by trying them.** A card is text and buttons, and its height
-  depends on which card it is and what it carries (a smooth-version offer, the reader's own file): the plain prepare card is
+  depends on which card it is and what it carries (a smooth-version offer, the user's own file): the plain prepare card is
   249px (342px on a tall column) where a 1133 by 634 column leaves 96px, so there is no basis to compute from the column as
   there is for the picture. `useCardFit` (in the page slice; the choice and the classes are pure functions in `card-fit.ts`)
   puts one class on the scroller, from the whole card to nothing, and keeps the first step at which the scroller has nothing to
@@ -82,7 +82,7 @@ transcript is a width container for the one rule about the transcript.
   - the whole card has no class and is the stylesheet's own look, so a card that fits is drawn exactly as before;
   - `is-card-compact` tightens it (12px padding, 6px gaps, a 28px icon);
   - `is-card-lean` drops the secondary parts (the icon, the sentence that explains, the notes, the smooth-version offer and the
-    reader's own file) and keeps what the card says and what to press, with the body at two lines at most (about 125 to 170px);
+    user's own file) and keeps what the card says and what to press, with the body at two lines at most (about 125 to 170px);
   - `is-card-line` is one row that does not wrap: the title, what the card is about (the file, or the progress bar with its
     percentage) and the button, each cut with an ellipsis where the row is short (44px, and 58px on touch, where the button is
     44px);
@@ -131,7 +131,7 @@ transcript is a width container for the one rule about the transcript.
     its own idea of the edge, a rounded pixel away, would bring the empty box back exactly where the two disagree.
   - A large picture keeps what it had. It is already the part that takes what is left (it is the whole stage, and its
     sentence is not on the stage to take the room) and it has a floor of 160px, so it never reaches the 120px rule. Hiding it
-    would leave nothing on the stage for a reader who asked for it.
+    would leave nothing on the stage for a user who asked for it.
 - **The timing panel in a small room is one compact layout.** It asks `(max-width:600px) or (max-height:760px)`, which is a
   column 648px wide or 780px tall or less. Each edge is one row: the label with how far it moved under it, the value (18px),
   the two 50 ms step buttons and the playhead button, 44px tall (52px on a touch screen, where the steps are 44px). The foot
@@ -166,13 +166,13 @@ transcript is a width container for the one rule about the transcript.
   off screen exactly when the column is too short, which was the complaint, and a sticky card needs a background to cover what
   scrolls under it.
 - **Scale the picture and the sentence to fit.** A font that follows the column's height makes the sentence smaller exactly
-  where a reader on an iPad needs it larger, and a scaled picture still needs the room.
+  where a user on an iPad needs it larger, and a scaled picture still needs the room.
 - **Hide the picture whenever the timing panel is open and the column is short.** This was v0.11.2, and it hid the picture on
   every iPad and on a 900px desktop window, which have the room for a small one. The picture is now the part that takes the
   leftover room and steps aside only when that is under 120px.
 - **Fold only the panel and leave the player card alone.** With the card at 264px the panel could not be under about 230px
   and the picture could not come back at 1024 by 700; while timing, the loop, the shadowing, the picture and the menus are not
-  things the reader reaches for, so they wait.
+  things the user reaches for, so they wait.
 - **Hide the picture with a container query on its own stage only (v0.11.3).** It left the stage's box behind, with nothing
   drawn in it. Making the box `flex:0 0 auto` would let it collapse, but the picture's size comes from that box, so the box
   and the picture would define each other; the measurement breaks the loop by using only what does not change.
@@ -184,7 +184,7 @@ transcript is a width container for the one rule about the transcript.
   decision a container cannot make.
 - **Make the stage font follow the column's height.** Not needed: with the picture giving way, the sentence and the card fit
   every size measured, and a height term in the font would only change the text where the picture can still absorb the
-  shortfall. It is also the "scale to fit" idea above, which makes the sentence smaller where a reader needs it larger.
+  shortfall. It is also the "scale to fit" idea above, which makes the sentence smaller where a user needs it larger.
 - **Tighten the card and the stage's padding in a shorter column.** It buys about 24px, which keeps a picture at one size (1133
   by 634 with a pointer, sidebar open, two lines) at the price of a new threshold that changes the sizes of this note that fit
   today. Left out; the picture steps aside there instead.
@@ -236,7 +236,7 @@ transcript is a width container for the one rule about the transcript.
 - **The cards that stand in for a picture fit too.** They did not before: with a two-line sentence, a pointer and the sidebar open the
   prepare card (249px, a page of text, a file line and two buttons) needed 153px more than the 1133 by 634 column has (117 at 1133 by
   670, 82 at 1180 by 710, 43 at 1194 by 724), the other cards 126 to 169px more at 1133 by 634, and the cards that also carry the
-  smooth-version offer and the reader's own file (up to 430px) up to 334px more; at 1440 by 900 the plain cards fit and only the ones
+  smooth-version offer and the user's own file (up to 430px) up to 334px more; at 1440 by 900 the plain cards fit and only the ones
   with an extra scrolled (by up to 86px, 128px on touch). Measured in a browser as the sizes above were (the real components, the
   real stylesheet and the real hook, overlay scrollbars, the touch block applied for touch), over 2016 states against the code
   before the change (the seven cards, plain and with both extras, one to three lines of English, pointer and touch, the sidebar at 56

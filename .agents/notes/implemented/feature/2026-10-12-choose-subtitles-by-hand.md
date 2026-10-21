@@ -18,7 +18,7 @@ asks. Two things follow from that.
   near-miss marks on purpose, because a long list makes pairing unpredictable, so the content check
   carries the rest, and it cannot tell two English files apart.
 
-The question raised on 2026-10-12 was whether the reader should pick the subtitles by hand instead.
+The question raised on 2026-10-12 was whether the user should pick the subtitles by hand instead.
 The evaluation below was accepted the same day, and all three parts were built that day too.
 
 ## Decision
@@ -36,7 +36,7 @@ check: a naming it does not handle is solved by picking by hand, not by another 
   top of the folder is offered, not only those the stem rule gives to the segment, so a file with a
   stray name can still be picked. A file episode offers the subtitle files of its own directory; a
   picked name is stored in the episode's record, and the media route already serves the names in the
-  record, so the guard only widens to files the reader chose.
+  record, so the guard only widens to files the user chose.
 - **The choice is per segment.** Scenes in one folder are cut separately and each has its own files.
   A folder without segments has one choice for the folder.
 - **It is stored on the host, beside what it chooses.** A folder episode keeps its choices in a hidden
@@ -79,9 +79,9 @@ Two smaller changes go with this and were tracked here so they were not lost:
   built for positions that change every few seconds. A choice is rare and belongs to one folder; a file
   in that folder moves with it.
 - **Keep it in the video cache folder `.lingualab/`.** That folder is a cache: deleting it to free space
-  must be safe, and a choice the reader made is not a cache.
+  must be safe, and a choice the user made is not a cache.
 - **Offer to rename the files to names the rule understands.** It fixes the folder for good, but it
-  renames the reader's media, which the plugin has never done (the import does not even overwrite), and
+  renames the user's media, which the plugin has never done (the import does not even overwrite), and
   the names other players expect may differ.
 - **Keep extending the marks.** Each mark is small, but the list grows with every source of subtitles,
   and the rule stays a guess for files whose names say nothing. A choice ends the guessing for the

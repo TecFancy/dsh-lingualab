@@ -12,7 +12,7 @@ takes several tries. Previous and next move one sentence at a time.
 
 The question raised on 2026-10-21 was whether holding the sentence on the stage and dragging it up or down could move
 through the sentences, as the transcript does. It was kept for later, after the collapse ships. A smaller change raised in the same discussion,
-fine scrubbing on the progress bar, shipped on its own first.
+[fine scrubbing on the progress bar](../../implemented/feature/2026-10-21-fine-scrubbing-on-the-progress-bar.md), shipped on its own first.
 
 ## Proposal
 
