@@ -223,7 +223,7 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
   画面的份额改成整个宽度（`--ll-pic-share:1`、`--ll-pic-w:100%`），720px、405px、高度上限与 `is-picture-squeezed` 照旧；展开时字幕列表重新挂载，
   `SubtitlePanel` 的 layout effect 让它直接落在正在播的那一句。顶栏是 `ll-top` 宽度容器，不到 720px 宽时返回与收藏两个按钮只留图标（和计数）；
   顶栏的按钮 `flex:none`，只有标题让位；触屏上它们靠透明的 `::after` 得到 44px 点按区域，样子不变。这几条样式在 `shared/lib/styles-side.ts`，
-  接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。下一步（窄栏时右栏浮在舞台上、窄栏默认收起；在舞台上拖动定位句子）是两篇 proposed note。播放卡片只放每分钟都用的控件，低频的收进「更多」。设计稿在 Figma，链接在 README
+  接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。下一步（窄栏时右栏浮在舞台上、窄栏默认收起；在舞台上拖动定位句子；给右栏的展开收起加动画并重排顶栏那一排按钮）是三篇 proposed note。播放卡片只放每分钟都用的控件，低频的收进「更多」。设计稿在 Figma，链接在 README
   与 AGENTS.md，稿里是写死的色值和 Inter，落地只用宿主 token。
 - **练习页的几个行为各有出处，别拆**：进度条（`Scrubber`）拖动期间只在松手时 seek 一次；
   跟读模式（store 的 `pauseAfterSentence` 与 `revealed`）在 `onTime` 里判断，只对刚播完的那一句生效，
