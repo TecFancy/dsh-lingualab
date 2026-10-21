@@ -20,8 +20,12 @@
  * rendered without the host still looks like dsh. The look is monochrome: the brand is near
  * black in the light theme and near white in the dark one, and the state colours appear only
  * as small dots (a grade) or on a danger hover.
+ *
+ * The last part (the right column collapsed, the top bar on a narrow or touch screen) is `styles-side.ts`, appended at
+ * the end so it refines what comes before.
  */
 import { SCRUB_STYLES } from './styles-scrub.ts'
+import { SIDE_STYLES } from './styles-side.ts'
 
 export const STYLES = `
 .dsh-lingualab-page{
@@ -1253,4 +1257,4 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   .dsh-lingualab-stage-time::after,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn::after{content:'';position:absolute;
     inset:-9px -4px}
 }
-`
+${SIDE_STYLES}`

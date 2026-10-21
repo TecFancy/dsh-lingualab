@@ -157,6 +157,11 @@ the agent that runs the next-day review; a file episode's notes live in the plug
 because the plugin does not write anywhere in the material folder except to add the files you
 hand it.
 
+**The right column collapses.** The panel icon beside 「收藏」 in the top bar, or `\`, takes the column out of
+the row so the stage has the whole width (on an iPad the stage is otherwise 440 to 630px wide), and the picture grows
+with it. `N` or the 「收藏」 chip on a collapsed column opens it straight into the kept sentences; opening it on the
+subtitles lands on the sentence playing. Whether it is collapsed is kept in this browser, with the settings below.
+
 **Settings** are the sliders icon at the right end of the top bar, on the home and in the practice
 view. They open a drawer that changes only this page and never dsh itself: a theme (「默认」, 「墨蓝」,
 「松绿」, 「纸张」, 「暮紫」 or 「高对比」, each with a light and a dark palette), whether light or dark

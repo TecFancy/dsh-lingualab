@@ -41,7 +41,7 @@ describe('the stylesheet', () => {
   it('asks only containers that exist', () => {
     const asked = [...STYLES.matchAll(/@container\s+([\w-]+)\s*\(/g)].map((match) => match[1])
     expect(asked.length).toBeGreaterThan(0)
-    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video']).toContain(name)
+    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video', 'll-top']).toContain(name)
   })
 
   it('keeps only the browse layer on a viewport width', () => {
@@ -297,5 +297,32 @@ describe('the stylesheet', () => {
     expect(touch).toContain('.dsh-lingualab-timing-foot .dsh-lingualab-btn{height:44px}')
     // The pills on the picture keep their look; the hit area grows by an invisible margin.
     expect(touch).toContain('.dsh-lingualab-picture-local-btn::after')
+  })
+
+  it('lets the picture take its share of the whole row when the right column is collapsed, and nothing else', () => {
+    const collapsed = '.dsh-lingualab-body.is-side-collapsed'
+    expect(rule(`${collapsed} .dsh-lingualab-videostage`)).toContain('--ll-pic-share:1')
+    expect(block(`${collapsed} .dsh-lingualab-picture,`)).toContain(`${collapsed} .dsh-lingualab-videocard{--ll-pic-w:100%}`)
+    // The 720px, the 405px stage and the height cap still bound it: no rule for the collapse touches them.
+    for (const bound of ['--ll-pic-h', '720px', '405px', 'max-height']) {
+      expect(STYLES.split('\n').filter((line) => line.startsWith(collapsed)).join('\n')).not.toContain(bound)
+    }
+    // After the rules it refines: the base share, the narrow column's.
+    expect(STYLES.indexOf(`${collapsed} .dsh-lingualab-videostage{`)).toBeGreaterThan(STYLES.indexOf('@container ll-practice (max-width:600px){'))
+  })
+
+  it('lets the top bar drop the chips to their icons when the bar itself is narrow, not the window', () => {
+    expect(STYLES).toContain('.dsh-lingualab-top{container:ll-top/inline-size}')
+    const narrow = block('@container ll-top (max-width:696px)')
+    expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip-text')
+    expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}')
+  })
+
+  it('gives the top bar\'s chips and icon buttons a 44px hit area on a touch screen without changing their size', () => {
+    const touch = block('@media (hover:none) and (pointer:coarse){\n  .dsh-lingualab-top')
+    expect(touch).toContain('.dsh-lingualab-top .dsh-lingualab-chip::after,.dsh-lingualab-top .dsh-lingualab-icon-btn::after')
+    expect(touch).toContain('inset:min(0px,calc((100% - 44px) / 2))')
+    expect(touch).not.toContain('height:44px')
+    expect(touch).not.toContain('min-height')
   })
 })

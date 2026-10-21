@@ -33,7 +33,10 @@ export interface KeyEffects {
   readonly hasCue: (index: number) => boolean
   /** Keep or un-keep a sentence: the one on stage when no index is given. */
   readonly keep: (index?: number) => void
+  /** `N`: switch the right column's view, or open a collapsed one into the kept sentences. */
   readonly toggleColumn: () => void
+  /** `\`: collapse or expand the right column. */
+  readonly toggleSide: () => void
   readonly cycleZh: () => void
   readonly retime: () => void
 }
@@ -76,6 +79,7 @@ const HANDLERS: { readonly [T in KeyAction['type']]: Handler<T> } = {
   },
   'keep': (action, fx) => fx.keep(action.index ?? undefined),
   'toggle-column': (_action, fx) => fx.toggleColumn(),
+  'toggle-side': (_action, fx) => fx.toggleSide(),
   'cycle-zh': (_action, fx) => fx.cycleZh(),
   'reveal': () => store().reveal(store().activeIndex),
   'compare-take': () => {

@@ -26,7 +26,6 @@ export const zh: Record<string, string> = {
   notesReloaded: '笔记在别处改过了，已经重新读取，刚才那一下没有保存',
   retry: '重试',
   openEpisode: '打开一集',
-  notesChip: '笔记',
   stepsChip: '五步',
   mediaFolder: '媒体目录',
   more: '更多',
@@ -123,6 +122,7 @@ export const zh: Record<string, string> = {
   keyTiming: '调整这一句的开头和结尾',
   keyGrade: '给这一句评级：记住了、模糊、没记住',
   keyColumn: '右栏切换字幕和收藏',
+  keySide: '收起或展开右栏',
 
   // ── 练习页：舞台、字幕栏、按键提示 ─────────────────────────────
   cueOf: '第 {n} / {total} 句',
@@ -455,7 +455,6 @@ export const en: Record<string, string> = {
   notesReloaded: 'The notes changed elsewhere and were read again; the last change was not saved',
   retry: 'Retry',
   openEpisode: 'Open an episode',
-  notesChip: 'Notes',
   stepsChip: 'Steps',
   mediaFolder: 'Media folder',
   more: 'More',
@@ -551,6 +550,7 @@ export const en: Record<string, string> = {
   keyTiming: "Adjust this sentence's start and end",
   keyGrade: 'Grade the sentence: got it, fuzzy, not yet',
   keyColumn: 'Switch the right column between subtitles and kept',
+  keySide: 'Collapse or expand the right column',
 
   cueOf: 'Sentence {n} of {total}',
   seekBar: 'Playback position',

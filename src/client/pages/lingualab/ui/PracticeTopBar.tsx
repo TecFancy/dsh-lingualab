@@ -1,6 +1,6 @@
 /**
- * The practice view's top bar: back to the list, what is open and where in it, the segment list, the switch to the
- * kept sentences, the five steps and the settings.
+ * The practice view's top bar: back to the list, what is open and where in it, the segment list, the right column's
+ * two buttons (the kept sentences, and collapsing the column), the five steps and the settings.
  *
  * Everything it shows is handed in and every press is a callback: which layer opens, what the other drawers do when
  * this one does, and how a segment is opened are the page's, because they are the page's states.
@@ -9,9 +9,10 @@ import type { ReactNode } from 'react'
 import type { Translate } from '../../../context.ts'
 import { segmentLabel } from '../../../features/library/index.ts'
 import type { EpisodeEntry, EpisodeSegment } from '../../../shared/protocol.ts'
-import { BackIcon, NoteIcon } from '../../../shared/ui/icons.tsx'
+import { BackIcon } from '../../../shared/ui/icons.tsx'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
 import { StepTracker } from '../../../widgets/step-tracker/index.ts'
+import { PracticeSideChips, type PracticeSideChipsProps } from './PracticeSideChips.tsx'
 
 export interface PracticeTopBarProps {
   readonly t: Translate
@@ -25,8 +26,8 @@ export interface PracticeTopBarProps {
   readonly segmentsOpen: boolean
   /** The sentence on stage, counted from 0, and how many there are; `null` while there is none. */
   readonly sentence: { readonly index: number; readonly total: number } | null
-  /** The right column shows the kept sentences. */
-  readonly keptShown: boolean
+  /** The right column: whether it is collapsed, which view it shows, and the moves of its two buttons. */
+  readonly side: PracticeSideChipsProps['side']
   /** How many sentences are kept. */
   readonly keptCount: number
   readonly stepsOpen: boolean
@@ -36,7 +37,6 @@ export interface PracticeTopBarProps {
   readonly onToggleSegments: () => void
   readonly onCloseSegments: () => void
   readonly onSelectSegment: (id: string) => void
-  readonly onToggleKept: () => void
   readonly onToggleSteps: () => void
   readonly onBlindRunning: (running: boolean) => void
 }
@@ -49,7 +49,7 @@ export function PracticeTopBar({
   finishedIds,
   segmentsOpen,
   sentence,
-  keptShown,
+  side,
   keptCount,
   stepsOpen,
   settings,
@@ -57,14 +57,14 @@ export function PracticeTopBar({
   onToggleSegments,
   onCloseSegments,
   onSelectSegment,
-  onToggleKept,
   onToggleSteps,
   onBlindRunning,
 }: PracticeTopBarProps) {
   return (
     <div className="dsh-lingualab-top">
-      <button type="button" className="dsh-lingualab-chip" onClick={onHome} title={t('backToList')}>
-        <BackIcon size={14} /> {t('backToList')}
+      <button type="button" className="dsh-lingualab-chip" onClick={onHome} title={t('backToList')} aria-label={t('backToList')}>
+        <BackIcon size={14} />
+        <span className="dsh-lingualab-chip-text">{t('backToList')}</span>
       </button>
       <div className="dsh-lingualab-top-heading">
         <span className="dsh-lingualab-top-title" title={episode?.title ?? ''}>
@@ -94,15 +94,7 @@ export function PracticeTopBar({
         />
       ) : null}
       <span className="dsh-lingualab-spacer" />
-      <button
-        type="button"
-        className={`dsh-lingualab-chip${keptShown ? ' is-on' : ''}`}
-        onClick={onToggleKept}
-        title={t('keyColumn')}
-        aria-pressed={keptShown}
-      >
-        <NoteIcon size={13} /> {t('notesChip')} {keptCount > 0 ? keptCount : ''} <kbd>N</kbd>
-      </button>
+      <PracticeSideChips t={t} side={side} keptCount={keptCount} />
       {episode !== null ? (
         <StepTracker
           key={episode.id}

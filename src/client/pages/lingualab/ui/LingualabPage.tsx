@@ -67,7 +67,7 @@ import { STEPS_EXIT_MS } from '../../../widgets/step-tracker/index.ts'
 import type { VideoNoticeData } from '../../../widgets/video-stage/index.ts'
 import type { PanelProps, Translate } from '../../../context.ts'
 import { useCardFit } from '../lib/useCardFit.ts'
-import type { Column, Layer, View } from '../lib/panel.ts'
+import type { Layer, View } from '../lib/panel.ts'
 import { usePictureRoom } from '../lib/usePictureRoom.ts'
 import { useOpening } from '../lib/useOpening.ts'
 import { useResume } from '../lib/useResume.ts'
@@ -75,6 +75,7 @@ import { isTypingTarget, useKeyboard } from '../lib/useKeyboard.ts'
 import { useRetime } from '../lib/useRetime.ts'
 import { useReplay } from '../lib/useReplay.ts'
 import { useReviewRun } from '../lib/useReviewRun.ts'
+import { useSideColumn } from '../lib/useSideColumn.ts'
 import { useStageNotes } from '../lib/useStageNotes.ts'
 import { useVideoNotices } from '../lib/useVideoNotices.ts'
 import { useVideoSource } from '../lib/useVideoSource.ts'
@@ -103,7 +104,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const zhMode = useSettings((state) => state.zhMode)
   const setZhMode = useSettings((state) => state.setZhMode)
   const [layer, setLayer] = useState<Layer>('none')
-  const [column, setColumn] = useState<Column>('transcript')
+  // The right column: which view, and whether it is collapsed (a setting, so it is remembered on this device).
+  const side = useSideColumn()
   /**
    * Whether a review is running, for the bookmark: a review jumps between kept sentences, and
    * writing those places down would move 「继续」 to wherever the review last was. A ref, set in the
@@ -216,13 +218,12 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     [progress, episode, segments],
   )
 
-  const showKept = useCallback((): void => setColumn('kept'), [])
   const { stagePhrase, notedIndexes, keep, toggleWord, gradeStage } = useStageNotes({
     notes,
     cues,
     activeIndex,
     segmentId,
-    onProtected: showKept,
+    onProtected: side.showKept,
   })
 
   /** The episodes that can be played, in library order; "next" is the one after the open one. */
@@ -333,8 +334,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
     setSettingsOpen,
     stepsOpen,
     setStepsOpen,
-    column,
-    setColumn,
+    side,
     zhMode,
     setZhMode,
     selection,
@@ -452,7 +452,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             finishedIds,
             segmentsOpen: layer === 'segments',
             sentence: cues[activeIndex] === undefined ? null : { index: activeIndex, total: cues.length },
-            keptShown: column === 'kept',
+            side,
             keptCount: notes.phrases.length,
             stepsOpen,
             settings,
@@ -468,7 +468,6 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
               if (id === segmentId) setLayer('none')
               else openSegment(id)
             },
-            onToggleKept: () => setColumn(column === 'kept' ? 'transcript' : 'kept'),
             onToggleSteps: () => {
               setLayer('none')
               setSettingsOpen(false)
@@ -525,8 +524,8 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             t,
             library,
             notes,
-            column,
-            onColumn: setColumn,
+            column: side.column,
+            onColumn: side.setColumn,
             activeIndex,
             selectedIndex,
             zhMode,
@@ -552,6 +551,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             },
             onReview: reviewEpisode,
           }}
+          collapsed={side.collapsed}
           scrim={{ mounted: scrim.mounted, open: stepsOpen, onClose: () => setStepsOpen(false) }}
         />
       )}
