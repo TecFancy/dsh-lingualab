@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- Fine scrubbing on the progress bar. While the thumb is held, moving the finger away from the bar, up or down, scrubs
+  at half speed from 44px and at a quarter from 88px, and a label above the thumb shows the speed, the time, the
+  sentence number and the sentence. Changing speed never moves the thumb, and release still seeks once.
+
 ## [0.14.6] - 2026-10-16
 
 ### Fixed
