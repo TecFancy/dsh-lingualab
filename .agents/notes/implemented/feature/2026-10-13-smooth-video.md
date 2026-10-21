@@ -10,7 +10,7 @@ A prepared video keeps the picture exactly as it came. For the one episode on th
 20 ms, so bandwidth is the limit, not latency:
 
 - playing leaves about 1.5 times headroom, so a peak in the picture or any other request at the same
-  time stalls it, and a reader on a link slower than 5.5 Mbps cannot play it through at all;
+  time stalls it, and a user on a link slower than 5.5 Mbps cannot play it through at all;
 - a seek to a part that is not buffered took 4 to 8 seconds before the picture played again;
 - the index at the front of the file is 1.4 MB, so even learning the length takes more than a second.
 
@@ -41,7 +41,7 @@ started by hand for one episode or segment, and once it is ready it replaces the
 - **It replaces, it does not add.** The result is written as `<episode>/.lingualab/<stem>.smooth.mp4`
   (through a `.part`, as now). Once it is in place the full-size `<stem>.mp4` in the cache is deleted, so
   an episode costs 330 MB of disk instead of 941 MB, not both. A source that plays directly is the
-  reader's own file and is never touched; the smooth file is simply preferred to it. The order the status
+  user's own file and is never touched; the smooth file is simply preferred to it. The order the status
   route picks from is smooth, then prepared, then direct, and it says which (`via: 'smooth'`), so the page
   can label it.
 - **It does not slow the host down.** The `ffmpeg` process is started at a lower priority
@@ -55,22 +55,22 @@ started by hand for one episode or segment, and once it is ready it replaces the
 ## Alternatives considered
 
 - **Re-encode every video when it is prepared, or behind a config switch.** Saves a click, but every
-  video then waits 15 minutes instead of one, and a reader on a fast link gives up picture quality for
+  video then waits 15 minutes instead of one, and a user on a fast link gives up picture quality for
   nothing. Preparing on demand, per episode, matches how the video note already handles preparing.
-- **Keep both files and add a quality switch.** Lets a reader on a fast link keep the full picture, but
+- **Keep both files and add a quality switch.** Lets a user on a fast link keep the full picture, but
   costs about 1.3 GB per episode and adds a control and a setting. The smooth file at 720p is good
   enough for watching a scene to follow the dialogue, which is what the five steps use the picture for.
 - **Adaptive streaming (HLS or DASH with several renditions).** Picks the quality per link
   automatically, but it needs a segmenter, a manifest route and a player library the shell's module table
   does not have, and several renditions cost more encoding and disk than one. Too much machinery for a
-  plugin with one reader at a time.
+  plugin with one user at a time.
 - **A lower resolution, such as 540p at 1 Mbps.** Smaller still, but the measured 720p at 1.8 Mbps
   already leaves about 4.5 times headroom on this link, and text in the picture (signs, phones) stays
   readable at 720p.
 - **VP9 or AV1.** About a third smaller at the same quality, but several times slower to encode on a CPU,
   which turns 15 minutes into an hour or more.
 - **Put the media behind a CDN.** Raises the link itself and helps every file, but it is a deployment
-  choice outside this plugin. It remains worth doing if more readers use the server.
+  choice outside this plugin. It remains worth doing if more users use the server.
 - **A route of its own for going back to the original quality.** The prepare route already takes a mode
   and answers with the status, and going back is "prepare it as it was", so it is one more mode, not a
   fourth route with its own naming record and guard.
@@ -86,7 +86,7 @@ Two questions were open when this was proposed. The owner settled them on 2026-1
   is on the cards of those videos, and the same job turns them into a video that plays. This widens the feature beyond slow
   links, and it is planned in the pure planner (`planSmooth`) from the same probe, so it holds for any file that has a
   picture and a sound, and is unit-tested there.
-- **「改回原画质」 is an action.** A remote reader cannot delete server files by hand, so without it the smooth version
+- **「改回原画质」 is an action.** A remote user cannot delete server files by hand, so without it the smooth version
   would be a one-way door. It sits on the playing smooth picture, deletes `<stem>.smooth.mp4` and prepares the video as it
   was before, through the same job queue (the one-minute remux). For a source that could only ever be sound (its picture a
   browser cannot decode), going back is only the deletion, which returns to the sound-only state.
@@ -105,7 +105,7 @@ Decisions made while building:
   common case, and a smooth file is smaller than the remux it replaces), the sound-only card, the sound-ready card and the
   unplayable card, which stands for a picture a browser cannot decode when the segment has its own audio file. Not on the
   failed, ffmpeg and progress cards. Not at all without `ffmpeg` and `ffprobe`, for a file with no sound or no picture, while a
-  job for that segment runs, or once the smooth file exists. While the reader's own local file plays, or the picture is
+  job for that segment runs, or once the smooth file exists. While the user's own local file plays, or the picture is
   hidden, the corner stays quiet. Another segment's job running is the usual `busy` refusal, shown under the control.
 - **The estimate is the proposal's numbers and nothing cleverer.** About 1.9 Mbps for the size (picture and sound) and 1.5
   times real time for the encode, both from the probed length, so the host computes them and the page only words them
@@ -139,5 +139,5 @@ Decisions made while building:
 - **A known edge.** A segment whose stem itself ends in `.smooth` would share a file name with the smooth file of the
   segment without that ending. It is rare enough that a longer extension for everyone was not worth it.
 
-Related: [play the picture from a file on the reader's own machine](../../implemented/feature/2026-10-13-play-a-local-video.md),
+Related: [play the picture from a file on the user's own machine](../../implemented/feature/2026-10-13-play-a-local-video.md),
 [play video episodes in the page](../../implemented/feature/2026-10-12-video-episodes.md).

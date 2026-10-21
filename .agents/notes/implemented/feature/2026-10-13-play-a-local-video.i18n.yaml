@@ -5,18 +5,18 @@
 "/":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
-"/agent-note-play-the-picture-from-a-file-on-the-reader-s-own-machine":
+"/agent-note-play-the-picture-from-a-file-on-the-user-s-own-machine":
   en: c5e98e3240f16d7c
   zh: c5e98e3240f16d7c
-"/agent-note-play-the-picture-from-a-file-on-the-reader-s-own-machine/problem":
-  en: f5958f224f055712
-  zh: 74a0e0e3fb455a66
-"/agent-note-play-the-picture-from-a-file-on-the-reader-s-own-machine/decision":
-  en: ef9c24248862f365
-  zh: 7363fc3212e5dd33
-"/agent-note-play-the-picture-from-a-file-on-the-reader-s-own-machine/alternatives-considered":
-  en: ca8853943569e717
-  zh: ca2be3705a227a1e
-"/agent-note-play-the-picture-from-a-file-on-the-reader-s-own-machine/settled-details":
-  en: 0428d7406ae36551
-  zh: ef8dc48e75c5a8af
+"/agent-note-play-the-picture-from-a-file-on-the-user-s-own-machine/problem":
+  en: 8d3c3ae91bea095d
+  zh: 6a87b99940534186
+"/agent-note-play-the-picture-from-a-file-on-the-user-s-own-machine/decision":
+  en: 7962a1742c62ee95
+  zh: dae624c110d4ee03
+"/agent-note-play-the-picture-from-a-file-on-the-user-s-own-machine/alternatives-considered":
+  en: 0fd7048a99ebac8e
+  zh: 2ce8689d71489224
+"/agent-note-play-the-picture-from-a-file-on-the-user-s-own-machine/settled-details":
+  en: 39fbca8ebd524680
+  zh: 9bb3eed7c9c5edca

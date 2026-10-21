@@ -6,7 +6,7 @@ Status: implemented
 
 Keeping a sentence is one tap on the star, and that part works. What comes after does not:
 
-- The notes drawer is modal. Its scrim covers the stage and the transport, so a reader looking
+- The notes drawer is modal. Its scrim covers the stage and the transport, so a user looking
   through kept sentences cannot see the subtitles, and a sentence replayed from the drawer could
   not even be paused until the drawer was closed (fixed on its own, but the cause is the layout).
 - A kept sentence carries three hand-kept marks: a tick for 「记住了」 and two tag toggles,
@@ -46,7 +46,7 @@ segmented control in the column head. The five-steps drawer is not part of this 
 Grading is three buttons on the expanded card and three keys, `1` 「记住了」, `2` 「模糊」,
 `3` 「没记住」, which act on the kept sentence on stage in practice and in review alike. A grade
 replaces the previous state: it clears the tick and both tags, then sets its own. Other tags a
-reader wrote by hand are kept. The checkbox and the two tag toggles leave the card, which shows
+user wrote by hand are kept. The checkbox and the two tag toggles leave the card, which shows
 the state as one chip. The line format of `notes.md` does not change, so older files and the
 agent's grep read as before; a line with both tags reads as 「没记住」. A fresh `notes.md` opens
 with a preamble that explains the grades instead of the tags.
@@ -109,7 +109,7 @@ five steps out of their drawer; and editing a note from the review strip.
 ## Alternatives considered
 
 - **Keep the tick and the two tags, and add review on top.** Less to change, but the confusion
-  is the three independent marks; a review that asks for a grade and then leaves the reader to
+  is the three independent marks; a review that asks for a grade and then leaves the user to
   set marks by hand would ask twice.
 - **Spaced repetition with due dates.** It is where a review list naturally goes, but it needs
   each phrase's history (last review, interval), which the line format has no room for. Adding a
@@ -119,7 +119,7 @@ five steps out of their drawer; and editing a note from the review strip.
   over the width, and the list would still sit over the stage it is meant to drive.
 - **A separate review page with its own player.** Cleaner to describe, but it would duplicate the
   player, the cue handling and the segment open that the practice page already has, and the
-  reader would review without the subtitles, the speed and the loop they practise with.
+  user would review without the subtitles, the speed and the loop they practise with.
 - **Collect the library's notes in the browser, one request per episode.** No host change, but a
   library of fifty episodes would be fifty requests before the home card can show a count.
 
