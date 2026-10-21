@@ -31,7 +31,7 @@ play it, and that is the part of this feature that needs a decision.
 ## Decision
 
 **A video is another source for the same segment, and it is converted once, into a hidden cache,
-when the reader asks.**
+when the user asks.**
 
 - **Recognised files.** `mkv`, `mp4`, `webm` and `mov` join the scan as video. A video pairs with its
   segment by stem, by the same rule subtitles use (`src/shared/stem.ts`), so `MDJT S01E01.mkv` belongs
@@ -56,7 +56,7 @@ when the reader asks.**
   preparing again. The source video is never modified. This is a fifth write into the media library,
   next to `notes.md`, the progress file, imports and subtitle timing, and the skill's list of writes
   gains it when this is built.
-- **The reader starts it.** Opening a segment whose video is not prepared shows a 「准备视频」 action
+- **The user starts it.** Opening a segment whose video is not prepared shows a 「准备视频」 action
   on the stage, with the estimated size. Preparing is one host job at a time, reports progress (from
   `ffmpeg -progress` against the probed duration), can be cancelled, and leaves the audio playable
   meanwhile. A `.part` left by a crash or a restart is cleared the next time.
@@ -94,8 +94,8 @@ the video (this episode does), and extracting them is a separate write with its 
   twice and kept in step. One element with one timeline is simpler, and the duration check catches
   the case where the two files really differ.
 - **Write the prepared `mp4` next to the source.** Visible and easy to find, but it is a second media
-  file with the same stem in a folder the reader owns, and the plugin would be cluttering it with a
-  file the reader did not put there.
+  file with the same stem in a folder the user owns, and the plugin would be cluttering it with a
+  file the user did not put there.
 - **Convert at import, or in a background sweep.** Saves a click, but spends a minute and a gigabyte
   of disk on episodes that may not be studied for weeks. Preparing when the episode is opened matches
   the "one episode at a time" habit the media note set.
@@ -109,7 +109,7 @@ The design round on 2026-10-12 settled these before anything was built.
 - **The picture follows the five steps, but only through the timer.** Starting the blind-watch
   step's timer switches the picture to large once, with 「撤销」 in the notice; pausing that timer or
   marking the step done puts back the state from before. Opening the page or the steps drawer never
-  switches it. Starting the timer is the reader saying "I am doing step one now", and an undo is one
+  switches it. Starting the timer is the user saying "I am doing step one now", and an undo is one
   click.
 - **`R` peeks at the sentence in the large state.** It is the same key and the same meaning as the
   reveal in shadowing mode: the hidden English of the current sentence is shown, as a caption on the

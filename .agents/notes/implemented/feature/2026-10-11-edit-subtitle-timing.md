@@ -7,10 +7,10 @@ Status: implemented
 Subtitles found in the wild are often cut a little off: a sentence starts a beat before the
 voice, or runs into the first word of the next one. On a page built around looping one
 sentence that is not cosmetic. The loop clips half a word or replays a fragment of the next
-line every pass, shadowing stops in the wrong place, and the reader can do nothing about it
+line every pass, shadowing stops in the wrong place, and the user can do nothing about it
 short of opening the file in another tool, guessing the milliseconds and reloading.
 
-The trouble is per sentence, not per file: the reader sees one sentence that is wrong, while
+The trouble is per sentence, not per file: the user sees one sentence that is wrong, while
 its neighbours are fine. A whole-file offset would not fix it.
 
 ## Decision
@@ -73,7 +73,7 @@ both languages is one file and one edit.
 the end shows as the next line's start, read-only.
 
 **Only files inside the library can be edited.** A file episode's subtitles live wherever the
-reader keeps them, outside the folder this plugin writes in. The strip opens for them too, but
+user keeps them, outside the folder this plugin writes in. The strip opens for them too, but
 says why it cannot save. Folders and loose files at the library root are both inside.
 
 **A kept sentence follows its sentence.** Kept sentences are matched by whole second and text.
@@ -105,7 +105,7 @@ export interface TimingWriteRequest {
 Both edits are checked before either file is written, so one sentence never ends up moved in one
 file and not the other.
 
-**Out of scope:** a whole-file offset and a two-point linear correction (the reader's trouble is
+**Out of scope:** a whole-file offset and a two-point linear correction (the user's trouble is
 per sentence); a waveform; splitting or merging sentences; editing the text; and undo beyond the
 `.bak` copy and saving the old times again.
 
@@ -117,7 +117,7 @@ per sentence); a waveform; splitting or merging sentences; editing the text; and
   would have two sources of timing that drift apart when the file is replaced.
 - **Parse, edit and serialize the whole file.** Simpler code, but the parser drops what it does
   not need (numbering, style tags, unparseable blocks) and sorts cues, so a save would rewrite
-  the reader's file well beyond the one sentence, and a GBK file would come back as UTF-8.
+  the user's file well beyond the one sentence, and a GBK file would come back as UTF-8.
 - **Address cues by their index in the parsed list.** The parser sorts and drops blocks, so an
   index in the page is not an index in the file.
 - **A whole-file offset first.** The most common fix in subtitle tools, but not the trouble

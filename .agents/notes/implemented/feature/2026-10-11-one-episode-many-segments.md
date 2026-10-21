@@ -80,7 +80,7 @@ Media URLs do not change: `/lingualab/media/<episode>/<file>` already serves any
 folder.
 
 Which segment to continue is not the host's call. The host knows no more than the progress
-file, and the page already holds the reader's positions, so the page resolves 「继续」 (the
+file, and the page already holds the user's positions, so the page resolves 「继续」 (the
 newest segment, below) and names the segment explicitly; the host treats an omitted one as the
 first. A segment id the episode does not have is refused with a reason and never replaced by the
 first one, because the position and the notes would then land on the wrong audio.
@@ -140,9 +140,9 @@ reordering segments in the page, and any change to import or to file episodes.
   so every seek, note timestamp and cue index would need an offset table, and a missing middle
   file would shift everything after it.
 - **Store the segment as a column in each phrase line.** Simple to parse, but it changes a line
-  format that readers edit by hand and that older files do not have. A heading is what a person
+  format that users edit by hand and that older files do not have. A heading is what a person
   would write anyway, and a file without headings still reads.
-- **Ask the reader to confirm which subtitle is which.** The layout is regular enough to decide by
+- **Ask the user to confirm which subtitle is which.** The layout is regular enough to decide by
   name, and a confirmation step for ten identical cases is a chore, not a choice.
 
 ## Consequences
