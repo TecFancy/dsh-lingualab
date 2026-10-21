@@ -121,7 +121,7 @@ type with its neighbours faded around it; the column on the right lists every se
 playback unless you switch 「Auto-follow」 off, and marks the kept ones. A few details earn their
 place by being used every session. The progress bar spans the episode with a hairline at every
 sentence start, shows the time and the sentence under the pointer on hover, and seeks once, on
-release, when dragged. Clicking an English word copies it or adds it to that sentence's note
+release, when dragged; moving the finger away from the bar while dragging scrubs at half and then a quarter speed. Clicking an English word copies it or adds it to that sentence's note
 without stopping the audio; dragging across words, or `Shift`-clicking a second one, does the same
 for the phrase between them, and a second click on 「已记下」 takes it out again. **Shadowing** stops after each sentence with the English blurred
 and uncovers it at the stop; `R` uncovers it any time. In 「更多」 it becomes a repeater's program: each sentence played
