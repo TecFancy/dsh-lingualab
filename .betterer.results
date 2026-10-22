@@ -896,9 +896,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'readEdits\' is over complexity 15 (reaches 17)", "complexity:Function \'readEdits\'@0#2"],
       [0, 0, 0, "eslint(complexity): Function \'readEdits\' is over complexity 15 (reaches 18)", "complexity:Function \'readEdits\'@0#3"]
     ],
-    "src/host/features/video/lib/video-plan.ts:3368380703": [
-      [0, 0, 0, "eslint(complexity): Function \'planVideo\' is over complexity 15 (reaches 16)", "complexity:Function \'planVideo\'@0#1"]
-    ],
     "src/host/features/video/model/video-jobs.ts:4290592496": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'createVideoJobs\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'createVideoJobs\'@0#1"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'createVideoJobs\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'createVideoJobs\'@0#2"],
