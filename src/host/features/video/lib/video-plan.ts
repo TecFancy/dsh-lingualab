@@ -172,6 +172,18 @@ function pictureDecodes(stream: ProbeStream): boolean {
   return true
 }
 
+/** Whether a browser plays this picture in the file's own container: VP8 counts only in a `webm`. */
+function picturePlays(stream: ProbeStream, extension: string): boolean {
+  return pictureDecodes(stream) || (extension === 'webm' && stream.codec_name === 'vp8')
+}
+
+/** Whether a browser plays the file as it is: the picture, the sound, and the sound being the first track. */
+function playsAsIs(probe: ProbeResult, extension: string, audio: ProbeStream, videoCodec: string): boolean {
+  const firstAudio = probe.streams.find((stream) => stream.codec_type === 'audio')
+  const containerOk = (DIRECT_VIDEO[extension] ?? []).includes(videoCodec)
+  return containerOk && PLAYABLE_AUDIO.includes(audio.codec_name ?? 'unknown') && firstAudio?.index === audio.index
+}
+
 /**
  * Decide what to do with one video.
  * @param probe - what \`ffprobe\` said about the file.
@@ -190,15 +202,13 @@ export function planVideo(probe: ProbeResult, extension: string): VideoPlan {
     return { kind: 'audio-only', duration, audioIndex: audio.index, videoCodec: null, audioCodec, reason: 'no-video' }
   }
   const videoCodec = picture.codec_name ?? 'unknown'
-  if (!pictureDecodes(picture) && !(extension === 'webm' && videoCodec === 'vp8')) {
+  if (!picturePlays(picture, extension)) {
     return { kind: 'audio-only', duration, audioIndex: audio.index, videoCodec, audioCodec, reason: 'video-codec' }
   }
 
-  const firstAudio = probe.streams.find((stream) => stream.codec_type === 'audio')
-  const containerOk = (DIRECT_VIDEO[extension] ?? []).includes(videoCodec)
   // The browser plays the first audio track, so a file whose English track is a later one is
   // prepared rather than played as it is.
-  if (containerOk && PLAYABLE_AUDIO.includes(audioCodec) && firstAudio?.index === audio.index) {
+  if (playsAsIs(probe, extension, audio, videoCodec)) {
     return { kind: 'direct', duration, videoCodec, audioCodec }
   }
   // VP8 has no place in an mp4, so a VP8 picture that cannot play as it is keeps only its sound.
