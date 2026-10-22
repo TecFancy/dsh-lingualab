@@ -1,0 +1,25 @@
+# Overlay for `dsh headless --patch`: give the run the codebase-memory-mcp
+# graph tools (mcp__codebase-memory-mcp__*). Stack it after commandcode.yml.
+#
+# It reuses the binary and the index cache of the rsp-software-dev Claude Code
+# plugin, so an index built here is the one Claude Code reads and the other
+# way round. current.json names the binary the plugin last installed, so a
+# plugin update needs no edit here. Windows only: the plugin keeps both under
+# %LOCALAPPDATA%\RSP\codebase-memory.
+#
+# The server is scoped to the directory dsh was started in, like the plugin
+# scopes it to the Claude Code project directory.
+- insert:
+    - id: mcp-codebase-memory
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: codebase-memory-mcp
+        transport: stdio
+        command: !!js JSON.parse(process.getBuiltinModule('fs').readFileSync(process.env.LOCALAPPDATA + '/RSP/codebase-memory/current.json', 'utf8')).binary
+        cwd: !!js process.cwd()
+        env:
+          CBM_CACHE_DIR: !!js process.env.LOCALAPPDATA + '\\RSP\\codebase-memory\\cache'
+          CBM_ALLOWED_ROOT: !!js process.cwd()
+          CBM_LOG_LEVEL: warn
+        # A first full index of a large repo runs past the 60 s default.
+        toolCallTimeoutMs: 600000
