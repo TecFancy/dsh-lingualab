@@ -1,6 +1,6 @@
 ---
 name: dsh-headless
-description: 把一件简单任务交给本机的 dsh，一次跑完、拿回结果，默认走 commandcode provider。听到「让 dsh 去做 / 调一下 dsh / 用 dsh 跑一下」时加载。
+description: 把一件简单任务交给本机的 dsh，一次跑完、拿回结果，默认走 commandcode provider。提到「让 dsh 去做 / 调一下 dsh / 用 dsh 跑一下」时加载。
 ---
 
 # 把任务交给本机的 dsh
