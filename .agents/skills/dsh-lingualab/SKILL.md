@@ -90,13 +90,14 @@ npm run betterer:ci  # 体量门：只检查，从不写文件（全档里跑这
 - **不允许直接在 `main` 上修改。** `main` 只接从 `development` 来的发布 PR。
 - **可以直接在 `development` 上修改。**
 - 改动要基于 `origin/development` 时，按三步走：
-  1. 先把本地 `development` 从 `origin/development` 更新同步，例如 `git fetch origin development:development`，
-     或切到 `development` 后跑 `git pull --ff-only`。
+  1. 先在主检出里把本地 `development` 从 `origin/development` 更新同步：`git pull --ff-only`。
+     `development` 已在主检出里检出，`git fetch origin development:development` 会被 git 拒绝。
   2. 基于本地 `development` 创建 worktree，改动都在 worktree 里做：
      `git worktree add -b <分支名> ../dsh-lingualab-<主题> development`。
   3. worktree 里改完，提交并推分支，开 PR 到 `development`。
-- 主工作树留在 `main`：线上那台 dsh 用 `link:` 装到主工作树，只该跑发布版代码。worktree 在仓库目录之外，
-  和它互不影响。PR 合了就删掉 worktree 和分支。
+- 主检出停在 `development`：`ship` 要在这里跑，本机 web profile 用 `link:` 装的也是这份，所以本机 dsh 跑的是
+  `development` 的代码，PR 合进来后在主检出拉一下（改了 host 再重启 dsh-web）就能用上。worktree 和它互不影响，
+  PR 合了就删掉 worktree 和分支。
 
 ## 文档分工
 
