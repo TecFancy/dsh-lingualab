@@ -58,7 +58,7 @@
 - 跟读模式（store 的 `pauseAfterSentence` 与 `revealed`）在 `onTime` 里判断，只对刚播完的那一句生效；有循环时由循环负责句尾。
 - 一句播完之后做什么，交给纯函数 `planShadow`（`features/media-player/lib/shadow.ts`）决定。
 - 复述停顿是 store 里的 `shadowWait` 状态，计时器在 `useMediaBinding` 里。
-- 读者的任何操作（`toggle`、`seek`、切句、循环、`setPlaying`）都通过 `IDLE_PROGRAM` 清掉停顿。
+- 用户的任何操作（`toggle`、`seek`、切句、循环、`setPlaying`）都通过 `IDLE_PROGRAM` 清掉停顿。
   新增会改变播放的入口时也要清，否则过期的停顿会在别处接着播放。
 
 ### 录音对比
