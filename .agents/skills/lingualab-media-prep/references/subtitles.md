@@ -16,4 +16,8 @@
   不用手动清理。
 - 字幕组常给 `X 中英双语.srt` 这种带空格的名字，它配不上对。内容和 `X.srt` 一样就不用管它，
   不一样就改名成 `X.zh-en.srt` 再拖，或者导入后手选。拿不准是否一样，先比哈希：`Get-FileHash a.srt, b.srt`。
+- 插件只认 srt、vtt、lrc（`src/shared/protocol.ts` 的 `SUBTITLE_EXTENSIONS`），`.ass` 拖进来没有反应。
+  `convert.ps1` 会把它转成同名 `.srt`；手动转是 `ffmpeg -n -i X.ass X.srt`。转出来的时间不变，`Comment`
+  行和定位标签丢掉，斜体、字号变成 `<i>`、`<font>`，页面解析时会去掉。带 OP、ED 卡拉 OK 或屏幕注释的
+  `.ass` 转完要看一眼，这些也会变成句子，删掉那几块再拖。
 - 外挂字幕和内嵌字幕可能不是同一个版本，时间轴对不上时优先信内嵌的，它跟这个视频是一起封装的。
