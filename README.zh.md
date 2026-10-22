@@ -50,7 +50,7 @@ notes/learning/english/media/
   单独成为一段，声音取自视频。只有一个词干的文件夹仍然是一集一段。
 - 首页的卡片和分段列表上有一个小的视频标记，视频还没准备好时显示「视频 · 未准备」。
 - 浏览器本来就能播放的视频（`mp4` 或 `webm`，画面是 H.264、VP9 或 AV1，声音是 AAC、Opus 或 MP3）直接播放。
-- 其余视频**在读者需要时准备一次**（「准备视频」）：`ffmpeg` 原样复制画面，把声音转成立体声 AAC（取第一条英文音轨，
+- 其余视频**在用户需要时准备一次**（「准备视频」）：`ffmpeg` 原样复制画面，把声音转成立体声 AAC（取第一条英文音轨，
   没有就取第一条），写进索引在文件开头的 `mp4`，耗时和读一遍文件差不多。
 - 浏览器无法解码的画面（HEVC、MPEG-4 Part 2、10 位 H.264）这一步不重新编码，只把声音提取成 `m4a`，
   所以没有音频文件的那一段照样能精听（要把这样的画面变成能播放的视频，用下面的流畅版）。
@@ -76,7 +76,7 @@ notes/learning/english/media/
 - 文件生成后，原尺寸的准备文件 `<词干>.mp4` 会被删掉，能直接播放的源文件从不改动。页面按流畅版、准备版、源文件的顺序选择播放哪一个。
 - 正在播放流畅版时，画面上有「改回原画质」：删掉这个文件，再把视频按原来的方式准备一次（换封装约一分钟；画面无法解码的，回到只有声音的状态）。
 
-有视频的段还可以**播放读者自己电脑上的文件**（画面上和每张视频卡片上的「用本地文件播放」，或者把文件拖到舞台上）：
+有视频的段还可以**播放用户自己电脑上的文件**（画面上和每张视频卡片上的「用本地文件播放」，或者把文件拖到舞台上）：
 
 - 在同一次会话里，它代替服务器上的视频播放，不上传，所以不受慢网络影响。
 - 它的时长会和服务器上的视频比较（服务器上的视频还没探测过时，和音频文件比较），相差超过一秒就显示同样的时长警告。
@@ -96,7 +96,7 @@ notes/learning/english/media/
 - 播放卡片上只留每分钟都要用的控件：上一句、下一句、播放、变速、循环本句、中文显示和星标。A-B 区间、重复次数、
   提前起播（每句提前一点开始播放）和快捷键一览收在「更多」里。
 - 点字幕行就跳到那一句并开始播放。变速有十档，不改变音调。
-- 双语字幕不论源文件怎么排列，英文总在上、中文在下。中文有四档显示模式，避免读者不自觉地去读母语。
+- 双语字幕不论源文件怎么排列，英文总在上、中文在下。中文有四档显示模式，避免用户不自觉地去读母语。
 - 页面记住每一集听到哪里、五步法勾了哪几步，首页用听到的位置做「接着上次」。这份记录存在服务端，即媒体库根目录里
   隐藏的 `.lingualab-progress.json`，和各集的 `notes.md` 放在一起；每个浏览器另有一份缓存。所以换一台设备、
   开无痕窗口、清掉浏览器缓存，都能接着上次听。两台设备的记录不一致时，以最近一次停下的位置为准。
@@ -130,7 +130,7 @@ notes/learning/english/media/
 - 收藏的句子是右栏的另一个视图「收藏」，和字幕并列（按 `N` 切换）。点一张卡片，那一句就放上舞台循环播放；
   舞台上那一句的卡片会展开，显示备注、单词和评级。备注可以写多行（`Ctrl+Enter` 保存），卡片上的时间按钮可以播放和暂停这一句。
 - 每句收藏只有一个状态，按 `1`「记住了」、`2`「模糊」或 `3`「没记住」设定。评为「记住了」的句子
-  离开「还在练」视图，但不会被删除。所以工作集保持简短，靠的是读者自己的评级，而不是一个数量上限。
+  离开「还在练」视图，但不会被删除。所以工作集保持简短，靠的是用户自己的评级，而不是一个数量上限。
 - **复习**把还在练的句子逐句过一遍：英文先遮住，按 `R` 揭晓，每句循环播放，直到评级为止。可以在「收藏」栏为这一集开始复习，
   也可以在首页的卡片上为整个库开始。
 - 文件夹剧集的笔记是 markdown，一条短语占一个清单行（备注里的换行写成 `<br>`，一条短语始终占一行），在编辑器里读得通顺，
@@ -221,20 +221,16 @@ npm run deploy                      # pull on the server, restart the service, c
 
 ## 仓库结构
 
-```text
-src/index.ts                 host half: the config, and mounting the routes
-src/host-context.ts          the slice of the host plugin context we call
-src/host/shared/             config, request trust and media serving, path rules,
-                             the ffmpeg finder, test helpers
-src/host/entities/           episode (the library scan), open state, places, notes
-                             file, subtitle choice, video cache
-src/host/features/           one slice per capability, its route in
-                             api/<name>.route.ts beside its rules
-src/shared/                  the wire contract and the notes markdown format
-src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
-src/client/                  the page, its widgets, and the slot-free features (library,
-                             import, notes, media player, resume, settings)
-lib/                         tsdown output, committed: what the shell fetches
-locale/                      the Plugins page display name and summary
-cordis.patch.yml             bundle patch (loader row `lingualab`)
-```
+| 路径 | 放什么 |
+|---|---|
+| `src/index.ts` | 服务端入口：配置，并挂上各条路由 |
+| `src/host-context.ts` | 用到的那一部分宿主插件 context |
+| `src/host/shared/` | 配置、请求信任与媒体伺服、路径规则、ffmpeg 查找、测试辅助 |
+| `src/host/entities/` | episode（库扫描）、open state（打开的剧集）、places（可浏览的位置）、笔记文件、手选字幕、视频缓存 |
+| `src/host/features/` | 一个能力一个切片，路由在 `api/<名字>.route.ts`，挨着它调用的规则 |
+| `src/shared/` | 两端共用的协议与笔记 markdown 格式 |
+| `src/client/entities/cue/` | 字幕解析、解码与双语行序 |
+| `src/client/` | 页面、它的 widgets，以及不注册插槽的 feature（library、import、notes、media player、resume、settings） |
+| `lib/` | tsdown 的产物，提交进仓库：外壳取的就是它 |
+| `locale/` | 插件页上的显示名与简介 |
+| `cordis.patch.yml` | bundle 补丁（Loader 行 `lingualab`） |
