@@ -1,0 +1,15 @@
+# Overlay for `dsh headless --patch`: route the run's default model through
+# the commandcode provider instead of the official API key. The provider row
+# itself (llm-commandcode, apiKeyEnv COMMANDCODE_API_KEY) comes from the
+# @mars-sea/dsh-commandcode-provider bundle in the headless profile.
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: commandcode
+    model: deepseek/deepseek-v4.1-flash
+
+# The headless bundle disables the credentials service, so a key saved from
+# the web Models page ($DSH_HOME/.credentials.yaml) never reaches a one-shot
+# run. Re-enable it so COMMANDCODE_API_KEY has one home shared with web.
+- id: credentials
+  disabled: false
