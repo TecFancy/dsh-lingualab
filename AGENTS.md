@@ -7,8 +7,8 @@
 
 ## 三件每轮都要知道的事
 
-1. **两个半边**：host 在 `src/index.ts`（改完要重启 dsh-web），client 在 `src/client/index.tsx`
-   （自动热替换）。`lib/` 是提交进仓库的产物，改完源码必须重建。
+1. **代码分服务端和前端两部分**：服务端（host）入口在 `src/index.ts`，改完要重启 dsh-web；前端（client）入口在
+   `src/client/index.tsx`，自动热替换。`lib/` 是提交进仓库的产物，改完源码必须重建。
 2. **验证只有一条命令**：`npm run verify`。提交前钩子跑的是 `node scripts/verify.mjs --fast`，
    它不含需要构建的产物检查。
 3. **不许抢宿主的键盘**：快捷键挂在面板容器上，不挂 `window`。
@@ -19,8 +19,8 @@
 ## 目录
 
 ```text
-src/index.ts            host 半边：配置，并挂上各个 feature 导出的路由
-src/host/               host 半边，FSD 的下三层，没有 widgets、pages、app 层
+src/index.ts            服务端入口：配置，并挂上各个 feature 导出的路由
+src/host/               服务端，FSD 的下三层，没有 widgets、pages、app 层
   shared/               config（库根解析）、http（请求信任、媒体伺服带 Range、JSON）、fs（路径检查）、
                         ffmpeg（查找与起进程）、lib、testing（只给测试用）；除 lib 外每段都有 `index.ts`
   entities/             episode（库扫描：一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干；
@@ -31,8 +31,8 @@ src/host/               host 半边，FSD 的下三层，没有 widgets、pages�
                         review（跨集复习清单，只读）、subtitle-choice、timing（字幕时间）、
                         video（`lib/video-plan` 纯规划、`video-jobs` 一次一个的任务、`video` 状态）；
                         写素材目录只有导入、notes.md、进度文件、字幕时间、手选字幕文件与视频缓存
-src/shared/             跨半边契约、笔记格式与文件名配对（最长词干归属），只有这一份
-src/client/             客户端半边，FSD 分层，没有 app 层
+src/shared/             两端共用的协议、笔记格式与文件名配对（最长词干归属），只有这一份
+src/client/             前端，FSD 分层，没有 app 层
   shared/               桥、请求、格式化、样式
   entities/cue/         字幕解析与双语分行
   features/             library（读一集或其中一段）、media-player（播放与循环、跟读程序、耳机与锁屏按键）、notes（收藏，无 7 条上限，按段分组）、
@@ -66,7 +66,7 @@ notes 树与链接（各带自测）、docs、全仓链接、中英配对与它�
 - 中文文档按 `docs` 缺省语体写：全角标点，中英之间一个空格，别用箭头当连词。
 - 每篇 note 三件套，中文那份是真翻译。改一侧就跑
   `npm run bilingual:check -- --write` 重记哈希。
-- 新增跨半边形状放 `src/shared/`，客户端通过桥导入；新增能力新建切片并给它写 `index.ts`。
+- 两端共用的新类型放 `src/shared/`，前端经 `src/client/shared/` 里的转发文件导入；新增能力新建切片并给它写 `index.ts`。
 - 新逻辑进切片自己 `lib/` 里带测试的 hook 或纯函数，不往页面或组件里堆；一个组件或函数要过 80 行就拆开，不要记进
-  `.betterer.results` 的 baseline。体量门怎么用见 `.agents/skills/dsh-lingualab/SKILL.md`。
-- 素材（音频、视频）不进仓库，见 `.agents/skills/dsh-lingualab/SKILL.md` 的踩坑一节。
+  `.betterer.results` 的 baseline。体量门怎么用见 `.agents/skills/dsh-lingualab/references/size-gate.md`。
+- 素材（音频、视频）不进仓库，放在工作区的 `notes/learning/english/media/`（自带 `.gitignore`），准备素材见技能 `lingualab-media-prep`。

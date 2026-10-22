@@ -6,7 +6,8 @@
   For every .mkv / .mp4 given (a folder means the videos directly inside it), writes
   <stem>.mp3 into -OutDir (default: next to the video). Existing mp3 files are skipped,
   never overwritten. Sidecar subtitles whose name starts with the stem are copied along
-  when -OutDir differs. When a video has no sidecar subtitle, or with
+  when -OutDir differs; ASS and SSA sidecars are converted to a same-named .srt instead,
+  next to the video or in -OutDir. When a video has no sidecar subtitle, or with
   -EmbeddedSubtitles, the embedded text subtitle tracks are extracted as
   <stem>.<lang>.srt. Image subtitles (PGS, VobSub) cannot become text and are reported.
 
@@ -24,7 +25,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $videoExtensions = @('.mkv', '.mp4')
-$subtitleExtensions = @('.srt', '.vtt', '.ass', '.lrc')
+$subtitleExtensions = @('.srt', '.vtt', '.ass', '.ssa', '.lrc')
+$assExtensions = @('.ass', '.ssa')
 $textSubtitleCodecs = @('subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'text')
 $languageCodes = @{ eng = 'en'; chi = 'zh'; zho = 'zh'; jpn = 'ja'; kor = 'ko'; fre = 'fr'; fra = 'fr'; ger = 'de'; deu = 'de'; spa = 'es' }
 
@@ -91,6 +93,18 @@ foreach ($video in $videos) {
     Write-Warning "   $($stray.Name) will not pair: after the name it needs . _ or - (rename it, for example to $stem.zh-en$($stray.Extension))"
   }
   foreach ($sidecar in $sidecars) {
+    # lingualab reads srt, vtt and lrc only, so an ASS sidecar becomes a same-named srt.
+    if ($assExtensions -contains $sidecar.Extension.ToLower()) {
+      $srt = Join-Path $target "$([IO.Path]::GetFileNameWithoutExtension($sidecar.Name)).srt"
+      if (Test-Path -LiteralPath $srt) {
+        Write-Host "   $([IO.Path]::GetFileName($srt)) already exists, $($sidecar.Name) not converted"
+      } else {
+        & ffmpeg -hide_banner -loglevel error -n -i $sidecar.FullName -c:s srt $srt
+        if ($LASTEXITCODE -ne 0) { Write-Warning "   converting $($sidecar.Name) failed with exit code $LASTEXITCODE" }
+        else { Write-Host "   converted subtitle $($sidecar.Name) -> $([IO.Path]::GetFileName($srt))" }
+      }
+      continue
+    }
     $copy = Join-Path $target $sidecar.Name
     if ($sidecar.FullName -ne $copy -and -not (Test-Path -LiteralPath $copy)) {
       Copy-Item -LiteralPath $sidecar.FullName -Destination $copy
