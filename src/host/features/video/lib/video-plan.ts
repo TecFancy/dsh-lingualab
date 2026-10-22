@@ -178,10 +178,10 @@ function picturePlays(stream: ProbeStream, extension: string): boolean {
 }
 
 /** Whether a browser plays the file as it is: the picture, the sound, and the sound being the first track. */
-function playsAsIs(probe: ProbeResult, extension: string, audio: ProbeStream, videoCodec: string): boolean {
+function playsAsIs(probe: ProbeResult, extension: string, audio: ProbeStream, codecs: { video: string; audio: string }): boolean {
   const firstAudio = probe.streams.find((stream) => stream.codec_type === 'audio')
-  const containerOk = (DIRECT_VIDEO[extension] ?? []).includes(videoCodec)
-  return containerOk && PLAYABLE_AUDIO.includes(audio.codec_name ?? 'unknown') && firstAudio?.index === audio.index
+  const containerOk = (DIRECT_VIDEO[extension] ?? []).includes(codecs.video)
+  return containerOk && PLAYABLE_AUDIO.includes(codecs.audio) && firstAudio?.index === audio.index
 }
 
 /**
@@ -208,7 +208,7 @@ export function planVideo(probe: ProbeResult, extension: string): VideoPlan {
 
   // The browser plays the first audio track, so a file whose English track is a later one is
   // prepared rather than played as it is.
-  if (playsAsIs(probe, extension, audio, videoCodec)) {
+  if (playsAsIs(probe, extension, audio, { video: videoCodec, audio: audioCodec })) {
     return { kind: 'direct', duration, videoCodec, audioCodec }
   }
   // VP8 has no place in an mp4, so a VP8 picture that cannot play as it is keeps only its sound.
