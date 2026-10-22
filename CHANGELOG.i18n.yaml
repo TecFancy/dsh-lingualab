@@ -7,7 +7,7 @@
   zh: e3b0c44298fc1c14
 "/changelog":
   en: 44eed631f7c24922
-  zh: 6d2b152881cd51a8
+  zh: f67127285ec7efc9
 "/changelog/unreleased":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -16,7 +16,7 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-15-0-2026-10-21/added":
   en: cf87a8675086bb46
-  zh: 81c0069700ccb88f
+  zh: 29d8b76ee1347b6c
 "/changelog/0-15-0-2026-10-21/changed":
   en: 08851f9434da5763
   zh: 6df1c162d2a03e25
@@ -52,7 +52,7 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-14-2-2026-10-15/changed":
   en: c2336806f739fd9e
-  zh: 69813ea83b9d90f4
+  zh: 4f582e3a0b8692e6
 "/changelog/0-14-1-2026-10-15":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -73,13 +73,13 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-13-0-2026-10-14/added":
   en: d6f49672aad2e92a
-  zh: d6988b31903e6f3d
+  zh: f2502b6157978a19
 "/changelog/0-12-0-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-12-0-2026-10-14/added":
   en: 8d2f901dc0993aaf
-  zh: 583b9b8a156ddcbc
+  zh: d1241237ad66b38e
 "/changelog/0-12-0-2026-10-14/changed":
   en: baa41ad74fc48169
   zh: 407dbd2e516bb62c
@@ -94,19 +94,19 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-11-6-2026-10-14/fixed":
   en: 895f81c48e261947
-  zh: c9a6b4e82b9bd803
+  zh: e1946c51ac7ad2e8
 "/changelog/0-11-5-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-11-5-2026-10-14/fixed":
   en: 85d63e51c2a532da
-  zh: a456861a9e143a41
+  zh: b72a7369bb4dfa0d
 "/changelog/0-11-4-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-11-4-2026-10-14/fixed":
   en: f42f4d377621a9cb
-  zh: 0492c0f959cf4f3a
+  zh: b8298d02010ee680
 "/changelog/0-11-3-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -115,13 +115,13 @@
   zh: 7f761a9372999c08
 "/changelog/0-11-3-2026-10-14/fixed":
   en: 7054bf0a3701ad98
-  zh: c2238fe5d3729071
+  zh: 0796989e541e1d32
 "/changelog/0-11-2-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-11-2-2026-10-14/fixed":
   en: 573eebe6ebe17b69
-  zh: 41a48d2bbd011319
+  zh: 7593127670f6afe7
 "/changelog/0-11-1-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -136,7 +136,7 @@
   zh: 197d8bd53aec4013
 "/changelog/0-11-0-2026-10-14/fixed":
   en: 983589915a1d5174
-  zh: 49b80a8454fcd815
+  zh: d1f4c46fb97ef38a
 "/changelog/0-10-1-2026-10-14":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -148,13 +148,13 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-10-0-2026-10-13/added":
   en: 9f7f220a2cd71dc7
-  zh: 04da3230f4068b49
+  zh: 23d44f8ca8161d63
 "/changelog/0-9-3-2026-10-13":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-9-3-2026-10-13/changed":
   en: 3fd58c18a60bc1f4
-  zh: 742f448e7082b7a2
+  zh: 87ad45a956b17721
 "/changelog/0-9-2-2026-10-13":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -175,7 +175,7 @@
   zh: 00861fe1001bad38
 "/changelog/0-9-0-2026-10-12/changed":
   en: 1e2ca0de3c0b966d
-  zh: 929a27e94f0a749e
+  zh: f2665e7472d30e0c
 "/changelog/0-9-0-2026-10-12/fixed":
   en: cdea97607f7b2920
   zh: 20f500c7460ffb55
@@ -184,13 +184,13 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-8-1-2026-10-12/fixed":
   en: 2cab5eba7844207a
-  zh: fdf5ce9c444bee8b
+  zh: b32245f936d6df1f
 "/changelog/0-8-0-2026-10-12":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-8-0-2026-10-12/added":
   en: ff4e3e42647e6fdc
-  zh: db4ce4dc4fe0e273
+  zh: e4fab4ee8f596989
 "/changelog/0-8-0-2026-10-12/changed":
   en: 47c0996c27639b8c
   zh: 160391f0c399b7b7
@@ -232,7 +232,7 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-4-0-2026-10-10/added":
   en: 2549c741f4b80c35
-  zh: 1f21476db1c9a01c
+  zh: acbb2a5c59b68c67
 "/changelog/0-4-0-2026-10-10/changed":
   en: a59b2e68c9825b4a
   zh: d11c69cc37f03d02
@@ -250,22 +250,22 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-3-0-2026-10-10/added":
   en: a26e5231db4b69a4
-  zh: 6bf4a13440d2fd22
+  zh: ec44b33435db97b5
 "/changelog/0-3-0-2026-10-10/changed":
   en: ccb465bcebcd58d4
-  zh: 548586f11cde65cf
+  zh: a144d5d87e7edf57
 "/changelog/0-3-0-2026-10-10/removed":
   en: 7ad82556dc20fc96
-  zh: e1eb04601a5421b6
+  zh: 9a448f9f375d532e
 "/changelog/0-3-0-2026-10-10/fixed":
   en: ac903d4890faaa8e
-  zh: 0b40dfbff1bfd3b1
+  zh: 8206d5d8e4313720
 "/changelog/0-2-0-2026-10-09":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-2-0-2026-10-09/changed":
   en: 79a05a4226e09417
-  zh: 1cf483705d4ffd2e
+  zh: 38ecc5e6cecd531f
 "/changelog/0-2-0-2026-10-09/fixed":
   en: 5e42922e8fe4aeed
   zh: 46dd7ef0177c3651
@@ -274,16 +274,16 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-1-5-2026-10-08/added":
   en: 46060203f6be356f
-  zh: b13591b03d2e148b
+  zh: 3a7697300ac41823
 "/changelog/0-1-5-2026-10-08/fixed":
   en: 36c5cac7898a4a18
-  zh: c8e8d403451593a8
+  zh: 2aa0f517a0fc0388
 "/changelog/0-1-4-2026-10-08":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-1-4-2026-10-08/added":
   en: bcd65f6d7c0d97ed
-  zh: 3e2189bbb4208b87
+  zh: 1d97ab16f25b861a
 "/changelog/0-1-3-2026-10-08":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
@@ -295,19 +295,19 @@
   zh: e3b0c44298fc1c14
 "/changelog/0-1-2-2026-10-08/fixed":
   en: fbaa7bb1675b7ea2
-  zh: 56bdae6c882ce927
+  zh: 94d0f832ebecc6fb
 "/changelog/0-1-2-2026-10-08/changed":
   en: 6b48f056ec609c85
-  zh: 70a56fdc9db1a4c3
+  zh: c856a992a63f4275
 "/changelog/0-1-1-2026-10-08":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-1-1-2026-10-08/fixed":
   en: 4d1e55ca6da99f99
-  zh: aec60dae036cc3f8
+  zh: 483178bdc26eaf6d
 "/changelog/0-1-0-2026-10-08":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/0-1-0-2026-10-08/added":
   en: 7a48bc92d909a095
-  zh: dcfcead4918421fb
+  zh: e375514442f6a784
