@@ -2,7 +2,7 @@
 
 `npm run betterer:ci` 报错、拆大函数之后、`.betterer.results` 冲突时读这份。
 
-- **体量门，`npm run betterer:ci`（2026-10-15 起）**：Betterer 用 ESLint 数 `src/` 两个半边里超标的点（`complexity` 15、`max-lines` 250、
+- **体量门，`npm run betterer:ci`（2026-10-15 起）**：Betterer 用 ESLint 数 `src/` 里服务端和前端超标的点（`complexity` 15、`max-lines` 250、
   `max-lines-per-function` 80，后两个不数空行与注释；测试与 `testing/` 不管；阈值与 fsd-react 一致），现状记在 `.betterer.results`。
   这是一道棘轮：**超标的点只能变少、变小，不能变多、不能变大**。`.betterer.ts` 没有直接用 `@betterer/eslint` 的 `eslint()`，而是照它的写法包了一层，
   把问题记成「与大小成比例、与位置无关」的一组，原因与取舍见 `.agents/notes/implemented/process/2026-10-15-size-gate-and-page-split.md`：

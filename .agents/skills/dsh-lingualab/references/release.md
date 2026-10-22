@@ -56,7 +56,7 @@ CI 跑完之后 `ship -- --continue` 找到开着的 development 到 main 的 PR
 流程全走 `ssh -o BatchMode=yes`，参数用数组传，不拼本地 shell 字符串，Git Bash 与 PowerShell 都能跑：
 `git pull --ff-only`；打印服务器上 `package.json` 的版本并与 origin/main 的对比（不一致只警告）；
 `sudo -n systemctl restart`；等几秒后 `systemctl is-active` 必须是 `active`，否则退出码 1 并给出看日志的命令。
-**部署只证明服务起来了，页面在浏览器里对不对仍然要自己看一眼**（宿主半边的改动尤其如此）。
+**部署只证明服务起来了，页面在浏览器里对不对仍然要自己看一眼**（服务端的改动尤其如此）。
 
 **不变的规矩**：
 
