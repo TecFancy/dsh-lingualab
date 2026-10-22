@@ -167,7 +167,7 @@ the plugin that was installed and used, not an artifact on a registry.
 - The card that stands in for a picture (prepare the video, preparing, ffmpeg missing, only the sound, cannot play, failed) no
   longer pushes the sentence and the player card off a short column. At 1133 by 634 (an iPad mini in Safari) the prepare card alone
   needed 153 px more than the column has, so the part above the player card scrolled, and with the smooth-version offer and the
-  reader's own file on it the shortfall was up to 334 px (at 1440 by 900 only the cards with such an extra scrolled, by up to
+  user's own file on it the shortfall was up to 334 px (at 1440 by 900 only the cards with such an extra scrolled, by up to
   86 px). The card now gives way in steps until nothing scrolls: compact (tighter), lean (without the icon, the explanation, the
   notes, the offers and the local file, the body at two lines), one line (the title, the file or the progress bar, and the
   button; 44 px, or 58 px on touch) and, where not even that fits, not drawn. The page tries the steps before paint, from the
@@ -306,13 +306,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 - A source that cannot be opened no longer sends the player back to 00:00. Dropping a local file the browser cannot
   play, or a prepared video it cannot decode, used to go back to the other source from the start; it now carries on
-  from where the reader was.
+  from where the user was.
 
 ## [0.10.0] - 2026-10-13
 
 ### Added
 
-- 「用本地文件播放」: a segment that has a video file can play it from a file on the reader's own machine, in place of the
+- 「用本地文件播放」: a segment that has a video file can play it from a file on the user's own machine, in place of the
   served video, without uploading it. Pick it from the picture or from any video card (prepare, preparing, no ffmpeg,
   sound only, failed, unplayable), or drop it on the stage; it is played from an object URL under the same session, so the
   position, loop, subtitles and kept sentences carry on, and a label on the stage says 「本地文件」 with a way to stop using
@@ -368,7 +368,7 @@ the plugin that was installed and used, not an artifact on a registry.
   reload instead of starting at 「变淡」 every time.
 - The host half is organised in FSD layers like the client: `src/host/` is `shared`, `entities` and `features`, each
   route sits in its feature beside the rules it calls, and `npm run lint:fsd` runs Steiger on both halves. Nothing the
-  reader sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
+  user sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
 
 ### Fixed
 
@@ -408,7 +408,7 @@ the plugin that was installed and used, not an artifact on a registry.
   one episode of one segment. Import takes video with the same rules as audio (never overwrites, 2 GB, a `.part` first).
   The home's cards and the segment list carry a small video mark, 「视频 · 未准备」 while it still has to be prepared.
 - The video plays in the page. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP9 or AV1 and
-  AAC, Opus or MP3) plays directly. Anything else is prepared once, when the reader asks (「准备视频」): `ffmpeg` copies the
+  AAC, Opus or MP3) plays directly. Anything else is prepared once, when the user asks (「准备视频」): `ffmpeg` copies the
   picture untouched and converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its
   index first, which takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit
   H.264) is not re-encoded: only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still
