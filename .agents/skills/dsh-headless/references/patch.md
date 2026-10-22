@@ -24,3 +24,16 @@ headless 只有 `dsh-base`、`dsh-headless` 两个 bundle 和后来安装的插�
 
 要在 headless 里用某个 MCP 服务，把 web profile 的 `cordis.patch.yml` 里对应的 `insert` 条目复制到另一个 patch 文件，
 调用时一起叠加（`--patch` 可以写多次）。
+
+## codebase-memory.yml 为什么这样写
+
+用法见 SKILL.md 的「查代码结构时加上图谱工具」，这里只记背后的考虑。
+
+- **二进制与索引和 Claude Code 共用**：都取自 rsp-software-dev 插件，二进制按 `%LOCALAPPDATA%\RSP\codebase-memory\current.json`
+  找，插件升级后不用改 patch；索引放在同一目录的 `cache\` 下，哪一边建的另一边都能直接查。web profile 那条用的是
+  `~/.local/bin` 里的旧版二进制和它自己的缓存，和这两边都不通。
+- **范围是启动目录**：`CBM_ALLOWED_ROOT` 与 `cwd` 都取 dsh 启动时的目录，所以要先切到要查的仓库。
+- **超时放宽到 10 分钟**：dsh 碰上没索引过的仓库会先建索引，大仓库第一次全量索引会超过默认的 60 秒。
+- 只在 Windows 上能用，macOS 上插件的目录不一样。
+
+这个 patch 的用处是让 dsh 自己用图谱查代码，不是替 Claude 建索引：建索引不需要模型，用技能 `codebase-index`。
