@@ -68,5 +68,5 @@ notes 树与链接（各带自测）、docs、全仓链接、中英配对与它�
   `npm run bilingual:check -- --write` 重记哈希。
 - 新增跨半边形状放 `src/shared/`，客户端通过桥导入；新增能力新建切片并给它写 `index.ts`。
 - 新逻辑进切片自己 `lib/` 里带测试的 hook 或纯函数，不往页面或组件里堆；一个组件或函数要过 80 行就拆开，不要记进
-  `.betterer.results` 的 baseline。体量门怎么用见 `.agents/skills/dsh-lingualab/SKILL.md`。
+  `.betterer.results` 的 baseline。体量门怎么用见 `.agents/skills/dsh-lingualab/references/size-gate.md`。
 - 素材（音频、视频）不进仓库，见 `.agents/skills/dsh-lingualab/SKILL.md` 的踩坑一节。
