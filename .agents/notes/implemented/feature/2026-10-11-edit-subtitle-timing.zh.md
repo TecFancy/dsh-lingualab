@@ -29,6 +29,7 @@ Status: implemented
 | `Shift` + `←` `→` | 微调 250 毫秒 |
 | `I` / `O` | 把开头 / 结尾设到当前播放位置，和剪辑软件的入点、出点一样 |
 | `Space` | 播放或暂停 |
+| `↑` / `↓` | 切到上一句 / 下一句，改过的先保存（后来加的，见[切换那篇 note](2026-10-12-step-to-neighbour-while-retiming.zh.md)） |
 | `Enter` | 保存 |
 | `Esc` | 不保存，关掉 |
 
