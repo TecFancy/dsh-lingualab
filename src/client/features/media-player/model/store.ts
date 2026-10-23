@@ -41,6 +41,7 @@
 import { create } from 'zustand'
 import { findActiveCue, type Cue } from '../../../entities/cue/index.ts'
 import { loopWindow, planLoop, stepCueIndex, type LoopMode } from '../lib/loop.ts'
+import { DEFAULT_SPEED_INDEX, SPEED_PRESETS, chooseSpeed, speedResetIndex } from '../lib/speed.ts'
 import {
   DEFAULT_SHADOW,
   mergeShadow,
@@ -53,12 +54,6 @@ import {
 } from '../lib/shadow.ts'
 import { probeMic, type MicFailure } from '../lib/recorder.ts'
 import { NO_TAKES, allTakes, putTake, revokeTake, type MicNotice, type Take, type Takes } from '../lib/take.ts'
-
-/** Ten steps, all of them pitch-preserving. Ported from the repealed repeater app. */
-export const SPEED_PRESETS: readonly number[] = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.15, 1.25, 1.5, 2]
-
-/** Where the default speed sits in {@link SPEED_PRESETS}. */
-export const DEFAULT_SPEED_INDEX = 5
 
 /** How long a programmatic seek may keep ignoring reported positions. */
 const SEEK_GUARD_MS = 1200
@@ -159,6 +154,8 @@ export interface MediaPlayerState {
   readonly currentTime: number
   readonly duration: number
   readonly speedIndex: number
+  /** The last speed other than 1x that was in force, for `=` to go back to. Memory only. */
+  readonly lastSpeedIndex: number | null
   readonly loopMode: LoopMode
   readonly repeats: number
   readonly playsDone: number
@@ -238,6 +235,8 @@ export interface MediaPlayerState {
   setDuration: (duration: number) => void
   setSpeedIndex: (index: number) => void
   cycleSpeed: (delta: number) => void
+  /** Back to 1x, or from 1x to the last speed other than 1x. Does nothing when there is no such speed. */
+  resetSpeed: () => void
   setLoopMode: (mode: LoopMode) => void
   loopSentence: (index?: number) => void
   /**
@@ -333,6 +332,7 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
     currentTime: 0,
     duration: 0,
     speedIndex: DEFAULT_SPEED_INDEX,
+    lastSpeedIndex: null,
     loopMode: 'none',
     repeats: DEFAULT_REPEATS,
     playsDone: 0,
@@ -658,9 +658,11 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
 
     setDuration: (duration) => set({ duration: Number.isFinite(duration) ? duration : 0 }),
 
-    setSpeedIndex: (index) => set({ speedIndex: clampSpeed(index) }),
+    setSpeedIndex: (index) => set((state) => chooseSpeed(clampSpeed(index), state.lastSpeedIndex)),
 
-    cycleSpeed: (delta) => set((state) => ({ speedIndex: clampSpeed(state.speedIndex + delta) })),
+    cycleSpeed: (delta) => set((state) => chooseSpeed(clampSpeed(state.speedIndex + delta), state.lastSpeedIndex)),
+
+    resetSpeed: () => set((state) => chooseSpeed(speedResetIndex(state) ?? state.speedIndex, state.lastSpeedIndex)),
 
     setLoopMode: (mode) =>
       set({ loopMode: mode, playsDone: 0, isPlaying: mode === 'none' ? get().isPlaying : true, ...IDLE_PROGRAM }),

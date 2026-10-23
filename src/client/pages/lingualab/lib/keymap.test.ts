@@ -15,6 +15,7 @@ const PRACTICE: KeyContext = {
   stepsOpen: false,
   sideFloating: false,
   hasVideo: true,
+  canResetSpeed: true,
   selection: null,
   activeIndex: 2,
   cueCount: 10,
@@ -167,6 +168,14 @@ describe('keyAction: the keys of the practice view', () => {
     expect(act(']')).toEqual({ type: 'speed', delta: 1 })
   })
 
+  it('resets the speed on =, or goes back to the remembered one', () => {
+    expect(act('=')).toEqual({ type: 'speed-reset' })
+  })
+
+  it('leaves = alone when there is nowhere to go', () => {
+    expect(act('=', { canResetSpeed: false })).toBeNull()
+  })
+
   it('reads the same key whatever the sentence it is on', () => {
     expect(act(' ', { cueCount: 0, activeIndex: 0 })).toEqual({ type: 'toggle-play' })
   })
@@ -244,7 +253,7 @@ describe('keyAction: who owns the keyboard', () => {
   })
 
   it('has no practice key on the home, whatever the state says', () => {
-    for (const key of [' ', 'ArrowLeft', 's', 'n', '1', 'Enter', 'v']) {
+    for (const key of [' ', 'ArrowLeft', 's', 'n', '1', 'Enter', 'v', '=']) {
       expect(act(key, { view: 'home' })).toBeNull()
     }
   })
@@ -424,6 +433,7 @@ describe('flashOf', () => {
       { type: 'mark-b' },
       { type: 'retime' },
       { type: 'speed', delta: 1 },
+      { type: 'speed-reset' },
     ]
     for (const action of quiet) expect(flashOf(action)).toBeNull()
   })

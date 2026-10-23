@@ -10,7 +10,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react'
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Cue } from '../../../entities/cue/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { DEFAULT_SPEED_INDEX, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { startReview, type ReviewItem } from '../../../features/review/index.ts'
 import { useSettings } from '../../../features/settings/index.ts'
 import type { TimingEditor } from '../../../widgets/timing-editor/index.ts'
@@ -267,6 +267,19 @@ describe('useKeyboard: what a key does', () => {
     expect(useMediaPlayer.getState().speedIndex).toBe(before + 1)
     press(keyboard, '[')
     expect(useMediaPlayer.getState().speedIndex).toBe(before)
+  })
+
+  it('resets the speed on =, and leaves the key alone when there is nowhere to go', () => {
+    const { keyboard } = setup()
+    useMediaPlayer.setState({ speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: null })
+    expect(press(keyboard, '=')).toBe(false)
+
+    useMediaPlayer.getState().setSpeedIndex(2)
+    expect(press(keyboard, '=')).toBe(true)
+    expect(useMediaPlayer.getState().speedIndex).toBe(DEFAULT_SPEED_INDEX)
+
+    expect(press(keyboard, '=')).toBe(true)
+    expect(useMediaPlayer.getState().speedIndex).toBe(2)
   })
 
   it('opens the timing strip on T', () => {

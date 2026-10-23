@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { DEFAULT_SPEED_INDEX, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { useSettings } from '../../../features/settings/index.ts'
 import { performKey, type KeyEffects } from './key-actions.ts'
 import type { KeyAction } from './keymap.ts'
@@ -55,7 +55,7 @@ class FakeAudio {
 beforeEach(() => {
   vi.stubGlobal('Audio', FakeAudio)
   useMediaPlayer.getState().reset(cues)
-  useMediaPlayer.setState({ activeIndex: 0 })
+  useMediaPlayer.setState({ activeIndex: 0, speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: null })
   useSettings.setState({ picture: 'shown', pictureRestore: null })
 })
 
@@ -169,6 +169,15 @@ describe('performKey: what the player is asked to do', () => {
     expect(useMediaPlayer.getState().speedIndex).toBe(before + 1)
     run({ type: 'speed', delta: -1 })
     expect(useMediaPlayer.getState().speedIndex).toBe(before)
+  })
+
+  it('resets the speed, then goes back to the one before it', () => {
+    run({ type: 'speed', delta: -1 })
+    expect(useMediaPlayer.getState().speedIndex).toBe(DEFAULT_SPEED_INDEX - 1)
+    run({ type: 'speed-reset' })
+    expect(useMediaPlayer.getState().speedIndex).toBe(DEFAULT_SPEED_INDEX)
+    run({ type: 'speed-reset' })
+    expect(useMediaPlayer.getState().speedIndex).toBe(DEFAULT_SPEED_INDEX - 1)
   })
 
   it('has nothing to compare without a take, and does not fail', () => {

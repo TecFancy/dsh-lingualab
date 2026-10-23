@@ -99,6 +99,7 @@ const HANDLERS: { readonly [T in KeyAction['type']]: Handler<T> } = {
   'mark-b': () => store().setPoint('b'),
   'retime': (_action, fx) => fx.retime(),
   'speed': (action) => store().cycleSpeed(action.delta),
+  'speed-reset': () => store().resetSpeed(),
 }
 
 /** Do what a key (or a headset button) decided. */

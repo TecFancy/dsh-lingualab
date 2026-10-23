@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import type { Cue, SubtitleZhMode } from '../../../entities/cue/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { speedResetIndex, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { stepBack } from '../../../features/review/index.ts'
 import { keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import type { GivenGrade } from '../../../shared/notes-format.ts'
@@ -210,6 +210,7 @@ export function useKeyboard({
         hasVideo: hasVideoFile,
         selection,
         activeIndex: useMediaPlayer.getState().activeIndex,
+        canResetSpeed: speedResetIndex(useMediaPlayer.getState()) !== null,
         cueCount: cues.length,
       })
       // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it must not also clear the
