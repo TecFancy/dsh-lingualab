@@ -445,7 +445,7 @@ ${SCRUB_STYLES}
 .dsh-lingualab-reveal kbd{margin-left:2px}
 
 /* ── transcript: the only scroller ───────────────────────────── */
-.dsh-lingualab-transcript{flex:none;width:clamp(300px,34%,440px);min-height:0;display:flex;flex-direction:column;
+.dsh-lingualab-transcript{flex:none;width:var(--ll-side-w);min-height:0;display:flex;flex-direction:column;
   border-left:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));background:var(--dsw-alias-bg-layer-1,transparent)}
 .dsh-lingualab-transcript-head{flex:none;display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;
   border-bottom:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
@@ -1072,7 +1072,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 /* A narrow row: the transcript gives back some width, the grade buttons drop their key caps, and the follow switch says
    "Follow" (the long word does not fit the 260px head beside the segmented control). */
 @container ll-body (max-width:820px){
-  .dsh-lingualab-transcript{width:260px}
+  .dsh-lingualab-body .dsh-lingualab-side-slot{--ll-side-w:260px}
   .dsh-lingualab-transcript-head{gap:6px;padding:0 12px}
   .dsh-lingualab-transcript-head .dsh-lingualab-spacer{min-width:0}
   .dsh-lingualab-transcript-head .dsh-lingualab-segmented button{gap:4px;padding:0 8px;font-size:12.5px}

@@ -99,6 +99,53 @@
 
 见 `.agents/notes/implemented/feature/2026-10-12-choose-subtitles-by-hand.md`。
 
+## 起一个隔离实例做真机验证
+
+改了前端或服务端，想在真的 dsh web 里看一眼，又不想动本机平常用的 web profile（它的 `dsh-lingualab` 链接的是主检出）
+和真实素材时，起一个用完就扔的实例。2026-10-23 在 dsh 0.2.1-rc.2 上这样验过调时间面板的上下句切换。
+
+1. **找一个临时目录当 `DSH_HOME`**，比如会话的临时目录下的 `dshhome`，在里面建 profile 目录 `profiles/lt`。
+2. **写三个文件**：
+   - `package.json`：`dsh.profile.bundles` 只列 `@deepseek-ai/dsh-base`、`@deepseek-ai/dsh-web-app`、`dsh-lingualab`
+     和 `dsh-apps-panel`（应用页上的入口卡片）。`dependencies` 照着写两个 `link:`，只是给人看的，不会去装。
+   - `cordis.yml`：只有一行 `[]`。
+   - `cordis.patch.yml`：把媒体库指到临时目录。
+
+     ```yaml
+     - id: lingualab
+       name: dsh-lingualab
+       config:
+         libraryRoot: '<临时目录>\media'
+     ```
+
+3. **`node_modules/` 里只放两个 junction**：`dsh-lingualab` 指向要验的 worktree，`dsh-apps-panel` 指向
+   `D:\source\personal\dsh-apps-panel`。`@deepseek-ai` 的几个包从全局装的 dsh 里解析，不用跑 pnpm。
+
+   ```powershell
+   New-Item -ItemType Junction -Path "<profile>\node_modules\dsh-lingualab" -Target "<worktree>"
+   ```
+
+4. **复制一集素材**到 `<临时目录>\media\<集名>\`（音频加字幕），保存字幕时间只会改这份副本，第一次写入前它自己会留 `.bak`。
+5. **在 profile 目录里启动**，放到后台：
+
+   ```sh
+   DSH_HOME="<临时目录>/dshhome" dsh --profile lt --no-open --host 127.0.0.1 --port 4807
+   ```
+
+   输出的第一行是带 `?token=` 的地址，在浏览器里打开它。关掉预览说明和登录提示（面板用不到模型），
+   从「应用」进「语言实验室」。这个实例的界面语言是英文。
+
+用的时候注意：
+
+- `npm run build` 之后前端自动热替换，刷新页面就是新版本；改了服务端要重启这个实例。用 junction 链接，不存在 tar 包换不掉的问题。
+- 浏览器面板默认很小，验布局前先把视口设成要测的尺寸，比如 1400 乘 900。
+- `dsh --profile lt --dump-config` 能先看组合出来的配置对不对，不用起服务。
+- 用完停掉进程，临时目录可以直接删。不要往 `~/.dsh/profiles/web` 里加东西。
+- 在 Windows 上停掉启动它的那个 shell，dsh 的 node 进程不一定跟着退出，下次启动会报 `EADDRINUSE`。
+  按命令行里的 `--profile lt --port 4807` 找到那个进程，确认是自己起的再停掉，不要停平常用的 `web` 实例。
+- 页面在后台（浏览器面板隐藏、窗口不在前台）时帧会被节流，按帧采样量出来的过渡时长不可信。
+  要看过渡的中间状态，用 `document.getAnimations()` 取到过渡，`pause()` 后把 `currentTime` 设到某个时刻再读布局。
+
 ## 踩过的坑
 
 - **可选服务一律用 `ctx.get(name)` 读取**：当成上下文属性读（`ctx.workspaceRegistry`），服务缺席时会抛错；
@@ -108,7 +155,7 @@
   改完下一次读取就是新值，不用重启。
 - **改了源码要重启隔离实例，并强制刷新安装的副本**：服务端的改动要重启才生效。profile 用 `file:` 安装 tar 包时，
   版本号不变就不会换成新文件，要执行 `rm -rf node_modules/<包名> && npx pnpm@11.22.0 install --force`，
-  否则在浏览器里验证的还是上一版。
+  否则在浏览器里验证的还是上一版。按上一节用 junction 链接 worktree 时没有这个问题。
 - **进度合并没有删除标记**：两端都是「每个键取最新」的并集。从 `.lingualab-progress.json` 删掉一条，
   任何见过它的浏览器缓存（`dsh-lingualab:progress` / `dsh-lingualab:steps`）下次同步时都会把它写回来。
   清理测试数据时，要连同测试用的浏览器缓存一起清。

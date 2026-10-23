@@ -30,6 +30,8 @@ export const zh: Record<string, string> = {
   mediaFolder: '媒体目录',
   more: '更多',
   change: '更改',
+  topGroupSide: '右栏',
+  topGroupProgress: '进度与设置',
 
   // ── 首页 ─────────────────────────────────────────────────────
   welcomeTitle: '把音频拖进来，就能开始',
@@ -332,7 +334,6 @@ export const zh: Record<string, string> = {
   stepUndone: '取消完成',
 
   // ── 设置 ─────────────────────────────────────────────────────
-  settingsOpen: '设置',
   settingsTitle: '设置',
   settingsSub: '只影响语言实验室，不改 dsh 本身',
   settingsAppearance: '外观',
@@ -460,6 +461,8 @@ export const en: Record<string, string> = {
   mediaFolder: 'Media folder',
   more: 'More',
   change: 'Change',
+  topGroupSide: 'Right column',
+  topGroupProgress: 'Progress and settings',
 
   welcomeTitle: 'Drop audio here to begin',
   welcomeBody:
@@ -752,7 +755,6 @@ export const en: Record<string, string> = {
   stepDone: 'Mark done',
   stepUndone: 'Undo done',
 
-  settingsOpen: 'Settings',
   settingsTitle: 'Settings',
   settingsSub: 'Only changes Language Lab, not dsh itself',
   settingsAppearance: 'Appearance',
