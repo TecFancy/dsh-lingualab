@@ -106,7 +106,8 @@ somewhere to go.
 Practice is built around the sentence, not the file. The transport row holds only what is used
 every minute: previous and next sentence, play, speed, loop this sentence, the Chinese display
 and the star. The A-B region, its repeat count, the lead-in (start each sentence a little early) and the list of keys sit behind 「More」. Click a
-subtitle line to jump there and play it; speed has ten steps and never changes pitch. Subtitles
+subtitle line to jump there and play it. Speed has ten steps and never changes pitch: the speed
+button opens a picker of all ten, and `=` goes back to 1× and, pressed again, to the speed before. Subtitles
 put English above Chinese whatever the source order, and the Chinese side has four display modes
 so the native language never becomes the thing being read. The page remembers where you stopped
 in each episode and which of the five steps you ticked, and the home offers the place as

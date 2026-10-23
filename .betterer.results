@@ -440,7 +440,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 330)", "max-lines-per-function:Function \'ControlBar\'@0#26"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 340)", "max-lines-per-function:Function \'ControlBar\'@0#27"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 350)", "max-lines-per-function:Function \'ControlBar\'@0#28"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 360)", "max-lines-per-function:Function \'ControlBar\'@0#29"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 16)", "complexity:Function \'ControlBar\'@0#1"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 17)", "complexity:Function \'ControlBar\'@0#2"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 18)", "complexity:Function \'ControlBar\'@0#3"],

@@ -6,6 +6,7 @@
  * practice column).
  */
 import { describe, expect, it } from 'vitest'
+import { SPEED_STYLES } from './styles-speed.ts'
 import { STYLES } from './styles.ts'
 
 /** The block of a rule: from its selector to its closing brace. */
@@ -96,7 +97,7 @@ describe('the stylesheet', () => {
   it('folds the player card to the scrubber and one row, speed then previous, play and next, while timing', () => {
     const hidden = block('.dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints')
     expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed)')
-    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu')
+    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed)')
     expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end')
     expect(hidden).toContain('{display:none}')
     // The narrow rule that dissolves the sides into one wrapping flow must not decide the row while timing.
@@ -297,6 +298,22 @@ describe('the stylesheet', () => {
     expect(touch).toContain('.dsh-lingualab-timing-foot .dsh-lingualab-btn{height:44px}')
     // The pills on the picture keep their look; the hit area grows by an invisible margin.
     expect(touch).toContain('.dsh-lingualab-picture-local-btn::after')
+  })
+
+  it('opens the speed picker from the left in three rows, and keeps its chips at 44px on touch', () => {
+    expect(STYLES).toContain(SPEED_STYLES)
+    const menu = rule('.dsh-lingualab-menu.is-speed')
+    expect(menu).toContain('left:0')
+    expect(menu).toContain('right:auto')
+    expect(menu).toContain('max-width:calc(100vw - 32px)')
+    // Slow, then 1x alone across the row, then fast.
+    expect(rule('.dsh-lingualab-speed-row.is-slow')).toContain('repeat(5,minmax(0,1fr))')
+    expect(rule('.dsh-lingualab-speed-row.is-normal')).toContain('grid-template-columns:1fr')
+    expect(rule('.dsh-lingualab-speed-row.is-fast')).toContain('repeat(4,minmax(0,1fr))')
+    expect(rule('.dsh-lingualab-speed-chip.is-on')).toContain('border-color')
+    expect(STYLES).toContain('@media (hover:none) and (pointer:coarse){\n  .dsh-lingualab-speed-chip{min-width:44px;min-height:44px}')
+    // Timing keeps the speed picker, and takes the other menus away.
+    expect(STYLES).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed),')
   })
 
   it('lets the picture take its share of the whole row when the right column is collapsed, and nothing else', () => {

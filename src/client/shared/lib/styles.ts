@@ -26,6 +26,7 @@
  */
 import { SCRUB_STYLES } from './styles-scrub.ts'
 import { SIDE_STYLES } from './styles-side.ts'
+import { SPEED_STYLES } from './styles-speed.ts'
 
 export const STYLES = `
 .dsh-lingualab-page{
@@ -1217,7 +1218,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-practice.is-timing .dsh-lingualab-stage-side{display:none}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-stage{flex:0 0 auto;padding-block:12px}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints,
-.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu,
+.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed),
 .dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed),
 .dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end{display:none}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-transport-row{display:grid;grid-template-columns:1fr auto 1fr}
@@ -1257,4 +1258,5 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   .dsh-lingualab-stage-time::after,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn::after{content:'';position:absolute;
     inset:-9px -4px}
 }
+${SPEED_STYLES}
 ${SIDE_STYLES}`

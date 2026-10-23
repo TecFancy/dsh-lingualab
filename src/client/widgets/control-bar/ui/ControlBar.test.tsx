@@ -1,13 +1,15 @@
 // @vitest-environment node
 /**
  * What the player card's row draws, rendered to static markup. The timing mode (see the stylesheet) keeps one of its
- * buttons, the speed, and hides the rest by class, so the markup has to say which one that is.
+ * buttons, the speed, and hides the rest by class, so the markup has to say which one that is. The menu transitions
+ * are pure (`toggledMenu`), because the repository renders components to strings and cannot press a button.
  */
 import type { ReactElement } from 'react'
 // @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ControlBar, shadowChipKey } from './ControlBar.tsx'
+import { toggledMenu } from '../lib/usePopover.ts'
 
 const renderToStaticMarkup = render as (element: ReactElement) => string
 
@@ -33,6 +35,21 @@ describe('the player card row', () => {
     const markup = html()
     expect(markup.match(/dsh-lingualab-bar-btn is-speed/g)).toHaveLength(1)
     expect(markup).toContain('title="speed"')
+  })
+
+  it('says the speed button opens a picker, closed until it is pressed', () => {
+    const markup = html()
+    expect(markup).toContain('aria-haspopup="true"')
+    expect(markup).toContain('aria-expanded="false"')
+    expect(markup).not.toContain('dsh-lingualab-menu is-speed')
+  })
+
+  it('opens the speed picker on a press, closes it on the next, and leaves only that one menu open', () => {
+    expect(toggledMenu(null, 'speed')).toBe('speed')
+    expect(toggledMenu('speed', 'speed')).toBeNull()
+    expect(toggledMenu('more', 'speed')).toBe('speed')
+    expect(toggledMenu('speed', 'more')).toBe('more')
+    expect(toggledMenu(null, 'more')).toBe('more')
   })
 
   it('keeps the previous, play and next buttons in the middle group and the rest of the buttons in the two side groups', () => {

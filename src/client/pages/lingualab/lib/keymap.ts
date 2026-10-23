@@ -55,6 +55,8 @@ export interface KeyContext {
   readonly sideFloating: boolean
   /** What is open has a video file, so there is a picture for `V` to cycle. */
   readonly hasVideo: boolean
+  /** `=`: the speed is not 1x, or one other than 1x was in force, so the key has somewhere to go. */
+  readonly canResetSpeed: boolean
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
   readonly selection: number | null
   /** The sentence the player is on. */
@@ -111,6 +113,8 @@ export type KeyAction =
   | { readonly type: 'retime' }
   /** The speed one step down (-1) or up (+1). */
   | { readonly type: 'speed'; readonly delta: -1 | 1 }
+  /** `=`: back to 1x, or from 1x back to the speed last in force. */
+  | { readonly type: 'speed-reset' }
 
 /** The row a key that acts on "the" sentence acts on: the picked one, else the playing one. */
 function current(context: KeyContext): number {
@@ -155,6 +159,9 @@ const PRACTICE_KEYS: ReadonlyMap<string, Decide> = new Map<string, Decide>([
   ...letters('t', () => ({ type: 'retime' })),
   ['[', () => ({ type: 'speed', delta: -1 })],
   [']', () => ({ type: 'speed', delta: 1 })],
+  // No other key of the page, and beside the brackets on a US layout, so the three keys read as one group. With
+  // nowhere to go (1x and no speed remembered) it is not the page's, and is left to the browser.
+  ['=', (context) => (context.canResetSpeed ? { type: 'speed-reset' } : null)],
 ])
 
 /**
@@ -250,6 +257,7 @@ export function headsetAction(
     stepsOpen: false,
     sideFloating: false,
     hasVideo: false,
+    canResetSpeed: false,
     selection: null,
     activeIndex: 0,
     cueCount: 0,
