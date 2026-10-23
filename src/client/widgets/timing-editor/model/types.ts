@@ -9,14 +9,19 @@ import type { SubtitleTracks } from '../../../features/library/index.ts'
 
 /** One cue a save moved. */
 export interface MovedCue {
+  /** Its place in the cue list the save was made from. */
+  readonly index: number
   readonly cue: Cue
   readonly before: RetimeRange
   readonly after: RetimeRange
 }
 
-/** What the page learns after a save: the sentence, and the neighbours it pushed. */
+/**
+ * What the page learns after a save: the sentence, the neighbours it pushed, and the neighbour a
+ * step should open once the new cue list arrives.
+ */
 export interface SavedTiming extends MovedCue {
-  readonly index: number
+  readonly target: number | null
   readonly pushed: readonly MovedCue[]
 }
 
@@ -59,6 +64,10 @@ export interface TimingSession {
 export interface TimingEditor {
   readonly session: TimingSession | null
   readonly saving: boolean
+  /** A save is on its way to opening the neighbour: the panel stays up and the keys do nothing. */
+  readonly moving: boolean
+  /** The last move saved, so the header says `saved` for a moment. */
+  readonly savedNotice: boolean
   /** The host's reason for the last refusal. */
   readonly error: string | null
   /** True when the refusal was a stale file, so the strip offers to read it again. */

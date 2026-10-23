@@ -15,7 +15,7 @@ import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import type { NotesState } from '../../../features/notes/index.ts'
 import { usePresence, type Presence } from '../../../shared/lib/usePresence.ts'
 import { TIMING_EXIT_MS, useTimingEditor, type SavedTiming, type TimingEditor } from '../../../widgets/timing-editor/index.ts'
-import { keptMoves, timingBlockedReason } from './retime.ts'
+import { keptMoves, resumeAfterSave, timingBlockedReason } from './retime.ts'
 import type { Resume } from './useResume.ts'
 
 /** What the strip reads from and does to the rest of the page. */
@@ -71,21 +71,24 @@ export function useRetime({ t, library, notes, cues, activeIndex, resume, clearO
   )
 
   /**
-   * After a timing save: keep the star on the sentence, read the file again, and stay on the sentence.
+   * After a timing save: keep the star on the sentence, read the file again, and resume where the save
+   * left off.
    *
    * A kept sentence is matched by its whole second, so a start that crossed a second would leave
    * the star behind; the phrase's `at` moves with it, and the same for a next sentence whose start
    * the end pushed. Reading the file again gives the cues their
-   * new edges and the hash the next save needs; the position is put back on the sentence the way a
-   * replayed note is, looping it when it was playing.
+   * new edges and the hash the next save needs. A plain save stays on the sentence the way a replayed
+   * note does, looping it when it was playing. A step save goes to the neighbour the panel is about to
+   * open, without looping: the panel starts it playing once it is on the new list.
    */
   const onSaved = useCallback(
     (saved: SavedTiming): void => {
       for (const move of keptMoves(saved, notes.phrases, segmentId)) notes.update(move.index, { at: move.at })
-      arm(saved.after.start / 1000, useMediaPlayer.getState().isPlaying, null)
+      const moving = saved.target !== null
+      arm(resumeAfterSave(saved, cues), moving ? false : useMediaPlayer.getState().isPlaying, null)
       library.reloadCues()
     },
-    [notes, segmentId, library, arm],
+    [notes, segmentId, cues, library, arm],
   )
 
   /** The file changed under the page: read it again and stay where the playhead is. */
@@ -104,7 +107,9 @@ export function useRetime({ t, library, notes, cues, activeIndex, resume, clearO
   }, [episodeId, segmentId, library, arm, disarm])
 
   const timing = useTimingEditor({ cues, tracks: library.tracks, episodeId, blocked, onSaved, onStale })
-  const presence = usePresence(timing.session !== null, TIMING_EXIT_MS)
+  // A save that is moving to the neighbour keeps the panel up across the reload, when the session
+  // itself has already ended.
+  const presence = usePresence(timing.session !== null || timing.moving, TIMING_EXIT_MS)
 
   const open = useCallback((): void => {
     if (cues[activeIndex] === undefined) return

@@ -1,10 +1,10 @@
 /**
  * The panel under the stage where one sentence's start and end are moved.
  *
- * It is a card with four parts. A header says what the loop is doing (the sentence repeats while the
- * panel is open, and the ear is the instrument: there is no waveform, see the note on editing a
- * sentence's timing), steps to a neighbouring sentence with the two buttons and `↑` / `↓`, and
- * closes the panel. A mini timeline shows the sentence before, the range
+ * It is a card with four parts. A header says what the loop is doing, or that the move just saved (the
+ * sentence repeats while the panel is open, and the ear is the instrument: there is no waveform, see
+ * the note on editing a sentence's timing), steps to a neighbouring sentence with the two buttons
+ * and `↑` / `↓`, and closes the panel. A mini timeline shows the sentence before, the range
  * being edited, the sentence after and the playhead, so a moved edge is seen against its neighbours
  * as well as heard. Two edge cards, start and end, each hold the value, a nudge either way and a
  * "set to the playhead" button; the one with focus is the one the arrow keys move, and clicking a
@@ -30,9 +30,9 @@ import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock, formatClockMs } from '../../../shared/lib/format.ts'
 import { BackIcon, ChevronIcon, CheckIcon, CloseIcon, UpIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
-import { stepAllowed } from '../lib/step.ts'
 import { blockOf, percentAt, timelineWindow } from '../lib/timeline.ts'
 import { BIG_STEP_MS, STEP_MS, type TimingEditor, type TimingSession } from '../model/useTimingEditor.ts'
+import { TimingStatus } from './TimingStatus.tsx'
 import { TimingStepButtons } from './TimingStepButtons.tsx'
 
 /** How long the way out takes; the card's fade and lift in the stylesheet run for about this long. */
@@ -180,7 +180,7 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
   if (!mounted || current === null) return null
   const { session } = current
   const changed = session.range.start !== session.base.start || session.range.end !== session.base.end
-  const canStep = stepAllowed(current.blocked, changed)
+  const canStep = !editor.saving
   const bounds = timelineWindow(session.range, session.previous, session.next)
   const range = blockOf(session.range, bounds)
   const previous = session.previous === null ? null : blockOf(session.previous, bounds)
@@ -195,9 +195,7 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
         <section className="dsh-lingualab-timing" aria-label={t('timingTitle')}>
           <div className="dsh-lingualab-timing-row">
             <span className="dsh-lingualab-timing-title">{t('timingTitle')}</span>
-            <span className={`dsh-lingualab-timing-status${playing ? '' : ' is-paused'}`} role="status">
-              {playing ? t('timingLooping') : t('timingPaused')}
-            </span>
+            <TimingStatus t={t} playing={playing} saved={editor.savedNotice} />
             <span className="dsh-lingualab-spacer" />
             <TimingStepButtons t={t} editor={editor} session={session} canStep={canStep} />
             <button

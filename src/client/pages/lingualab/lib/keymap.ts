@@ -39,6 +39,8 @@ export interface KeyContext {
   readonly settingsOpen: boolean
   /** The timing strip is open: it owns the keyboard, and the arrows move an edge instead of the sentence. */
   readonly timingOpen: boolean
+  /** The strip is saving a move to the neighbour: every key is swallowed, Escape included. */
+  readonly timingBusy: boolean
   /** A review is running or has just ended (its card is up). */
   readonly reviewing: boolean
   /** The review's summary card is up, a dialog the keys leave alone. */
@@ -161,6 +163,7 @@ const PRACTICE_KEYS: ReadonlyMap<string, Decide> = new Map<string, Decide>([
  */
 function escapeAction(context: KeyContext): KeyAction | null {
   if (context.settingsOpen) return { type: 'close-settings' }
+  if (context.timingBusy) return { type: 'timing-key' }
   if (context.timingOpen) return { type: 'close-timing' }
   if (context.reviewing) return { type: 'end-review' }
   if (context.finishOpen) return { type: 'dismiss-finish' }
@@ -241,6 +244,7 @@ export function headsetAction(
     view: 'practice',
     settingsOpen: false,
     timingOpen: false,
+    timingBusy: false,
     finishOpen: false,
     layerOpen: false,
     stepsOpen: false,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { focusAfterStep, rangeChanged, stepAllowed, stepTarget } from './step.ts'
+import { focusAfterStep, rangeChanged, stepNeedsSave, stepTarget } from './step.ts'
 
 describe('stepTarget', () => {
   it('moves one sentence either way', () => {
@@ -31,18 +31,18 @@ describe('rangeChanged', () => {
   })
 })
 
-describe('stepAllowed', () => {
-  it('moves an unchanged range', () => {
-    expect(stepAllowed(null, false)).toBe(true)
+describe('stepNeedsSave', () => {
+  it('moves an unchanged range without saving', () => {
+    expect(stepNeedsSave(null, false)).toBe(false)
   })
 
-  it('waits with a changed range when the episode can be saved', () => {
-    expect(stepAllowed(null, true)).toBe(false)
+  it('saves a changed range first when the episode can be saved', () => {
+    expect(stepNeedsSave(null, true)).toBe(true)
   })
 
-  it('still moves a changed range when the episode cannot be saved', () => {
-    expect(stepAllowed('outside the library', false)).toBe(true)
-    expect(stepAllowed('outside the library', true)).toBe(true)
+  it('moves a changed range at once when the episode cannot be saved', () => {
+    expect(stepNeedsSave('outside the library', false)).toBe(false)
+    expect(stepNeedsSave('outside the library', true)).toBe(false)
   })
 })
 

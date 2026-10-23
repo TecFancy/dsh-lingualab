@@ -47,6 +47,8 @@ function editor(patch: Partial<TimingEditor> = {}): TimingEditor {
   return {
     session: session(),
     saving: false,
+    moving: false,
+    savedNotice: false,
     error: null,
     stale: false,
     open: noop,
@@ -145,10 +147,22 @@ describe('the timing panel', () => {
     expect(buttonTag(end, 'nextCue')).toContain('disabled=""')
   })
 
-  it('disables both neighbour buttons while a changed range waits for its save', () => {
+  it('keeps both neighbour buttons usable while a changed range will be saved first', () => {
     const markup = html({ session: session({ range: { start: 68100, end: 70000 } }) })
+    expect(buttonTag(markup, 'prevCue')).not.toContain('disabled=""')
+    expect(buttonTag(markup, 'nextCue')).not.toContain('disabled=""')
+  })
+
+  it('disables both neighbour buttons while the move is saving', () => {
+    const markup = html({ saving: true, session: session({ range: { start: 68100, end: 70000 } }) })
     expect(buttonTag(markup, 'prevCue')).toContain('disabled=""')
     expect(buttonTag(markup, 'nextCue')).toContain('disabled=""')
+  })
+
+  it('says that the move saved in the header status', () => {
+    const markup = html({ savedNotice: true })
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain('>saved<')
   })
 
   it('leaves both neighbour buttons usable when the episode cannot be saved', () => {

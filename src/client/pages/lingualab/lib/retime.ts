@@ -5,7 +5,7 @@
  * phrase moves with it. The save says which sentences moved (the one edited, and the neighbours its edge pushed); this
  * says which stored phrases follow them, as plain data the hook then writes.
  */
-import { splitCue } from '../../../entities/cue/index.ts'
+import { originalRange, splitCue, type Cue } from '../../../entities/cue/index.ts'
 import { sameKeptSentence } from '../../../shared/notes-format.ts'
 import type { NotePhrase } from '../../../shared/protocol.ts'
 import type { SavedTiming } from '../../../widgets/timing-editor/index.ts'
@@ -36,6 +36,24 @@ export function keptMoves(saved: SavedTiming, phrases: readonly NotePhrase[], se
     if (index >= 0) moves.push({ index, at: after })
   }
   return moves
+}
+
+/**
+ * Where the playhead goes after a save, in seconds.
+ *
+ * A plain save stays on the sentence it wrote. A step save goes to the neighbour it is about to open:
+ * that sentence's start in the list the save was made from, unless this save pushed it, in which case
+ * the file now holds the pushed start. Only a pushed end rewrites the next sentence's start; a pushed
+ * previous sentence keeps its own.
+ * @param saved - what the save reported, including the neighbour a step is going to.
+ * @param cues - the cue list the save was made from, before the reload.
+ */
+export function resumeAfterSave(saved: SavedTiming, cues: readonly Cue[]): number {
+  if (saved.target === null) return saved.after.start / 1000
+  const cue = cues[saved.target]
+  if (cue === undefined) return saved.after.start / 1000
+  const pushed = saved.pushed.find((move) => move.index === saved.target)
+  return (pushed?.after.start ?? originalRange(cue).start) / 1000
 }
 
 /**

@@ -2,8 +2,8 @@
  * The timing panel's jump buttons: one to the sentence before, one to the next.
  *
  * They are the mouse's way of doing what `↑` and `↓` do inside the panel. They sit in the header,
- * before the close button, and are disabled at the ends of the cue list and while a changed range
- * that can be saved is on the strip.
+ * before the close button, and are disabled at the ends of the cue list and while a save is on its
+ * way: a changed range that can be saved writes first, then opens the neighbour on the new list.
  */
 import type { Translate } from '../../../context.ts'
 import { DownIcon } from '../../../shared/ui/DownIcon.tsx'

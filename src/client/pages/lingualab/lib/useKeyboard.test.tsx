@@ -360,6 +360,14 @@ describe('useKeyboard: the timing strip', () => {
     expect(open.handleKey).toHaveBeenCalledTimes(1)
   })
 
+  it('treats a save on its way to the neighbour as an open strip', () => {
+    const moving = { session: null, moving: true, close: vi.fn(), handleKey: vi.fn(() => true) }
+    const { keyboard, log } = setup({ timing: moving as unknown as TimingEditor })
+    expect(press(keyboard, 'ArrowLeft')).toBe(true)
+    expect(moving.handleKey).toHaveBeenCalledTimes(1)
+    expect(log).toEqual([])
+  })
+
   it('closes the strip on Escape', () => {
     const open = { session: {}, close: vi.fn(), handleKey: vi.fn() }
     const { keyboard } = setup({ timing: open as unknown as TimingEditor })
