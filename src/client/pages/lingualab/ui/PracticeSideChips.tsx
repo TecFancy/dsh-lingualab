@@ -1,9 +1,10 @@
 /**
- * The top bar's two buttons for the right column: the kept chip, which shows the kept sentences, and the toggle that
- * collapses or expands the column.
+ * The top bar's right-column group: the kept chip, which shows the kept sentences, and the toggle that collapses or
+ * expands the column.
  *
- * They sit together because they act on the same column. The chip's word is the column's (「收藏」), and in a narrow top
- * bar it drops to its icon and count, so the title keeps its room; its name stays whole for a screen reader.
+ * They sit together, in their own group, because they act on the same column rather than on this episode's progress.
+ * The chip's word is the column's (「收藏」), and in a narrow top bar it drops to its icon and count, so the title keeps
+ * its room; its name stays whole for a screen reader.
  */
 import type { Translate } from '../../../context.ts'
 import { NoteIcon } from '../../../shared/ui/icons.tsx'

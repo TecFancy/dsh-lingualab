@@ -372,6 +372,31 @@ describe('the stylesheet', () => {
     expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}')
   })
 
+  it('groups the top bar\'s right side by what each control acts on, with a thin line between the groups', () => {
+    const group = rule('.dsh-lingualab-top-group')
+    expect(group).toContain('flex:none')
+    expect(group).toContain('display:flex')
+    expect(group).toContain('gap:8px')
+    // The bar's own gap is the room on either side of the line, so the line adds no margin of its own.
+    expect(rule('.dsh-lingualab-top')).toContain('gap:8px')
+    const divider = rule('.dsh-lingualab-top-divider')
+    expect(divider).toContain('flex:none')
+    expect(divider).toContain('width:1px')
+    expect(divider).toContain('height:18px')
+    expect(divider).toContain('background:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))')
+    expect(divider).not.toContain('margin')
+  })
+
+  it('keeps a top-bar group, and the chips and icon buttons inside it, from shrinking', () => {
+    const fixed = rule(
+      '.dsh-lingualab-top>.dsh-lingualab-chip,.dsh-lingualab-top>.dsh-lingualab-icon-btn,.dsh-lingualab-top>.dsh-lingualab-seg-holder,.dsh-lingualab-top>.dsh-lingualab-top-group',
+    )
+    expect(fixed).toContain('flex:none')
+    expect(
+      rule('.dsh-lingualab-top-group>.dsh-lingualab-chip,.dsh-lingualab-top-group>.dsh-lingualab-icon-btn'),
+    ).toContain('flex:none')
+  })
+
   it('gives the top bar\'s chips and icon buttons a 44px hit area on a touch screen without changing their size', () => {
     const touch = block('@media (hover:none) and (pointer:coarse){\n  .dsh-lingualab-top')
     expect(touch).toContain('.dsh-lingualab-top .dsh-lingualab-chip::after,.dsh-lingualab-top .dsh-lingualab-icon-btn::after')

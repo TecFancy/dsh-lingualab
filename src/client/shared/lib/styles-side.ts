@@ -1,6 +1,6 @@
 /**
- * The stylesheet's last part: the right column expanding, collapsing or floating over a narrow row, and the top bar on
- * a narrow or touch screen.
+ * The stylesheet's last part: how the top bar groups its right side, how it narrows or handles touch, and the right
+ * column expanding, collapsing or floating over a narrow row.
  *
  * It is appended to `STYLES` (see `styles.ts`), after the responsive rules, so these refine what comes before at the same
  * specificity or more. It is a file of its own because `styles.ts` is at its size limit; the rules here are the page's
@@ -35,14 +35,26 @@ export const SIDE_STYLES = `
 .dsh-lingualab-body.is-side-collapsed .dsh-lingualab-picture,
 .dsh-lingualab-body.is-side-collapsed .dsh-lingualab-videocard{--ll-pic-w:100%}
 
+/* ── the top bar grouped by what each control acts on ───────────────────────────────────────────
+   The two buttons that act on the right column (the kept sentences, and collapsing it) form one group; the five steps
+   and the settings form another, because they are this episode's progress and the page's global settings rather than
+   the column's. A group keeps the bar's 8px gap between its own buttons, and the bar's gap puts 8px on either side of
+   the 1px line that separates the groups, so neither group needs margin of its own. The line uses the chips' border
+   token: the bar's own bottom border is too faint to read on an 18px line. Neither group is positioned and neither clips, so the five steps' drawer inside one of them still
+   places itself against the page rather than against the bar. */
+.dsh-lingualab-top-group{flex:none;display:flex;align-items:center;gap:8px}
+.dsh-lingualab-top-group>.dsh-lingualab-chip,.dsh-lingualab-top-group>.dsh-lingualab-icon-btn{flex:none}
+.dsh-lingualab-top-divider{flex:none;width:1px;height:18px;
+  background:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+
 /* ── the top bar in a narrow row ──────────────────────────────────────────────────────────────────
    The top bar spans the panel, so its own width is the question (ll-top), not the window's. Its buttons take about 480px
    with their words (more with a segment list), so in a bar of 720px or less (a 696px content box; an iPad in portrait with
    the host's sidebar open gives 540px) the back chip and the kept chip drop their words and key cap and keep their icon
    (and the count), about 110px back for the title. Their names stay as aria-label and title. */
 .dsh-lingualab-top{container:ll-top/inline-size}
-/* Only the title gives way: a chip or a button that shrinks clips its word or its icon. */
-.dsh-lingualab-top>.dsh-lingualab-chip,.dsh-lingualab-top>.dsh-lingualab-icon-btn,.dsh-lingualab-top>.dsh-lingualab-seg-holder{flex:none}
+/* Only the title gives way: a group, a chip or a button that shrinks clips its word or its icon. */
+.dsh-lingualab-top>.dsh-lingualab-chip,.dsh-lingualab-top>.dsh-lingualab-icon-btn,.dsh-lingualab-top>.dsh-lingualab-seg-holder,.dsh-lingualab-top>.dsh-lingualab-top-group{flex:none}
 @container ll-top (max-width:696px){
   .dsh-lingualab-top .dsh-lingualab-chip-text,.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}
   .dsh-lingualab-top .dsh-lingualab-chip{padding:0 9px}
