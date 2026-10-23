@@ -1,5 +1,6 @@
 /**
- * The stylesheet's last part: the right column collapsed, and the top bar on a narrow or touch screen.
+ * The stylesheet's last part: the right column collapsed or floating over a narrow row, and the top bar on a narrow or
+ * touch screen.
  *
  * It is appended to `STYLES` (see `styles.ts`), after the responsive rules, so these refine what comes before at the same
  * specificity or more. It is a file of its own because `styles.ts` is at its size limit; the rules here are the page's
@@ -35,5 +36,27 @@ export const SIDE_STYLES = `
   .dsh-lingualab-top .dsh-lingualab-chip,.dsh-lingualab-top .dsh-lingualab-icon-btn{position:relative}
   .dsh-lingualab-top .dsh-lingualab-chip::after,.dsh-lingualab-top .dsh-lingualab-icon-btn::after{content:'';position:absolute;
     inset:min(0px,calc((100% - 44px) / 2))}
+}
+
+/* ── the right column over a narrow stage ────────────────────────────────────────────────────────
+   Under 982px the row cannot keep an expanded column beside the stage without the stage dropping to its narrow layout
+   (see "sideFloats"), so the column becomes a drawer over it. The body is the drawer's containing block. The drawer keeps
+   the transcript's own scroll, and its width leaves 48px of the stage showing at any row width. The scrim sits over the
+   stage and under the drawer, both over the finish card (z-index 15) and under the five-steps drawer (21 and 22). */
+.dsh-lingualab-body.is-side-floating{position:relative}
+.dsh-lingualab-body.is-side-floating .dsh-lingualab-transcript{position:absolute;top:0;right:0;bottom:0;z-index:17;
+  width:min(360px,calc(100% - 48px));background:var(--ll-surface);box-shadow:-18px 0 48px rgba(0,0,0,0.28);
+  animation:ll-side-in .2s ease-out}
+@keyframes ll-side-in{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+.dsh-lingualab-side-scrim{position:absolute;inset:0;z-index:16;border:0;padding:0;cursor:pointer;
+  background:var(--ll-mask);animation:ll-fade-in .18s ease-out}
+/* The drawer takes no width from the stage: the picture gets the whole row, as it does collapsed. Its other bounds
+   (720px, 405px of stage, the height cap, "is-picture-squeezed") are untouched. */
+.dsh-lingualab-body.is-side-floating .dsh-lingualab-videostage{--ll-pic-share:1}
+.dsh-lingualab-body.is-side-floating .dsh-lingualab-picture,
+.dsh-lingualab-body.is-side-floating .dsh-lingualab-videocard{--ll-pic-w:100%}
+/* A drawer that opens without motion for a reader who asked for that. */
+@media (prefers-reduced-motion:reduce){
+  .dsh-lingualab-side-scrim,.dsh-lingualab-body.is-side-floating .dsh-lingualab-transcript{animation:none}
 }
 `

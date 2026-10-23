@@ -68,7 +68,7 @@ export interface KeyboardOptions {
   readonly stepsOpen: boolean
   readonly setStepsOpen: (open: boolean) => void
   /** The right column: `N` switches its view (or opens it into the kept sentences), `\` collapses it. */
-  readonly side: Pick<SideColumn, 'toggleKept' | 'toggleCollapsed'>
+  readonly side: Pick<SideColumn, 'toggleKept' | 'toggleCollapsed' | 'floating' | 'collapse'>
   readonly zhMode: SubtitleZhMode
   readonly setZhMode: (mode: SubtitleZhMode) => void
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
@@ -158,6 +158,7 @@ export function useKeyboard({
         dismissFinish,
         closeLayer: () => setLayer('none'),
         closeSteps: () => setStepsOpen(false),
+        closeSide: side.collapse,
         answerReview,
         reviewBack: () => {
           if (review !== null) runReview(stepBack(review))
@@ -204,6 +205,7 @@ export function useKeyboard({
         finishOpen,
         layerOpen: layer !== 'none',
         stepsOpen,
+        sideFloating: side.floating,
         hasVideo: hasVideoFile,
         selection,
         activeIndex: useMediaPlayer.getState().activeIndex,
@@ -240,6 +242,7 @@ export function useKeyboard({
       reviewDone,
       selection,
       settingsOpen,
+      side,
       stepsOpen,
       timing,
       view,

@@ -69,7 +69,12 @@ function setup(over: Partial<KeyboardOptions> = {}, handlers: { menuOpen?: boole
     setSettingsOpen: (open) => log.push(`settings:${String(open)}`),
     stepsOpen: false,
     setStepsOpen: (open) => log.push(`steps:${String(open)}`),
-    side: { toggleKept: () => log.push('side:kept'), toggleCollapsed: () => log.push('side:collapse') },
+    side: {
+      toggleKept: () => log.push('side:kept'),
+      toggleCollapsed: () => log.push('side:collapse'),
+      floating: false,
+      collapse: () => log.push('side:close'),
+    },
     zhMode: 'dim',
     setZhMode: (mode) => log.push(`zh:${mode}`),
     selection: null,
@@ -304,6 +309,25 @@ describe('useKeyboard: Escape', () => {
     useMediaPlayer.getState().setPoint('a')
     press(keyboard, 'Escape')
     expect(useMediaPlayer.getState().pointA).toBeNull()
+  })
+
+  it('puts a floating right column away, after the five-steps drawer', () => {
+    const log: string[] = []
+    const side = {
+      toggleKept: () => log.push('side:kept'),
+      toggleCollapsed: () => log.push('side:collapse'),
+      floating: true,
+      collapse: () => log.push('side:close'),
+    }
+    const floating = setup({ side })
+    useMediaPlayer.getState().setPoint('a')
+    press(floating.keyboard, 'Escape')
+    expect(log).toEqual(['side:close'])
+    expect(useMediaPlayer.getState().pointA).not.toBeNull()
+    const steps = setup({ side, stepsOpen: true })
+    press(steps.keyboard, 'Escape')
+    expect(steps.log).toEqual(['steps:false'])
+    expect(log).toEqual(['side:close'])
   })
 
   it('dismisses the finish card', () => {

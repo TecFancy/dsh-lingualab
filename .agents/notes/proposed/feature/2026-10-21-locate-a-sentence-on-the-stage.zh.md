@@ -57,5 +57,5 @@ Status: proposed
 - **左右滑切换上一句、下一句。** 容易学会，但还是一次一句，解决不了远距离跳转。
 - **「跳到第 N 句」输入框。** 准确，但在触屏上要调出键盘，而且用户很少知道要去的是第几句。
 
-相关：[练习栏窄时，侧栏浮在舞台上并默认收起](2026-10-21-side-column-over-a-narrow-stage.zh.md)，
+相关：[练习栏窄时，侧栏浮在舞台上并默认收起](../../implemented/feature/2026-10-21-side-column-over-a-narrow-stage.zh.md)，
 [布局看练习栏自己的大小，不看窗口](../../implemented/architecture/2026-10-14-layout-answers-to-the-practice-column.zh.md)。

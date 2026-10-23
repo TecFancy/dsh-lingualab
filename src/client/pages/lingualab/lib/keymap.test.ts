@@ -12,6 +12,7 @@ const PRACTICE: KeyContext = {
   finishOpen: false,
   layerOpen: false,
   stepsOpen: false,
+  sideFloating: false,
   hasVideo: true,
   selection: null,
   activeIndex: 2,
@@ -274,6 +275,11 @@ describe('keyAction: Escape', () => {
     expect(escape({ stepsOpen: true })).toEqual({ type: 'close-steps' })
   })
 
+  it('puts the floating right column away after the steps drawer and before the marks', () => {
+    expect(escape({ sideFloating: true })).toEqual({ type: 'close-side' })
+    expect(escape({ stepsOpen: true, sideFloating: true })).toEqual({ type: 'close-steps' })
+  })
+
   it('means nothing on the home once nothing is open', () => {
     expect(escape({ view: 'home' })).toBeNull()
     // The steps drawer and the marks are the practice view's own.
@@ -305,6 +311,7 @@ describe('keyAction: Escape', () => {
       finishOpen: true,
       layerOpen: true,
       stepsOpen: true,
+      sideFloating: true,
     }
     const ladder: Array<[Partial<KeyContext>, KeyAction['type']]> = [
       [everything, 'close-settings'],
@@ -315,6 +322,18 @@ describe('keyAction: Escape', () => {
       [
         { ...everything, settingsOpen: false, timingOpen: false, reviewing: false, finishOpen: false, layerOpen: false },
         'close-steps',
+      ],
+      [
+        {
+          ...everything,
+          settingsOpen: false,
+          timingOpen: false,
+          reviewing: false,
+          finishOpen: false,
+          layerOpen: false,
+          stepsOpen: false,
+        },
+        'close-side',
       ],
     ]
     for (const [context, expected] of ladder) expect(escape(context)?.type).toBe(expected)
@@ -387,6 +406,7 @@ describe('flashOf', () => {
       { type: 'dismiss-finish' },
       { type: 'close-layer' },
       { type: 'close-steps' },
+      { type: 'close-side' },
       { type: 'clear-ab' },
       { type: 'timing-key' },
       { type: 'review-grade', grade: 'got' },

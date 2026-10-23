@@ -64,5 +64,5 @@ Design reference (proportions only, the host's tokens win): <https://claude.ai/a
   the long jump.
 - **A "go to sentence N" field.** Exact, but it needs the keyboard on a touch screen and the user rarely knows the number.
 
-Related: [the side column over a narrow stage](2026-10-21-side-column-over-a-narrow-stage.md),
+Related: [the side column over a narrow stage](../../implemented/feature/2026-10-21-side-column-over-a-narrow-stage.md),
 [the layout answers to the practice column](../../implemented/architecture/2026-10-14-layout-answers-to-the-practice-column.md).

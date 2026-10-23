@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- On a narrow row (an iPad in portrait, or in landscape with the host's sidebar open) the expanded right column opens
+  as a drawer over the stage, with a scrim, so the stage keeps its wide layout. A press on the scrim, `Esc` or the
+  toggle puts it away. A row of 982px or more keeps the column beside the stage.
+- A device that has never chosen starts with the right column collapsed on a narrow row and expanded on a wide one.
+  The toggle and `\` store a choice; until then `N`, the kept chip, `Esc` and the scrim change it for this visit only.
+
 ## [0.15.0] - 2026-10-21
 
 ### Added
