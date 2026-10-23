@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-23
+
 ### Added
 
 - On a narrow row (an iPad in portrait, or in landscape with the host's sidebar open) the expanded right column opens
