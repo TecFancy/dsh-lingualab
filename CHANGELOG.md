@@ -30,6 +30,14 @@ the plugin that was installed and used, not an artifact on a registry.
   edge kept. A changed sentence is saved first, the neighbour opens once the subtitles are read back, and the header
   says 「已保存」 for a moment; a refused save stays where it is.
 
+### Changed
+
+- The right column slides in and out over 200ms instead of swapping in one frame: the stage and the picture follow in
+  the same transition, and the subtitle rows keep their width so they do not rewrap. On a narrow row the drawer now
+  slides out with its scrim the way it slides in. Reduced motion keeps the instant swap.
+- The top bar's right side is two groups with a line between them: the kept chip and the column toggle, then the five
+  steps and the settings at the far right.
+
 ## [0.15.0] - 2026-10-21
 
 ### Added

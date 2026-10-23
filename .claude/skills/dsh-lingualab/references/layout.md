@@ -7,7 +7,7 @@
 - 页面有两个视图：
   - 首页：「接着上次」大卡片、剧集卡片网格、虚线框的拖放区。
   - 练习：顶栏高 48，下面分左右两栏。左栏是舞台（当前句、前后句、播放卡片、按键标签）；
-    右栏是字幕栏，宽度 `clamp(300px,34%,440px)`，是页面里唯一的滚动区。
+    右栏是字幕栏，宽度 `--ll-side-w`（`clamp(300px,34cqw,440px)`），是页面里唯一的滚动区。
 - 栏头的分段控件或 `N` 键把右栏换成「收藏」，宽度和滚动方式不变。
 - 改布局时不要把整页变成滚动容器。舞台必须固定，否则「听这一句」又会跟着列表滚走。
 - 播放卡片只放每分钟都要用的控件，不常用的收进「更多」。
@@ -20,9 +20,15 @@
 - 「收起」是设置里的 `sideCollapsed`，按浏览器记住；「显示哪个视图」是页面本次打开的状态。两者分开存放
   （`pages/lingualab/lib/side-column.ts` 的纯函数与 `useSideColumn`）。
 - 所以 `N` 仍然只切换视图，只有在收起时才直接展开到收藏。顶栏「收藏」旁边的开关和 `\` 键负责收起或展开，不改变视图。
-- 收起时右栏完全不渲染（不留窄条），`.dsh-lingualab-body` 带上 `is-side-collapsed`：
+- 收起后右栏完全不渲染（不留窄条），`.dsh-lingualab-body` 带上 `is-side-collapsed`：
   - 画面占满整个宽度（`--ll-pic-share:1`、`--ll-pic-w:100%`）。
   - 720px、405px、高度上限和 `is-picture-squeezed` 的规则不变。
+- 展开和收起有 200ms 的过渡（`ui/PracticeSideSlot.tsx`，用 `usePresence`）：
+  - 右栏包在 `.dsh-lingualab-side-slot` 里，过渡的是包装层的宽度和不透明度，舞台在同一个过渡里让出或收回宽度。
+  - 里面的列表始终是完整宽度 `--ll-side-w`，由包装层裁掉，所以过渡中字幕行不会重新换行。
+  - 收起时列表在 200ms 里还在，但已经点不到（`pointer-events:none`、`aria-hidden`），之后才卸载。
+  - 画面跟着一起变：`styles-side.ts` 用 `@property` 注册了 `--ll-pic-share` 和 `--ll-pic-w`，它们的变化是过渡而不是跳变。
+  - `SIDE_MS` 和样式里的 `.2s` 要一起改。系统开了「减少动态效果」时，页面的规则把过渡置零，`usePresence` 也不等。
 - 展开时字幕列表重新挂载，`SubtitlePanel` 的 layout effect 让它直接定位到正在播放的那一句。
 
 ## 行窄时右栏是抽屉，没选过时默认收起
@@ -30,9 +36,11 @@
 决定与取舍见 `.agents/notes/implemented/feature/2026-10-21-side-column-over-a-narrow-stage.md`。
 
 - `.dsh-lingualab-body` 窄于 982px 就算窄（`side-column.ts` 的 `sideFloats`），由 `useSideFloating` 用 `ResizeObserver` 量。
-  这个数是从侧栏的宽度（820px 以内 260px，以上 `clamp(300px,34%,440px)`）推出来的，改侧栏宽度时要一起改 `SIDE_FLOAT_BELOW`。
-- 行窄且展开时，这一行带上 `is-side-floating`：侧栏绝对定位盖在舞台上，宽 360px，下面垫 `dsh-lingualab-side-scrim`。
-  舞台的样式和收起时一样（`styles-side.ts` 里两组选择器并列），所以抽屉开合时舞台不变。
+  这个数是从侧栏的宽度（820px 以内 260px，以上 `clamp(300px,34cqw,440px)`）推出来的，改侧栏宽度时要一起改 `SIDE_FLOAT_BELOW`。
+- 行窄时 body 一直带 `is-side-narrow`，包装层带 `is-floating`（看行宽，不看开没开）：侧栏绝对定位盖在舞台上，
+  宽 360px，下面垫 `dsh-lingualab-side-scrim`。这样抽屉退场时还留在原位，不会掉回文档流。
+  - 抽屉从右边滑进滑出，遮罩同时淡入淡出，都在包装层的 `is-open` 上过渡，200ms 后一起卸载。
+  - 舞台的样式和收起时一样（`styles-side.ts` 里两组选择器并列），所以抽屉开合时舞台不变。
 - 层级：遮罩 16、抽屉 17，在完成卡片（15）上面，五步抽屉（21、22）下面。
 - `Esc` 的顺序是五步抽屉、浮着的侧栏、A-B 标记（`keymap.ts` 的 `escapeAction`，`sideFloating` 与 `close-side`）。
 - `sideCollapsed` 是 `true`、`false`、`null` 三种值，`null` 表示没选过。页面实际的收起状态是
@@ -44,6 +52,10 @@
 
 - 顶栏是名为 `ll-top` 的宽度容器。宽度不到 720px 时，「返回」和「收藏」两个按钮只显示图标（和计数）。
 - 顶栏的按钮是 `flex:none`，空间不够时只压缩标题。
+- 右侧按作用对象分两组（`.dsh-lingualab-top-group`，带 `role="group"` 和组名），中间一条 1px 的竖线：
+  - 「右栏」组：收藏和右栏开关（`PracticeSideChips.tsx`）。
+  - 「进度与设置」组：五步和设置，放在最右边（`PracticeProgressChips.tsx`）。
+  - 组内间距仍是 8px，触屏 44px 点按区域就是按这个间距算的。组不定位也不裁剪，五步抽屉照旧相对页面定位。
 - 触屏上按钮靠透明的 `::after` 把点按区域扩到 44px，外观不变。
 - 这几条样式在 `shared/lib/styles-side.ts`，接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。
 
