@@ -3,7 +3,8 @@
  *
  * It is a card with four parts. A header says what the loop is doing (the sentence repeats while the
  * panel is open, and the ear is the instrument: there is no waveform, see the note on editing a
- * sentence's timing) and closes the panel. A mini timeline shows the sentence before, the range
+ * sentence's timing), steps to a neighbouring sentence with the two buttons and `↑` / `↓`, and
+ * closes the panel. A mini timeline shows the sentence before, the range
  * being edited, the sentence after and the playhead, so a moved edge is seen against its neighbours
  * as well as heard. Two edge cards, start and end, each hold the value, a nudge either way and a
  * "set to the playhead" button; the one with focus is the one the arrow keys move, and clicking a
@@ -29,8 +30,10 @@ import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import { formatClock, formatClockMs } from '../../../shared/lib/format.ts'
 import { BackIcon, ChevronIcon, CheckIcon, CloseIcon, UpIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
+import { stepAllowed } from '../lib/step.ts'
 import { blockOf, percentAt, timelineWindow } from '../lib/timeline.ts'
 import { BIG_STEP_MS, STEP_MS, type TimingEditor, type TimingSession } from '../model/useTimingEditor.ts'
+import { TimingStepButtons } from './TimingStepButtons.tsx'
 
 /** How long the way out takes; the card's fade and lift in the stylesheet run for about this long. */
 export const TIMING_EXIT_MS = 240
@@ -55,6 +58,11 @@ interface Held {
 /** `+0.10` or `−0.45`, a signed number of seconds with a true minus sign. */
 function formatDelta(ms: number): string {
   return `${ms < 0 ? '−' : '+'}${(Math.abs(ms) / 1000).toFixed(2)}`
+}
+
+/** A block's place as the inline styles the timeline draws it with. */
+function blockStyle(place: { readonly left: number; readonly width: number }) {
+  return { left: `${place.left.toFixed(2)}%`, width: `${place.width.toFixed(2)}%` }
 }
 
 interface EdgeCardProps {
@@ -172,14 +180,11 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
   if (!mounted || current === null) return null
   const { session } = current
   const changed = session.range.start !== session.base.start || session.range.end !== session.base.end
+  const canStep = stepAllowed(current.blocked, changed)
   const bounds = timelineWindow(session.range, session.previous, session.next)
   const range = blockOf(session.range, bounds)
   const previous = session.previous === null ? null : blockOf(session.previous, bounds)
   const next = session.next === null ? null : blockOf(session.next, bounds)
-  const block = (place: { readonly left: number; readonly width: number }) => ({
-    left: `${place.left.toFixed(2)}%`,
-    width: `${place.width.toFixed(2)}%`,
-  })
   // `inert` is an attribute React 18 does not know, so it goes in as one; it takes the panel out of the
   // tab order and the hit test while it opens and leaves.
   const inertProps: Record<string, string> = shown ? {} : { inert: '' }
@@ -194,6 +199,7 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
               {playing ? t('timingLooping') : t('timingPaused')}
             </span>
             <span className="dsh-lingualab-spacer" />
+            <TimingStepButtons t={t} editor={editor} session={session} canStep={canStep} />
             <button
               type="button"
               className="dsh-lingualab-icon-btn is-small"
@@ -207,9 +213,9 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
 
           <div className="dsh-lingualab-timing-line" aria-hidden>
             <div className="dsh-lingualab-timing-track">
-              {previous === null ? null : <div className="dsh-lingualab-timing-block" style={block(previous)} />}
-              {next === null ? null : <div className="dsh-lingualab-timing-block" style={block(next)} />}
-              <div className="dsh-lingualab-timing-block is-current" style={block(range)} />
+              {previous === null ? null : <div className="dsh-lingualab-timing-block" style={blockStyle(previous)} />}
+              {next === null ? null : <div className="dsh-lingualab-timing-block" style={blockStyle(next)} />}
+              <div className="dsh-lingualab-timing-block is-current" style={blockStyle(range)} />
               <div
                 className="dsh-lingualab-timing-head"
                 style={{ left: `${percentAt(currentTime * 1000, bounds).toFixed(2)}%` }}
@@ -253,6 +259,9 @@ export function TimingStrip({ t, editor, blocked, mounted, shown }: TimingStripP
               ) : null}
               <span>
                 <kbd>Shift</kbd> {t('timingKeyShift', { ms: BIG_STEP_MS })}
+              </span>
+              <span>
+                <kbd>↑ ↓</kbd> {t('keySentence')}
               </span>
               <span>
                 <kbd>Space</kbd> {playing ? t('pause') : t('play')}

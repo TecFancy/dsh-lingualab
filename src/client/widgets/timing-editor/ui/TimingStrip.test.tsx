@@ -5,12 +5,14 @@
  * here is the markup the compact layout depends on: the long and the short label of a button, and the full name that
  * stays on the button whichever of them is drawn.
  */
+import { Children } from 'react'
 import type { ReactElement } from 'react'
 // @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Cue } from '../../../entities/cue/index.ts'
 import { TimingStrip } from './TimingStrip.tsx'
+import { TimingStepButtons } from './TimingStepButtons.tsx'
 import type { TimingEditor, TimingSession } from '../model/useTimingEditor.ts'
 
 const renderToStaticMarkup = render as (element: ReactElement) => string
@@ -29,6 +31,8 @@ function session(patch: Partial<TimingSession> = {}): TimingSession {
     cue: CUE,
     range: { start: 68000, end: 70000 },
     base: { start: 68000, end: 70000 },
+    canStepPrevious: true,
+    canStepNext: true,
     focus: 'start',
     limits: { minStart: 67000, maxStart: 69000, minEnd: 69000, maxEnd: 71000, endEditable: true },
     lrc: false,
@@ -46,6 +50,7 @@ function editor(patch: Partial<TimingEditor> = {}): TimingEditor {
     error: null,
     stale: false,
     open: noop,
+    step: noop,
     close: noop,
     setFocus: noop,
     nudge: noop,
@@ -59,16 +64,25 @@ function editor(patch: Partial<TimingEditor> = {}): TimingEditor {
 }
 
 /** What the page's presence says: on the page and open by default; `mounted` and `shown` are the page's to give. */
-const html = (patch: Partial<TimingEditor> = {}, presence: { mounted?: boolean; shown?: boolean } = {}): string =>
+const html = (
+  patch: Partial<TimingEditor> = {},
+  presence: { mounted?: boolean; shown?: boolean } = {},
+  blocked: string | null = null,
+): string =>
   renderToStaticMarkup(
     <TimingStrip
       t={t}
       editor={editor(patch)}
-      blocked={null}
+      blocked={blocked}
       mounted={presence.mounted ?? true}
       shown={presence.shown ?? true}
     />,
   )
+
+/** The opening tag of the button with this title, so a test can read its attributes. */
+function buttonTag(markup: string, label: string): string {
+  return markup.match(new RegExp(`<button(?=[^>]*title="${label}")[^>]*>`))?.[0] ?? ''
+}
 
 describe('the timing panel', () => {
   it('is on the page when the page mounts it, and not otherwise', () => {
@@ -120,5 +134,39 @@ describe('the timing panel', () => {
       session: session({ lrc: true, limits: { minStart: 0, maxStart: 1, minEnd: 0, maxEnd: 1, endEditable: false } }),
     })
     expect(markup.match(/timingAtPlayheadShort/g)).toHaveLength(1)
+  })
+
+  it('disables the neighbour button on the side where the list ends', () => {
+    const start = html({ session: session({ canStepPrevious: false }) })
+    expect(buttonTag(start, 'prevCue')).toContain('disabled=""')
+    expect(buttonTag(start, 'nextCue')).not.toContain('disabled=""')
+    const end = html({ session: session({ canStepNext: false }) })
+    expect(buttonTag(end, 'prevCue')).not.toContain('disabled=""')
+    expect(buttonTag(end, 'nextCue')).toContain('disabled=""')
+  })
+
+  it('disables both neighbour buttons while a changed range waits for its save', () => {
+    const markup = html({ session: session({ range: { start: 68100, end: 70000 } }) })
+    expect(buttonTag(markup, 'prevCue')).toContain('disabled=""')
+    expect(buttonTag(markup, 'nextCue')).toContain('disabled=""')
+  })
+
+  it('leaves both neighbour buttons usable when the episode cannot be saved', () => {
+    const markup = html({ session: session({ range: { start: 68100, end: 70000 } }) }, {}, 'outside the library')
+    expect(buttonTag(markup, 'prevCue')).not.toContain('disabled=""')
+    expect(buttonTag(markup, 'nextCue')).not.toContain('disabled=""')
+  })
+
+  it('asks the editor to step in the direction of the button pressed', () => {
+    const directions: number[] = []
+    const rendered = TimingStepButtons({
+      t,
+      editor: editor({ step: (direction) => directions.push(direction) }),
+      session: session(),
+      canStep: true,
+    })
+    const buttons = Children.toArray(rendered.props.children) as ReactElement<{ onClick: () => void }>[]
+    for (const button of buttons) button.props.onClick()
+    expect(directions).toEqual([-1, 1])
   })
 })
