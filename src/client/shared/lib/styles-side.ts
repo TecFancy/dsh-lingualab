@@ -1,12 +1,31 @@
 /**
- * The stylesheet's last part: the right column collapsed or floating over a narrow row, and the top bar on a narrow or
- * touch screen.
+ * The stylesheet's last part: the right column expanding, collapsing or floating over a narrow row, and the top bar on
+ * a narrow or touch screen.
  *
  * It is appended to `STYLES` (see `styles.ts`), after the responsive rules, so these refine what comes before at the same
  * specificity or more. It is a file of its own because `styles.ts` is at its size limit; the rules here are the page's
  * like any other, and `styles.test.ts` reads them through `STYLES`.
  */
 export const SIDE_STYLES = `
+/* ── the right column, collapsing in the row ─────────────────────────────────────────────────────
+   The column's box in the row is a slot of its own, because two things have to move at different widths. The slot's
+   width and opacity run together over .2s (the same number as SIDE_MS in PracticeSideSlot.tsx, so change both), which
+   lets the stage beside it take the width back in the same transition. The transcript inside keeps its full width the
+   whole way and is clipped by the slot instead, so its lines never rewrap on the frames of the way out. The slot gives
+   up the hit test at once, and is hidden for the keyboard after the fade, so a leaving list cannot be pressed. */
+@property --ll-pic-share{syntax:'<number>';inherits:true;initial-value:.64}
+@property --ll-pic-w{syntax:'<length-percentage>';inherits:true;initial-value:64%}
+.dsh-lingualab-side-slot{--ll-side-w:clamp(300px,34cqw,440px);flex:none;display:flex;overflow:hidden;
+  width:0;opacity:0;visibility:hidden;pointer-events:none;
+  transition:width .2s ease,opacity .2s ease,visibility 0s linear .2s}
+.dsh-lingualab-side-slot.is-open{width:var(--ll-side-w);opacity:1;visibility:visible;pointer-events:auto;
+  transition:width .2s ease,opacity .2s ease,visibility 0s}
+/* The picture follows the column in the same .2s: its share of the width (the stage's flex basis) and its own width
+   are registered above, so a change of either is a transition and not a jump. Under reduced motion the page's rule
+   zeroes every transition, so both are set at once. */
+.dsh-lingualab-videostage{transition:--ll-pic-share .2s ease}
+.dsh-lingualab-picture,.dsh-lingualab-videocard{transition:--ll-pic-w .2s ease}
+
 /* ── the right column collapsed ───────────────────────────────────────────────────────────────────
    The column is not drawn (no rail), so the practice column has the whole row. The picture's share of the width was 64%
    above a 600px column, which would leave a wide column's extra width as empty margin either side of a picture that barely
@@ -40,23 +59,27 @@ export const SIDE_STYLES = `
 
 /* ── the right column over a narrow stage ────────────────────────────────────────────────────────
    Under 982px the row cannot keep an expanded column beside the stage without the stage dropping to its narrow layout
-   (see "sideFloats"), so the column becomes a drawer over it. The body is the drawer's containing block. The drawer keeps
-   the transcript's own scroll, and its width leaves 48px of the stage showing at any row width. The scrim sits over the
-   stage and under the drawer, both over the finish card (z-index 15) and under the five-steps drawer (21 and 22). */
-.dsh-lingualab-body.is-side-floating{position:relative}
-.dsh-lingualab-body.is-side-floating .dsh-lingualab-transcript{position:absolute;top:0;right:0;bottom:0;z-index:17;
+   (see "sideFloats"), so the column becomes a drawer over it. The body is the drawer's containing block for as long as
+   the row is narrow, which includes the way out: the row's width does not change when the drawer starts to leave, so the
+   drawer must not fall back into the flow on that frame. The slot itself gives no width in this mode (the drawer is
+   absolute), and reads "is-floating" from the row's width rather than from the open state, so the leaving drawer keeps
+   its place and its transform. The drawer keeps the transcript's own scroll, and its width leaves 48px of the stage
+   showing at any row width. The scrim sits over the stage and under the drawer, both over the finish card (z-index 15)
+   and under the five-steps drawer (21 and 22). The way in and the way out are the same transition, from the slot's
+   is-open, so the drawer slides and fades both ways instead of appearing in one frame. */
+.dsh-lingualab-body.is-side-narrow{position:relative}
+.dsh-lingualab-side-slot.is-floating{display:contents}
+.dsh-lingualab-side-slot.is-floating .dsh-lingualab-transcript{position:absolute;top:0;right:0;bottom:0;z-index:17;
   width:min(360px,calc(100% - 48px));background:var(--ll-surface);box-shadow:-18px 0 48px rgba(0,0,0,0.28);
-  animation:ll-side-in .2s ease-out}
-@keyframes ll-side-in{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+  transform:translateX(100%);opacity:0;pointer-events:none;
+  transition:transform .2s ease,opacity .2s ease}
+.dsh-lingualab-side-slot.is-floating.is-open .dsh-lingualab-transcript{transform:none;opacity:1;pointer-events:auto}
 .dsh-lingualab-side-scrim{position:absolute;inset:0;z-index:16;border:0;padding:0;cursor:pointer;
-  background:var(--ll-mask);animation:ll-fade-in .18s ease-out}
+  background:var(--ll-mask);opacity:0;pointer-events:none;transition:opacity .2s ease}
+.dsh-lingualab-side-scrim.is-open{opacity:1;pointer-events:auto}
 /* The drawer takes no width from the stage: the picture gets the whole row, as it does collapsed. Its other bounds
    (720px, 405px of stage, the height cap, "is-picture-squeezed") are untouched. */
-.dsh-lingualab-body.is-side-floating .dsh-lingualab-videostage{--ll-pic-share:1}
-.dsh-lingualab-body.is-side-floating .dsh-lingualab-picture,
-.dsh-lingualab-body.is-side-floating .dsh-lingualab-videocard{--ll-pic-w:100%}
-/* A drawer that opens without motion for a reader who asked for that. */
-@media (prefers-reduced-motion:reduce){
-  .dsh-lingualab-side-scrim,.dsh-lingualab-body.is-side-floating .dsh-lingualab-transcript{animation:none}
-}
+.dsh-lingualab-body.is-side-narrow .dsh-lingualab-videostage{--ll-pic-share:1}
+.dsh-lingualab-body.is-side-narrow .dsh-lingualab-picture,
+.dsh-lingualab-body.is-side-narrow .dsh-lingualab-videocard{--ll-pic-w:100%}
 `

@@ -18,6 +18,8 @@ export interface SideRow {
   readonly collapsed: boolean
   /** The row is narrow and the column is open: it floats over the stage instead of taking width from it. */
   readonly floating: boolean
+  /** The row is narrow, so the column is a drawer even during its way out, when `floating` is already false. */
+  readonly narrow: boolean
   /** Attach to `.dsh-lingualab-body`, which is measured here. */
   readonly attachBody: (body: HTMLDivElement | null) => void
   /** Put the column away, keeping its view: Escape and a press on the drawer's scrim. */
@@ -88,7 +90,7 @@ export function useSideColumn(): SideColumn {
       column,
       collapsed,
       floating,
-      row: { collapsed, floating, attachBody, onCollapse: collapse },
+      row: { collapsed, floating, narrow, attachBody, onCollapse: collapse },
       keptShown: rules.keptShown({ column, collapsed }),
       setColumn,
       toggleKept: () => apply(rules.toggleKept(now())),
