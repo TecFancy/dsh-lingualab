@@ -21,6 +21,7 @@ function effects(): { fx: KeyEffects; log: string[] } {
     dismissFinish: () => log.push('dismissFinish'),
     closeLayer: () => log.push('closeLayer'),
     closeSteps: () => log.push('closeSteps'),
+    closeSide: () => log.push('closeSide'),
     answerReview: (outcome) => log.push(`answerReview:${outcome}`),
     reviewBack: () => log.push('reviewBack'),
     gradeStage: (grade) => log.push(`gradeStage:${grade}`),
@@ -70,6 +71,7 @@ describe('performKey: what the page is asked to do', () => {
     expect(run({ type: 'dismiss-finish' })).toEqual(['dismissFinish'])
     expect(run({ type: 'close-layer' })).toEqual(['closeLayer'])
     expect(run({ type: 'close-steps' })).toEqual(['closeSteps'])
+    expect(run({ type: 'close-side' })).toEqual(['closeSide'])
     expect(run({ type: 'review-back' })).toEqual(['reviewBack'])
     expect(run({ type: 'toggle-column' })).toEqual(['toggleColumn'])
     expect(run({ type: 'toggle-side' })).toEqual(['toggleSide'])

@@ -49,6 +49,8 @@ export interface KeyContext {
   readonly layerOpen: boolean
   /** The five-steps drawer is open. */
   readonly stepsOpen: boolean
+  /** The right column is open as a drawer over a narrow stage. */
+  readonly sideFloating: boolean
   /** What is open has a video file, so there is a picture for `V` to cycle. */
   readonly hasVideo: boolean
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
@@ -73,6 +75,8 @@ export type KeyAction =
   | { readonly type: 'dismiss-finish' }
   | { readonly type: 'close-layer' }
   | { readonly type: 'close-steps' }
+  /** Escape while the right column floats over the stage: put it away without switching its view. */
+  | { readonly type: 'close-side' }
   | { readonly type: 'clear-ab' }
   /** The timing strip is open: the key is its to use, and its handler says whether it did. */
   | { readonly type: 'timing-key' }
@@ -152,8 +156,8 @@ const PRACTICE_KEYS: ReadonlyMap<string, Decide> = new Map<string, Decide>([
 ])
 
 /**
- * What Escape closes, topmost first. One press closes one thing; the five-steps drawer and the A-B marks are the
- * practice view's own, so on the home Escape means nothing once the layers are gone.
+ * What Escape closes, topmost first. One press closes one thing; the five-steps drawer, the floating right column and
+ * the A-B marks are the practice view's own, so on the home Escape means nothing once the layers are gone.
  */
 function escapeAction(context: KeyContext): KeyAction | null {
   if (context.settingsOpen) return { type: 'close-settings' }
@@ -161,7 +165,11 @@ function escapeAction(context: KeyContext): KeyAction | null {
   if (context.reviewing) return { type: 'end-review' }
   if (context.finishOpen) return { type: 'dismiss-finish' }
   if (context.layerOpen) return { type: 'close-layer' }
-  if (context.view === 'practice') return { type: context.stepsOpen ? 'close-steps' : 'clear-ab' }
+  if (context.view === 'practice') {
+    if (context.stepsOpen) return { type: 'close-steps' }
+    if (context.sideFloating) return { type: 'close-side' }
+    return { type: 'clear-ab' }
+  }
   return null
 }
 
@@ -236,6 +244,7 @@ export function headsetAction(
     finishOpen: false,
     layerOpen: false,
     stepsOpen: false,
+    sideFloating: false,
     hasVideo: false,
     selection: null,
     activeIndex: 0,

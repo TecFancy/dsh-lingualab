@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { keptShown, showKept, toggleCollapsed, toggleKept, type SideState } from './side-column.ts'
+import { keptShown, showKept, sideFloats, toggleCollapsed, toggleKept, type SideState } from './side-column.ts'
 
 const open = (column: SideState['column']): SideState => ({ column, collapsed: false })
 const closed = (column: SideState['column']): SideState => ({ column, collapsed: true })
@@ -31,5 +31,12 @@ describe('the right column', () => {
     expect(keptShown(open('kept'))).toBe(true)
     expect(keptShown(closed('kept'))).toBe(false)
     expect(keptShown(open('transcript'))).toBe(false)
+  })
+
+  it('floats under 982px, the row width where the stage would lose its 600px content box', () => {
+    expect(sideFloats(0)).toBe(true)
+    expect(sideFloats(981)).toBe(true)
+    expect(sideFloats(982)).toBe(false)
+    expect(sideFloats(1200)).toBe(false)
   })
 })

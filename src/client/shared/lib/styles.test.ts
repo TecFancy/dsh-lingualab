@@ -311,6 +311,25 @@ describe('the stylesheet', () => {
     expect(STYLES.indexOf(`${collapsed} .dsh-lingualab-videostage{`)).toBeGreaterThan(STYLES.indexOf('@container ll-practice (max-width:600px){'))
   })
 
+  it('floats an expanded right column over a narrow row, with a scrim, and takes no width from the stage', () => {
+    const body = '.dsh-lingualab-body.is-side-floating'
+    const drawer = rule(`${body} .dsh-lingualab-transcript`)
+    expect(drawer).toContain('position:absolute')
+    expect(drawer).toContain('top:0;right:0;bottom:0')
+    expect(drawer).toContain('width:min(360px,calc(100% - 48px))')
+    expect(drawer).toContain('z-index:17')
+    expect(rule('.dsh-lingualab-side-scrim')).toContain('z-index:16')
+    expect(rule('.dsh-lingualab-side-scrim')).toContain('background:var(--ll-mask)')
+    // The stage gets the whole row, as it does collapsed, and its other bounds are left alone.
+    expect(rule(`${body} .dsh-lingualab-videostage`)).toContain('--ll-pic-share:1')
+    expect(block(`${body} .dsh-lingualab-picture,`)).toContain(`${body} .dsh-lingualab-videocard{--ll-pic-w:100%}`)
+  })
+
+  it('opens the drawer and its scrim without motion when the reader asks for less', () => {
+    const reduced = block('@media (prefers-reduced-motion:reduce){\n  .dsh-lingualab-side-scrim')
+    expect(reduced).toContain('.dsh-lingualab-body.is-side-floating .dsh-lingualab-transcript{animation:none}')
+  })
+
   it('lets the top bar drop the chips to their icons when the bar itself is narrow, not the window', () => {
     expect(STYLES).toContain('.dsh-lingualab-top{container:ll-top/inline-size}')
     const narrow = block('@container ll-top (max-width:696px)')

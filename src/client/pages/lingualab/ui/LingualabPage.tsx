@@ -551,7 +551,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             },
             onReview: reviewEpisode,
           }}
-          collapsed={side.collapsed}
+          row={side.row}
           scrim={{ mounted: scrim.mounted, open: stepsOpen, onClose: () => setStepsOpen(false) }}
         />
       )}

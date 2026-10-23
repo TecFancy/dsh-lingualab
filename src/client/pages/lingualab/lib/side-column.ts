@@ -39,3 +39,18 @@ export function showKept(): SideState {
 export function keptShown(state: SideState): boolean {
   return !state.collapsed && state.column === 'kept'
 }
+
+/**
+ * The row width under which an expanded column floats over the stage instead of taking width from it.
+ *
+ * The column is 260px while the row is at most 820px and `clamp(300px,34%,440px)` above that. Beside the stage, any
+ * row under 982px leaves the practice column under 648px (at 982, 34% is about 334px and the stage keeps 648px, whose
+ * 24px side padding leaves the 600px content box where the narrow-column rules start). The stage would change layout
+ * every time the column opens, so below 982px the column floats instead.
+ */
+export const SIDE_FLOAT_BELOW = 982
+
+/** Whether the row is too narrow to keep the expanded column beside the stage. */
+export function sideFloats(rowWidth: number): boolean {
+  return rowWidth < SIDE_FLOAT_BELOW
+}

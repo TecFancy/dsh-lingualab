@@ -9,11 +9,28 @@ import { useCallback, useMemo, useState } from 'react'
 import { useSettings } from '../../../features/settings/index.ts'
 import type { Column } from './panel.ts'
 import * as rules from './side-column.ts'
+import { useSideFloating } from './useSideFloating.ts'
+
+/** What the body of the practice row needs: its state, its width measurement, and the scrim's way out. */
+export interface SideRow {
+  /** The column is collapsed out of the row. */
+  readonly collapsed: boolean
+  /** The row is narrow and the column is open: it floats over the stage instead of taking width from it. */
+  readonly floating: boolean
+  /** Attach to `.dsh-lingualab-body`, which is measured here. */
+  readonly attachBody: (body: HTMLDivElement | null) => void
+  /** Put the column away, keeping its view: Escape and a press on the drawer's scrim. */
+  readonly onCollapse: () => void
+}
 
 /** What the page, the top bar and the keys use of the right column. */
 export interface SideColumn {
   readonly column: Column
   readonly collapsed: boolean
+  /** The row is narrow and the column is open, so it is a drawer over the stage. */
+  readonly floating: boolean
+  /** The row's props for `.dsh-lingualab-body`. */
+  readonly row: SideRow
   /** The kept chip is pressed: the kept sentences are on screen. */
   readonly keptShown: boolean
   /** The column's own switch (the segmented control in its head). */
@@ -24,6 +41,8 @@ export interface SideColumn {
   readonly toggleCollapsed: () => void
   /** Open the kept sentences, expanding the column. */
   readonly showKept: () => void
+  /** Put the column away, keeping the view: Escape while it floats. */
+  readonly collapse: () => void
 }
 
 /** Read and move the right column. */
@@ -31,6 +50,7 @@ export function useSideColumn(): SideColumn {
   const [column, setColumn] = useState<Column>('transcript')
   const collapsed = useSettings((state) => state.sideCollapsed)
   const setCollapsed = useSettings((state) => state.setSideCollapsed)
+  const { attachBody, narrow } = useSideFloating()
   const apply = useCallback(
     (next: rules.SideState): void => {
       setColumn(next.column)
@@ -38,17 +58,22 @@ export function useSideColumn(): SideColumn {
     },
     [setCollapsed],
   )
+  const collapse = useCallback((): void => apply({ column, collapsed: true }), [apply, column])
   return useMemo((): SideColumn => {
     // A move reads the collapse when it is made, not as it was rendered, so two presses in one frame do not undo each other.
     const now = (): rules.SideState => ({ column, collapsed: useSettings.getState().sideCollapsed })
+    const floating = narrow && !collapsed
     return {
       column,
       collapsed,
+      floating,
+      row: { collapsed, floating, attachBody, onCollapse: collapse },
       keptShown: rules.keptShown({ column, collapsed }),
       setColumn,
       toggleKept: () => apply(rules.toggleKept(now())),
       toggleCollapsed: () => apply(rules.toggleCollapsed(now())),
       showKept: () => apply(rules.showKept()),
+      collapse,
     }
-  }, [apply, collapsed, column])
+  }, [apply, attachBody, collapse, collapsed, column, narrow])
 }

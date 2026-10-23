@@ -39,6 +39,17 @@ describe('useSideColumn', () => {
     expect(side).toMatchObject({ column: 'transcript', collapsed: false, keptShown: false })
   })
 
+  it('does not float before the row has been measured', () => {
+    const side = setup()
+    expect(side.floating).toBe(false)
+    expect(side.row).toMatchObject({ collapsed: false, floating: false })
+  })
+
+  it('puts the column away without changing its view', () => {
+    setup().collapse()
+    expect(useSettings.getState().sideCollapsed).toBe(true)
+  })
+
   it('writes the collapse when the toggle is pressed, both ways', () => {
     setup().toggleCollapsed()
     expect(useSettings.getState().sideCollapsed).toBe(true)
