@@ -3,11 +3,12 @@
  *
  * It sits under the sentence rather than in a bar of its own, because "play this
  * sentence again" and "which sentence" are one thought. Only the controls used every
- * minute stay on the row: sentence steps, play, speed, loop-this-sentence, the
+ * minute stay on the row: sentence steps, play, the speed picker, loop-this-sentence, the
  * Chinese display, and the 「字幕」 popover that picks the files. Everything that is a setup step rather than a gesture (the A and
  * B marks, how many times an A-B loop repeats, how shadowing runs, the lead-in) lives in the 「更多」 menu, because a
  * row of thirteen controls was the reason a first-time reader did not know which one
- * to press.
+ * to press. The speed button shows the speed in force and opens a picker above it, so
+ * any preset is one press away instead of a lap of the cycle.
  *
  * The modes are chips, not form controls: a chip says its state by being outlined,
  * which a `<select>` cannot do. While shadowing waits out a speaking pause, its chip says whose turn it
@@ -15,8 +16,7 @@
  * microphone on the chip carries a red dot while it records, and says 「对比」 while the sentence and then the
  * reader's take play; a 「对比」 button beside it plays that pair again for the sentence on stage.
  */
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import {
   LEAD_IN_CHOICES,
   SHADOW_PAUSES,
@@ -37,7 +37,9 @@ import type { Picture } from '../../../features/settings/index.ts'
 import { formatClock } from '../../../shared/lib/format.ts'
 import { isHandPicked } from '../../../features/subtitle-choice/index.ts'
 import { Scrubber } from './Scrubber.tsx'
+import { SpeedMenu } from './SpeedMenu.tsx'
 import { SubtitleMenu, type SubtitleControl } from './SubtitleMenu.tsx'
+import { escapeToClose, focusButton, toggledMenu, usePopover, type Menu } from '../lib/usePopover.ts'
 import {
   LoopIcon,
   MicIcon,
@@ -121,9 +123,9 @@ export interface ControlBarProps {
 /** What the page can ask of the bar from its own key handler. */
 export interface ControlBarHandle {
   /**
-   * Close the 「更多」 menu or the 「字幕」 popover if one is open, and put focus back on its button.
+   * Close the speed picker, the 「更多」 menu or the 「字幕」 popover if one is open, and put focus back on its button.
    *
-   * @returns Whether a menu was closed, so the page knows the Escape was spent on it.
+   * @returns Whether a popover was closed, so the page knows the Escape was spent on it.
    */
   readonly closeMenu: () => boolean
 }
@@ -150,52 +152,44 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
   // The switch is off-limits only where recording cannot work; a refusal is found out when it is turned on.
   const micSupported = canRecord()
 
-  const [menu, setMenu] = useState(false)
-  const holder = useRef<HTMLSpanElement>(null)
+  const [menu, setMenu] = useState<Menu>(null)
+  const speedHolder = usePopover(menu === 'speed', () => setMenu(null))
+  const speedButton = useRef<HTMLButtonElement>(null)
+  const moreHolder = usePopover(menu === 'more', () => setMenu(null))
   const moreButton = useRef<HTMLButtonElement>(null)
+  const menuButtons = { speed: speedButton, more: moreButton }
   // The popover remembers which episode and segment it was opened for: another one is another
   // choice, so the popover closes by itself rather than edit the wrong one.
   const subsTarget = subtitles === null ? null : JSON.stringify([subtitles.episode, subtitles.segment])
   const [subsOpenFor, setSubsOpenFor] = useState<string | null>(null)
   const subsOpen = subsOpenFor !== null && subsOpenFor === subsTarget
   const setSubsOpen = (open: boolean): void => setSubsOpenFor(open ? subsTarget : null)
-  const subsHolder = useRef<HTMLSpanElement>(null)
+  const subsHolder = usePopover(subsOpen, () => setSubsOpenFor(null))
   const subsButton = useRef<HTMLButtonElement>(null)
   const store = useMediaPlayer.getState
+
+  const closeSpeed = (): void => {
+    setMenu(null)
+    focusButton(speedButton)
+  }
 
   // Escape belongs to the menu first: the page asks here before it spends the key on
   // anything else, so one press closes one thing. Focus goes back to the button that
   // opened it, which is where a keyboard reader expects to be.
   const closeMenu = (): boolean => {
-    if (subsOpen) {
-      setSubsOpen(false)
-      subsButton.current?.focus({ preventScroll: true })
+    if (menu !== null) {
+      setMenu(null)
+      focusButton(menuButtons[menu])
       return true
     }
-    if (!menu) return false
-    setMenu(false)
-    moreButton.current?.focus({ preventScroll: true })
-    return true
+    if (subsOpen) {
+      setSubsOpen(false)
+      focusButton(subsButton)
+      return true
+    }
+    return false
   }
   useImperativeHandle(handle, () => ({ closeMenu }))
-
-  // A menu that stays open after you click elsewhere is a menu you have to close twice.
-  useEffect(() => {
-    if (!menu) return
-    const onDown = (event: MouseEvent): void => {
-      if (holder.current !== null && !holder.current.contains(event.target as Node)) setMenu(false)
-    }
-    window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
-  }, [menu])
-  useEffect(() => {
-    if (!subsOpen) return
-    const onDown = (event: MouseEvent): void => {
-      if (subsHolder.current !== null && !subsHolder.current.contains(event.target as Node)) setSubsOpenFor(null)
-    }
-    window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
-  }, [subsOpen])
 
   const abOn = pointA !== null || pointB !== null
 
@@ -205,15 +199,24 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
 
       <div className="dsh-lingualab-transport-row">
         <div className="dsh-lingualab-transport-side">
-          <button
-            type="button"
-            className="dsh-lingualab-bar-btn is-speed"
-            onClick={() => store().nextSpeedWrapping()}
-            disabled={disabled}
-            title={t('speed')}
-          >
-            {SPEED_PRESETS[speedIndex] ?? 1}×
-          </button>
+          <span className="dsh-lingualab-menu-holder" ref={speedHolder} onKeyDown={escapeToClose(closeMenu)}>
+            <button
+              ref={speedButton}
+              type="button"
+              className="dsh-lingualab-bar-btn is-speed"
+              onClick={() => {
+                setSubsOpen(false)
+                setMenu(toggledMenu(menu, 'speed'))
+              }}
+              disabled={disabled}
+              title={t('speed')}
+              aria-expanded={menu === 'speed'}
+              aria-haspopup="true"
+            >
+              {SPEED_PRESETS[speedIndex] ?? 1}×
+            </button>
+            <SpeedMenu open={menu === 'speed'} t={t} speedIndex={speedIndex} onClose={closeSpeed} />
+          </span>
           <button
             type="button"
             className={`dsh-lingualab-bar-btn${loopMode === 'sentence' ? ' is-on' : ''}`}
@@ -304,21 +307,13 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
             {t(ZH_MODE_KEYS[zhMode])}
           </button>
           {subtitles === null ? null : (
-            <span
-              className="dsh-lingualab-menu-holder"
-              ref={subsHolder}
-              onKeyDown={(event: ReactKeyboardEvent<HTMLSpanElement>) => {
-                if (event.key !== 'Escape' || !closeMenu()) return
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-            >
+            <span className="dsh-lingualab-menu-holder" ref={subsHolder} onKeyDown={escapeToClose(closeMenu)}>
               <button
                 ref={subsButton}
                 type="button"
                 className={`dsh-lingualab-bar-btn${subsOpen || isHandPicked(subtitles.state?.choice) ? ' is-on' : ''}${(subtitles.state?.missing.length ?? 0) > 0 ? ' is-warn' : ''}`}
                 onClick={() => {
-                  setMenu(false)
+                  setMenu(null)
                   setSubsOpen(!subsOpen)
                 }}
                 title={(subtitles.state?.missing.length ?? 0) > 0 ? t('subtitleMissing') : t('subtitleChooseHint')}
@@ -344,30 +339,26 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
 
       <span
         className="dsh-lingualab-menu-holder"
-        ref={holder}
+        ref={moreHolder}
         // The page's handler stops at a field (the repeat select is one), so Escape has to be
         // heard from inside the menu as well, and only once: it is stopped here.
-        onKeyDown={(event: ReactKeyboardEvent<HTMLSpanElement>) => {
-          if (event.key !== 'Escape' || !closeMenu()) return
-          event.preventDefault()
-          event.stopPropagation()
-        }}
+        onKeyDown={escapeToClose(closeMenu)}
       >
         <button
           ref={moreButton}
           type="button"
-          className={`dsh-lingualab-bar-btn${menu || abOn ? ' is-on' : ''}`}
+          className={`dsh-lingualab-bar-btn${menu === 'more' || abOn ? ' is-on' : ''}`}
           onClick={() => {
             setSubsOpen(false)
-            setMenu(!menu)
+            setMenu(toggledMenu(menu, 'more'))
           }}
           disabled={disabled}
           title={t('more')}
-          aria-expanded={menu}
+          aria-expanded={menu === 'more'}
         >
           <MoreIcon />
         </button>
-        {menu ? (
+        {menu === 'more' ? (
           <div className="dsh-lingualab-menu" role="menu">
             <div className="dsh-lingualab-menu-title">{t('loopAb')}</div>
             <div className="dsh-lingualab-actions">
@@ -493,7 +484,7 @@ export const ControlBar = forwardRef<ControlBarHandle, ControlBarProps>(function
               type="button"
               className="dsh-lingualab-btn"
               onClick={() => {
-                setMenu(false)
+                setMenu(null)
                 onRetime()
               }}
             >

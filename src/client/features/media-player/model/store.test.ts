@@ -77,13 +77,11 @@ describe("a row's loop button", () => {
 })
 
 describe('the speed button', () => {
-  it('wraps from the fastest preset back to the slowest instead of sticking', () => {
-    const last = SPEED_PRESETS.length - 1
-    useMediaPlayer.getState().setSpeedIndex(last)
-    useMediaPlayer.getState().nextSpeedWrapping()
-    expect(useMediaPlayer.getState().speedIndex).toBe(0)
-    useMediaPlayer.getState().nextSpeedWrapping()
+  it('sets any preset by index, and clamps an index outside the list', () => {
+    useMediaPlayer.getState().setSpeedIndex(1)
     expect(useMediaPlayer.getState().speedIndex).toBe(1)
+    useMediaPlayer.getState().setSpeedIndex(SPEED_PRESETS.length + 1)
+    expect(useMediaPlayer.getState().speedIndex).toBe(SPEED_PRESETS.length - 1)
   })
 
   it('keeps the keyboard step clamped at both ends', () => {

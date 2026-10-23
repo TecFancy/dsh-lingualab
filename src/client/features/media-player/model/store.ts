@@ -238,7 +238,6 @@ export interface MediaPlayerState {
   setDuration: (duration: number) => void
   setSpeedIndex: (index: number) => void
   cycleSpeed: (delta: number) => void
-  nextSpeedWrapping: () => void
   setLoopMode: (mode: LoopMode) => void
   loopSentence: (index?: number) => void
   /**
@@ -662,10 +661,6 @@ export const useMediaPlayer = create<MediaPlayerState>((set, get) => {
     setSpeedIndex: (index) => set({ speedIndex: clampSpeed(index) }),
 
     cycleSpeed: (delta) => set((state) => ({ speedIndex: clampSpeed(state.speedIndex + delta) })),
-
-    // The on-screen button has no "slower" twin, so it wraps instead of sticking at the top.
-    nextSpeedWrapping: () =>
-      set((state) => ({ speedIndex: (clampSpeed(state.speedIndex) + 1) % SPEED_PRESETS.length })),
 
     setLoopMode: (mode) =>
       set({ loopMode: mode, playsDone: 0, isPlaying: mode === 'none' ? get().isPlaying : true, ...IDLE_PROGRAM }),
