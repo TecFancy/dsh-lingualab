@@ -29,6 +29,8 @@ the plugin that was installed and used, not an artifact on a registry.
 - In the timing panel, `↑` / `↓` and two buttons in its header move to the previous or next sentence with the focused
   edge kept. A changed sentence is saved first, the neighbour opens once the subtitles are read back, and the header
   says 「已保存」 for a moment; a refused save stays where it is.
+- `=` goes back to 1×; at 1× it goes back to the last other speed in force, however it was chosen. The shortcut table
+  in 「More」 lists it beside `[` and `]`.
 
 ### Changed
 
@@ -37,6 +39,9 @@ the plugin that was installed and used, not an artifact on a registry.
   slides out with its scrim the way it slides in. Reduced motion keeps the instant swap.
 - The top bar's right side is two groups with a line between them: the kept chip and the column toggle, then the five
   steps and the settings at the far right.
+- The speed button opens a picker of all ten speeds (the slower ones, 1× alone, the faster ones) and one press sets
+  one, instead of stepping up a preset per click and wrapping from 2× back to 0.5×. On a touch screen each chip has a
+  44px target, and the picker also works while the timing panel is open.
 
 ## [0.15.0] - 2026-10-21
 

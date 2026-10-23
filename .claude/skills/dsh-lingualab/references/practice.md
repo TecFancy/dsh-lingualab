@@ -25,6 +25,10 @@
 
 - 只有 DOM 才能回答的两个问题（焦点是否在输入框里、是否在按钮上），由 `useKeyboard` 先查好，作为布尔值传进去，所以 keymap 不碰 DOM。
 - 「更多」菜单的 Escape 对应动作 `close-menu`，并带上菜单没开时 Escape 原本的含义（`otherwise`），所以按一次只关一层。
+  倍速选择框和「字幕」弹层也由同一个 `closeMenu()` 关。控制栏再加弹层时，用 `widgets/control-bar/lib/usePopover.ts`
+  （在外面按下就关、`escapeToClose`、`focusButton`），并把它加进 `closeMenu()`。
+- 一个键有没有事可做取决于 store 的状态时（`V` 要有视频，`=` 要有可回去的倍速），由 `useKeyboard` 算成布尔值放进上下文
+  （`hasVideo`、`canResetSpeed`），无事可做时 keymap 返回 `null`，按键留给浏览器，不要吃掉它。
 
 ## 舞台上的拖选用指针事件，不用鼠标事件
 
