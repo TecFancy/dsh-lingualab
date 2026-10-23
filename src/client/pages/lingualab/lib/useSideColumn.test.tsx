@@ -1,8 +1,9 @@
 // @vitest-environment node
 /**
- * The hook rendered to a string: a move that changes the collapse writes the setting, reading the collapse as it is
- * when the move is made. A string render reads a store's initial state and keeps no React state, so what is rendered
- * after a move is checked in a browser, and the moves themselves are tested in `side-column.test.ts`.
+ * The hook rendered to a string: a move that changes the collapse writes the setting once the device has a choice, and
+ * otherwise keeps it for this visit, reading the collapse as it is when the move is made. A string render reads a
+ * store's initial state and keeps no React state, so what is rendered after a move is checked in a browser, and the
+ * moves themselves are tested in `side-column.test.ts`.
  */
 import type { ReactElement } from 'react'
 // @ts-expect-error The types for this module are not installed (@types/react-dom), and one function of it is used here.
@@ -34,7 +35,7 @@ describe('useSideColumn', () => {
     vi.unstubAllGlobals()
   })
 
-  it('starts on the subtitles, expanded by default', () => {
+  it('starts on the subtitles, expanded with no stored choice and a wide row', () => {
     const side = setup()
     expect(side).toMatchObject({ column: 'transcript', collapsed: false, keptShown: false })
   })
@@ -45,9 +46,24 @@ describe('useSideColumn', () => {
     expect(side.row).toMatchObject({ collapsed: false, floating: false })
   })
 
-  it('puts the column away without changing its view', () => {
-    setup().collapse()
-    expect(useSettings.getState().sideCollapsed).toBe(true)
+  it('keeps a collapse this visit only while the device has no choice', () => {
+    const setItem = vi.fn()
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem })
+    const side = setup()
+    side.collapse()
+    expect(useSettings.getState().sideCollapsed).toBeNull()
+    expect(setItem).not.toHaveBeenCalled()
+  })
+
+  it('reads the collapse this visit made when the next move is in the same frame', () => {
+    const setItem = vi.fn()
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem })
+    const side = setup()
+    side.collapse()
+    // The toggle reads the collapse it just made, so it stores the expanded result and not the state before it.
+    side.toggleCollapsed()
+    expect(useSettings.getState().sideCollapsed).toBe(false)
+    expect(setItem).toHaveBeenCalledTimes(1)
   })
 
   it('writes the collapse when the toggle is pressed, both ways', () => {
@@ -64,6 +80,13 @@ describe('useSideColumn', () => {
     useSettings.setState({ sideCollapsed: true })
     setup().showKept()
     expect(useSettings.getState().sideCollapsed).toBe(false)
+  })
+
+  it('stores nothing when N switches the view without changing the collapse', () => {
+    useSettings.setState({ sideCollapsed: null })
+    const side = setup()
+    side.toggleKept()
+    expect(useSettings.getState().sideCollapsed).toBeNull()
   })
 
   it('leaves the stored settings alone for a move that does not touch the collapse', () => {

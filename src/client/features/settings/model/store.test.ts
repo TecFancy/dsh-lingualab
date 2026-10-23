@@ -17,7 +17,7 @@ describe('parseSettings', () => {
   })
 
   it('reads a complete, valid record back', () => {
-    expect(parseSettings('{"theme":"paper","appearance":"dark","stageSize":"l","zhMode":"hidden","picture":"large"}')).toEqual({
+    expect(parseSettings('{"theme":"paper","appearance":"dark","stageSize":"l","zhMode":"hidden","picture":"large","sideCollapsed":false}')).toEqual({
       theme: 'paper',
       appearance: 'dark',
       stageSize: 'l',
@@ -34,7 +34,7 @@ describe('parseSettings', () => {
       stageSize: 'm',
       zhMode: 'dim',
       picture: 'shown',
-      sideCollapsed: false,
+      sideCollapsed: null,
     })
     expect(parseSettings('{"theme":"dusk","appearance":3}')).toEqual({
       theme: 'dusk',
@@ -42,7 +42,7 @@ describe('parseSettings', () => {
       stageSize: 'm',
       zhMode: 'dim',
       picture: 'shown',
-      sideCollapsed: false,
+      sideCollapsed: null,
     })
   })
 
@@ -84,7 +84,7 @@ describe('the store', () => {
       stageSize: 's',
       zhMode: 'dim',
       picture: 'shown',
-      sideCollapsed: false,
+      sideCollapsed: null,
     })
     expect(readSettings()).toEqual({
       theme: 'ink',
@@ -92,20 +92,22 @@ describe('the store', () => {
       stageSize: 's',
       zhMode: 'dim',
       picture: 'shown',
-      sideCollapsed: false,
+      sideCollapsed: null,
     })
   })
 
-  it('remembers the collapsed right column across a reload, and expands for anything but a stored true', () => {
-    expect(useSettings.getState().sideCollapsed).toBe(false)
+  it('remembers a stored collapse across a reload, and has no choice for anything else', () => {
+    expect(useSettings.getState().sideCollapsed).toBeNull()
     useSettings.getState().setSideCollapsed(true)
     expect(useSettings.getState().sideCollapsed).toBe(true)
     expect(JSON.parse(data.get(SETTINGS_KEY) ?? 'null')).toMatchObject({ sideCollapsed: true })
     expect(readSettings().sideCollapsed).toBe(true)
     useSettings.getState().setSideCollapsed(false)
     expect(readSettings().sideCollapsed).toBe(false)
-    expect(parseSettings('{"sideCollapsed":"yes"}').sideCollapsed).toBe(false)
-    expect(parseSettings('{"sideCollapsed":1}').sideCollapsed).toBe(false)
+    expect(parseSettings('{"sideCollapsed":"yes"}').sideCollapsed).toBeNull()
+    expect(parseSettings('{"sideCollapsed":1}').sideCollapsed).toBeNull()
+    expect(parseSettings('{"sideCollapsed":null}').sideCollapsed).toBeNull()
+    expect(parseSettings('{"theme":"ink"}').sideCollapsed).toBeNull()
     expect(parseSettings('{"sideCollapsed":true,"theme":"ink"}')).toEqual({ ...DEFAULT_SETTINGS, theme: 'ink', sideCollapsed: true })
   })
 
