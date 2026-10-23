@@ -37,7 +37,7 @@ const list = argv.includes('--list')
 
 /** One gate step: a name, the command, and whether the pre-commit tier runs it. */
 const STEPS = [
-  { name: 'typecheck', cmd: ['npm', 'run', '--silent', 'typecheck'], fast: true, about: '两个半边都过 TypeScript' },
+  { name: 'typecheck', cmd: ['npm', 'run', '--silent', 'typecheck'], fast: true, about: '服务端和前端都过 TypeScript' },
   { name: 'lint', cmd: ['npm', 'run', '--silent', 'lint'], fast: true, about: 'ESLint，含 React hooks 规则' },
   { name: 'lint:fsd', cmd: ['npm', 'run', '--silent', 'lint:fsd'], fast: true, about: 'Steiger 的 FSD 分层规则' },
   { name: 'test', cmd: ['npm', 'run', '--silent', 'test'], fast: true, about: '单测' },

@@ -26,6 +26,7 @@
  */
 import { SCRUB_STYLES } from './styles-scrub.ts'
 import { SIDE_STYLES } from './styles-side.ts'
+import { SPEED_STYLES } from './styles-speed.ts'
 
 export const STYLES = `
 .dsh-lingualab-page{
@@ -445,7 +446,7 @@ ${SCRUB_STYLES}
 .dsh-lingualab-reveal kbd{margin-left:2px}
 
 /* ── transcript: the only scroller ───────────────────────────── */
-.dsh-lingualab-transcript{flex:none;width:clamp(300px,34%,440px);min-height:0;display:flex;flex-direction:column;
+.dsh-lingualab-transcript{flex:none;width:var(--ll-side-w);min-height:0;display:flex;flex-direction:column;
   border-left:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));background:var(--dsw-alias-bg-layer-1,transparent)}
 .dsh-lingualab-transcript-head{flex:none;display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;
   border-bottom:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
@@ -1072,7 +1073,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 /* A narrow row: the transcript gives back some width, the grade buttons drop their key caps, and the follow switch says
    "Follow" (the long word does not fit the 260px head beside the segmented control). */
 @container ll-body (max-width:820px){
-  .dsh-lingualab-transcript{width:260px}
+  .dsh-lingualab-body .dsh-lingualab-side-slot{--ll-side-w:260px}
   .dsh-lingualab-transcript-head{gap:6px;padding:0 12px}
   .dsh-lingualab-transcript-head .dsh-lingualab-spacer{min-width:0}
   .dsh-lingualab-transcript-head .dsh-lingualab-segmented button{gap:4px;padding:0 8px;font-size:12.5px}
@@ -1217,7 +1218,7 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
 .dsh-lingualab-practice.is-timing .dsh-lingualab-stage-side{display:none}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-stage{flex:0 0 auto;padding-block:12px}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints,
-.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu,
+.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed),
 .dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed),
 .dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end{display:none}
 .dsh-lingualab-practice.is-timing .dsh-lingualab-transport-row{display:grid;grid-template-columns:1fr auto 1fr}
@@ -1257,4 +1258,5 @@ label.dsh-lingualab-btn.is-disabled{opacity:0.45;cursor:default;pointer-events:n
   .dsh-lingualab-stage-time::after,.dsh-lingualab-timing-row .dsh-lingualab-icon-btn::after{content:'';position:absolute;
     inset:-9px -4px}
 }
+${SPEED_STYLES}
 ${SIDE_STYLES}`

@@ -19,6 +19,32 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-23
+
+### Added
+
+- On a narrow row (an iPad in portrait, or in landscape with the host's sidebar open) the expanded right column opens
+  as a drawer over the stage, with a scrim, so the stage keeps its wide layout. A press on the scrim, `Esc` or the
+  toggle puts it away. A row of 982px or more keeps the column beside the stage.
+- A device that has never chosen starts with the right column collapsed on a narrow row and expanded on a wide one.
+  The toggle and `\` store a choice; until then `N`, the kept chip, `Esc` and the scrim change it for this visit only.
+- In the timing panel, `↑` / `↓` and two buttons in its header move to the previous or next sentence with the focused
+  edge kept. A changed sentence is saved first, the neighbour opens once the subtitles are read back, and the header
+  says 「已保存」 for a moment; a refused save stays where it is.
+- `=` goes back to 1×; at 1× it goes back to the last other speed in force, however it was chosen. The shortcut table
+  in 「More」 lists it beside `[` and `]`.
+
+### Changed
+
+- The right column slides in and out over 200ms instead of swapping in one frame: the stage and the picture follow in
+  the same transition, and the subtitle rows keep their width so they do not rewrap. On a narrow row the drawer now
+  slides out with its scrim the way it slides in. Reduced motion keeps the instant swap.
+- The top bar's right side is two groups with a line between them: the kept chip and the column toggle, then the five
+  steps and the settings at the far right.
+- The speed button opens a picker of all ten speeds (the slower ones, 1× alone, the faster ones) and one press sets
+  one, instead of stepping up a preset per click and wrapping from 2× back to 0.5×. On a touch screen each chip has a
+  44px target, and the picker also works while the timing panel is open.
+
 ## [0.15.0] - 2026-10-21
 
 ### Added
@@ -167,7 +193,7 @@ the plugin that was installed and used, not an artifact on a registry.
 - The card that stands in for a picture (prepare the video, preparing, ffmpeg missing, only the sound, cannot play, failed) no
   longer pushes the sentence and the player card off a short column. At 1133 by 634 (an iPad mini in Safari) the prepare card alone
   needed 153 px more than the column has, so the part above the player card scrolled, and with the smooth-version offer and the
-  reader's own file on it the shortfall was up to 334 px (at 1440 by 900 only the cards with such an extra scrolled, by up to
+  user's own file on it the shortfall was up to 334 px (at 1440 by 900 only the cards with such an extra scrolled, by up to
   86 px). The card now gives way in steps until nothing scrolls: compact (tighter), lean (without the icon, the explanation, the
   notes, the offers and the local file, the body at two lines), one line (the title, the file or the progress bar, and the
   button; 44 px, or 58 px on touch) and, where not even that fits, not drawn. The page tries the steps before paint, from the
@@ -306,13 +332,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 - A source that cannot be opened no longer sends the player back to 00:00. Dropping a local file the browser cannot
   play, or a prepared video it cannot decode, used to go back to the other source from the start; it now carries on
-  from where the reader was.
+  from where the user was.
 
 ## [0.10.0] - 2026-10-13
 
 ### Added
 
-- 「用本地文件播放」: a segment that has a video file can play it from a file on the reader's own machine, in place of the
+- 「用本地文件播放」: a segment that has a video file can play it from a file on the user's own machine, in place of the
   served video, without uploading it. Pick it from the picture or from any video card (prepare, preparing, no ffmpeg,
   sound only, failed, unplayable), or drop it on the stage; it is played from an object URL under the same session, so the
   position, loop, subtitles and kept sentences carry on, and a label on the stage says 「本地文件」 with a way to stop using
@@ -368,7 +394,7 @@ the plugin that was installed and used, not an artifact on a registry.
   reload instead of starting at 「变淡」 every time.
 - The host half is organised in FSD layers like the client: `src/host/` is `shared`, `entities` and `features`, each
   route sits in its feature beside the rules it calls, and `npm run lint:fsd` runs Steiger on both halves. Nothing the
-  reader sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
+  user sees changes; the import cycles the flat folder had are gone, and new ones fail the check.
 
 ### Fixed
 
@@ -408,7 +434,7 @@ the plugin that was installed and used, not an artifact on a registry.
   one episode of one segment. Import takes video with the same rules as audio (never overwrites, 2 GB, a `.part` first).
   The home's cards and the segment list carry a small video mark, 「视频 · 未准备」 while it still has to be prepared.
 - The video plays in the page. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP9 or AV1 and
-  AAC, Opus or MP3) plays directly. Anything else is prepared once, when the reader asks (「准备视频」): `ffmpeg` copies the
+  AAC, Opus or MP3) plays directly. Anything else is prepared once, when the user asks (「准备视频」): `ffmpeg` copies the
   picture untouched and converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its
   index first, which takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit
   H.264) is not re-encoded: only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still

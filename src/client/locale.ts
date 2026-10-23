@@ -30,6 +30,8 @@ export const zh: Record<string, string> = {
   mediaFolder: '媒体目录',
   more: '更多',
   change: '更改',
+  topGroupSide: '右栏',
+  topGroupProgress: '进度与设置',
 
   // ── 首页 ─────────────────────────────────────────────────────
   welcomeTitle: '把音频拖进来，就能开始',
@@ -115,7 +117,7 @@ export const zh: Record<string, string> = {
   keyLoop: '循环这一句',
   keyKeep: '收藏或取消收藏',
   keyChinese: '切换中文显示',
-  keySpeed: '变慢 / 变快',
+  keySpeed: '变慢 / 变快 / 正常速度',
   keyMarks: '设 A 点 / 设 B 点',
   keyReveal: '跟读时揭晓英文',
   keyCompare: '对比：播这句原文，再播你录的那遍',
@@ -136,6 +138,7 @@ export const zh: Record<string, string> = {
   beforeFirstCue: '第一句从 {time} 开始',
   beforeFirstCueHint: '这之前没有对白，可以等它播到，或者按 → 直接跳到第一句。',
   transcript: '字幕',
+  closeSide: '收起右栏',
   follow: '自动跟随',
   followShort: '跟随',
   followHint: '开着时，列表跟着播放的句子滚动',
@@ -331,7 +334,6 @@ export const zh: Record<string, string> = {
   stepUndone: '取消完成',
 
   // ── 设置 ─────────────────────────────────────────────────────
-  settingsOpen: '设置',
   settingsTitle: '设置',
   settingsSub: '只影响语言实验室，不改 dsh 本身',
   settingsAppearance: '外观',
@@ -459,6 +461,8 @@ export const en: Record<string, string> = {
   mediaFolder: 'Media folder',
   more: 'More',
   change: 'Change',
+  topGroupSide: 'Right column',
+  topGroupProgress: 'Progress and settings',
 
   welcomeTitle: 'Drop audio here to begin',
   welcomeBody:
@@ -543,7 +547,7 @@ export const en: Record<string, string> = {
   keyLoop: 'Loop this sentence',
   keyKeep: 'Keep or unkeep',
   keyChinese: 'Cycle the Chinese display',
-  keySpeed: 'Slower / faster',
+  keySpeed: 'Slower / faster / normal speed',
   keyMarks: 'Set point A / point B',
   keyReveal: 'Reveal the English while shadowing',
   keyCompare: 'Compare: the sentence, then your take of it',
@@ -563,6 +567,7 @@ export const en: Record<string, string> = {
   beforeFirstCue: 'The first sentence starts at {time}',
   beforeFirstCueHint: 'Nothing is said before it; let it play, or press → to jump to the first sentence.',
   transcript: 'Subtitles',
+  closeSide: 'Close the right column',
   follow: 'Auto-follow',
   followShort: 'Follow',
   followHint: 'When on, the list scrolls with the sentence that is playing',
@@ -750,7 +755,6 @@ export const en: Record<string, string> = {
   stepDone: 'Mark done',
   stepUndone: 'Undo done',
 
-  settingsOpen: 'Settings',
   settingsTitle: 'Settings',
   settingsSub: 'Only changes Language Lab, not dsh itself',
   settingsAppearance: 'Appearance',

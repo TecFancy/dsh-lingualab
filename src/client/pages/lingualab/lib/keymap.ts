@@ -39,6 +39,8 @@ export interface KeyContext {
   readonly settingsOpen: boolean
   /** The timing strip is open: it owns the keyboard, and the arrows move an edge instead of the sentence. */
   readonly timingOpen: boolean
+  /** The strip is saving a move to the neighbour: every key is swallowed, Escape included. */
+  readonly timingBusy: boolean
   /** A review is running or has just ended (its card is up). */
   readonly reviewing: boolean
   /** The review's summary card is up, a dialog the keys leave alone. */
@@ -49,8 +51,12 @@ export interface KeyContext {
   readonly layerOpen: boolean
   /** The five-steps drawer is open. */
   readonly stepsOpen: boolean
+  /** The right column is open as a drawer over a narrow stage. */
+  readonly sideFloating: boolean
   /** What is open has a video file, so there is a picture for `V` to cycle. */
   readonly hasVideo: boolean
+  /** `=`: the speed is not 1x, or one other than 1x was in force, so the key has somewhere to go. */
+  readonly canResetSpeed: boolean
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
   readonly selection: number | null
   /** The sentence the player is on. */
@@ -73,6 +79,8 @@ export type KeyAction =
   | { readonly type: 'dismiss-finish' }
   | { readonly type: 'close-layer' }
   | { readonly type: 'close-steps' }
+  /** Escape while the right column floats over the stage: put it away without switching its view. */
+  | { readonly type: 'close-side' }
   | { readonly type: 'clear-ab' }
   /** The timing strip is open: the key is its to use, and its handler says whether it did. */
   | { readonly type: 'timing-key' }
@@ -105,6 +113,8 @@ export type KeyAction =
   | { readonly type: 'retime' }
   /** The speed one step down (-1) or up (+1). */
   | { readonly type: 'speed'; readonly delta: -1 | 1 }
+  /** `=`: back to 1x, or from 1x back to the speed last in force. */
+  | { readonly type: 'speed-reset' }
 
 /** The row a key that acts on "the" sentence acts on: the picked one, else the playing one. */
 function current(context: KeyContext): number {
@@ -149,19 +159,27 @@ const PRACTICE_KEYS: ReadonlyMap<string, Decide> = new Map<string, Decide>([
   ...letters('t', () => ({ type: 'retime' })),
   ['[', () => ({ type: 'speed', delta: -1 })],
   [']', () => ({ type: 'speed', delta: 1 })],
+  // No other key of the page, and beside the brackets on a US layout, so the three keys read as one group. With
+  // nowhere to go (1x and no speed remembered) it is not the page's, and is left to the browser.
+  ['=', (context) => (context.canResetSpeed ? { type: 'speed-reset' } : null)],
 ])
 
 /**
- * What Escape closes, topmost first. One press closes one thing; the five-steps drawer and the A-B marks are the
- * practice view's own, so on the home Escape means nothing once the layers are gone.
+ * What Escape closes, topmost first. One press closes one thing; the five-steps drawer, the floating right column and
+ * the A-B marks are the practice view's own, so on the home Escape means nothing once the layers are gone.
  */
 function escapeAction(context: KeyContext): KeyAction | null {
   if (context.settingsOpen) return { type: 'close-settings' }
+  if (context.timingBusy) return { type: 'timing-key' }
   if (context.timingOpen) return { type: 'close-timing' }
   if (context.reviewing) return { type: 'end-review' }
   if (context.finishOpen) return { type: 'dismiss-finish' }
   if (context.layerOpen) return { type: 'close-layer' }
-  if (context.view === 'practice') return { type: context.stepsOpen ? 'close-steps' : 'clear-ab' }
+  if (context.view === 'practice') {
+    if (context.stepsOpen) return { type: 'close-steps' }
+    if (context.sideFloating) return { type: 'close-side' }
+    return { type: 'clear-ab' }
+  }
   return null
 }
 
@@ -233,10 +251,13 @@ export function headsetAction(
     view: 'practice',
     settingsOpen: false,
     timingOpen: false,
+    timingBusy: false,
     finishOpen: false,
     layerOpen: false,
     stepsOpen: false,
+    sideFloating: false,
     hasVideo: false,
+    canResetSpeed: false,
     selection: null,
     activeIndex: 0,
     cueCount: 0,

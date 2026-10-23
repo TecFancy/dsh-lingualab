@@ -7,12 +7,15 @@ const PRACTICE: KeyContext = {
   view: 'practice',
   settingsOpen: false,
   timingOpen: false,
+  timingBusy: false,
   reviewing: false,
   reviewFinished: false,
   finishOpen: false,
   layerOpen: false,
   stepsOpen: false,
+  sideFloating: false,
   hasVideo: true,
+  canResetSpeed: true,
   selection: null,
   activeIndex: 2,
   cueCount: 10,
@@ -165,6 +168,14 @@ describe('keyAction: the keys of the practice view', () => {
     expect(act(']')).toEqual({ type: 'speed', delta: 1 })
   })
 
+  it('resets the speed on =, or goes back to the remembered one', () => {
+    expect(act('=')).toEqual({ type: 'speed-reset' })
+  })
+
+  it('leaves = alone when there is nowhere to go', () => {
+    expect(act('=', { canResetSpeed: false })).toBeNull()
+  })
+
   it('reads the same key whatever the sentence it is on', () => {
     expect(act(' ', { cueCount: 0, activeIndex: 0 })).toEqual({ type: 'toggle-play' })
   })
@@ -242,7 +253,7 @@ describe('keyAction: who owns the keyboard', () => {
   })
 
   it('has no practice key on the home, whatever the state says', () => {
-    for (const key of [' ', 'ArrowLeft', 's', 'n', '1', 'Enter', 'v']) {
+    for (const key of [' ', 'ArrowLeft', 's', 'n', '1', 'Enter', 'v', '=']) {
       expect(act(key, { view: 'home' })).toBeNull()
     }
   })
@@ -274,6 +285,11 @@ describe('keyAction: Escape', () => {
     expect(escape({ stepsOpen: true })).toEqual({ type: 'close-steps' })
   })
 
+  it('puts the floating right column away after the steps drawer and before the marks', () => {
+    expect(escape({ sideFloating: true })).toEqual({ type: 'close-side' })
+    expect(escape({ stepsOpen: true, sideFloating: true })).toEqual({ type: 'close-steps' })
+  })
+
   it('means nothing on the home once nothing is open', () => {
     expect(escape({ view: 'home' })).toBeNull()
     // The steps drawer and the marks are the practice view's own.
@@ -297,6 +313,10 @@ describe('keyAction: Escape', () => {
     expect(escape({ finishOpen: true })).toEqual({ type: 'dismiss-finish' })
   })
 
+  it('leaves Escape to the strip while a save is moving to the neighbour', () => {
+    expect(escape({ timingOpen: true, timingBusy: true })).toEqual({ type: 'timing-key' })
+  })
+
   it('closes one thing per press, topmost first', () => {
     const everything = {
       settingsOpen: true,
@@ -305,6 +325,7 @@ describe('keyAction: Escape', () => {
       finishOpen: true,
       layerOpen: true,
       stepsOpen: true,
+      sideFloating: true,
     }
     const ladder: Array<[Partial<KeyContext>, KeyAction['type']]> = [
       [everything, 'close-settings'],
@@ -315,6 +336,18 @@ describe('keyAction: Escape', () => {
       [
         { ...everything, settingsOpen: false, timingOpen: false, reviewing: false, finishOpen: false, layerOpen: false },
         'close-steps',
+      ],
+      [
+        {
+          ...everything,
+          settingsOpen: false,
+          timingOpen: false,
+          reviewing: false,
+          finishOpen: false,
+          layerOpen: false,
+          stepsOpen: false,
+        },
+        'close-side',
       ],
     ]
     for (const [context, expected] of ladder) expect(escape(context)?.type).toBe(expected)
@@ -387,6 +420,7 @@ describe('flashOf', () => {
       { type: 'dismiss-finish' },
       { type: 'close-layer' },
       { type: 'close-steps' },
+      { type: 'close-side' },
       { type: 'clear-ab' },
       { type: 'timing-key' },
       { type: 'review-grade', grade: 'got' },
@@ -399,6 +433,7 @@ describe('flashOf', () => {
       { type: 'mark-b' },
       { type: 'retime' },
       { type: 'speed', delta: 1 },
+      { type: 'speed-reset' },
     ]
     for (const action of quiet) expect(flashOf(action)).toBeNull()
   })

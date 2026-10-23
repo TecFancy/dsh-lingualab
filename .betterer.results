@@ -440,7 +440,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 330)", "max-lines-per-function:Function \'ControlBar\'@0#26"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 340)", "max-lines-per-function:Function \'ControlBar\'@0#27"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 350)", "max-lines-per-function:Function \'ControlBar\'@0#28"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'ControlBar\' is over 80 lines (more than 360)", "max-lines-per-function:Function \'ControlBar\'@0#29"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 16)", "complexity:Function \'ControlBar\'@0#1"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 17)", "complexity:Function \'ControlBar\'@0#2"],
       [0, 0, 0, "eslint(complexity): Function \'ControlBar\' is over complexity 15 (reaches 18)", "complexity:Function \'ControlBar\'@0#3"],
@@ -722,10 +721,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 160)", "max-lines-per-function:Function \'useTimingEditor\'@0#9"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 170)", "max-lines-per-function:Function \'useTimingEditor\'@0#10"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 180)", "max-lines-per-function:Function \'useTimingEditor\'@0#11"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 190)", "max-lines-per-function:Function \'useTimingEditor\'@0#12"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 260)", "max-lines:file@0#2"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 270)", "max-lines:file@0#3"]
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 190)", "max-lines-per-function:Function \'useTimingEditor\'@0#12"]
     ],
     "src/client/widgets/timing-editor/ui/TimingStrip.tsx:4077440195": [
       [0, 0, 0, "eslint(complexity): Function \'EdgeCard\' is over complexity 15 (reaches 16)", "complexity:Function \'EdgeCard\'@0#1"],
@@ -744,9 +740,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 22)", "complexity:Function \'TimingStrip\'@0#7"],
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 23)", "complexity:Function \'TimingStrip\'@0#8"],
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 24)", "complexity:Function \'TimingStrip\'@0#9"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 25)", "complexity:Function \'TimingStrip\'@0#10"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 26)", "complexity:Function \'TimingStrip\'@0#11"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 27)", "complexity:Function \'TimingStrip\'@0#12"]
+      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 25)", "complexity:Function \'TimingStrip\'@0#10"]
     ],
     "src/client/widgets/video-stage/ui/VideoStage.tsx:1115637934": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'VideoStage\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'VideoStage\'@0#1"],
@@ -895,9 +889,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'readEdits\' is over complexity 15 (reaches 16)", "complexity:Function \'readEdits\'@0#1"],
       [0, 0, 0, "eslint(complexity): Function \'readEdits\' is over complexity 15 (reaches 17)", "complexity:Function \'readEdits\'@0#2"],
       [0, 0, 0, "eslint(complexity): Function \'readEdits\' is over complexity 15 (reaches 18)", "complexity:Function \'readEdits\'@0#3"]
-    ],
-    "src/host/features/video/lib/video-plan.ts:3368380703": [
-      [0, 0, 0, "eslint(complexity): Function \'planVideo\' is over complexity 15 (reaches 16)", "complexity:Function \'planVideo\'@0#1"]
     ],
     "src/host/features/video/model/video-jobs.ts:4290592496": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'createVideoJobs\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'createVideoJobs\'@0#1"],

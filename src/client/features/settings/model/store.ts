@@ -45,18 +45,24 @@ export interface Settings {
   readonly zhMode: SubtitleZhMode
   /** How the video's picture is shown; it only matters for a segment that has a playable video. */
   readonly picture: Picture
-  /** The practice view's right column is collapsed, so the stage has the whole width. */
-  readonly sideCollapsed: boolean
+  /**
+   * The practice view's right column is collapsed, so the stage has the whole width, or `null` when this device has not
+   * chosen yet and the row's width decides.
+   */
+  readonly sideCollapsed: boolean | null
 }
 
-/** What a browser that has chosen nothing gets: the host's own look, at the page's own size, the picture above the sentence. */
+/**
+ * What a browser that has chosen nothing gets: the host's own look, at the page's own size, the picture above the
+ * sentence, and no collapse choice, so the row's width decides.
+ */
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   appearance: 'auto',
   stageSize: 'm',
   zhMode: DEFAULT_SUBTITLE_ZH_MODE,
   picture: DEFAULT_PICTURE,
-  sideCollapsed: false,
+  sideCollapsed: null,
 }
 
 /** The choice among `choices` that equals `value`, or `fallback` when none does. */
@@ -80,8 +86,10 @@ export function parseSettings(raw: string | null): Settings {
     stageSize: pick(STAGE_SIZES, record.stageSize, DEFAULT_SETTINGS.stageSize),
     zhMode: pick(SUBTITLE_ZH_MODES, record.zhMode, DEFAULT_SETTINGS.zhMode),
     picture: pick(PICTURES, record.picture, DEFAULT_SETTINGS.picture),
-    // Only a stored `true` collapses: anything else (missing, a string, a number) is the expanded default.
-    sideCollapsed: record.sideCollapsed === true,
+    // Only a stored `true` or `false` is a choice: anything else (missing, a string, a number, `null`) means this
+    // device has none, and the page falls back to the row's width.
+    sideCollapsed:
+      record.sideCollapsed === true ? true : record.sideCollapsed === false ? false : null,
   }
 }
 

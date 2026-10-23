@@ -1,6 +1,8 @@
 /**
- * The practice view's top bar: back to the list, what is open and where in it, the segment list, the right column's
- * two buttons (the kept sentences, and collapsing the column), the five steps and the settings.
+ * The practice view's top bar: back to the list, what is open and where in it, the segment list, and then the right
+ * side in two groups. The first group is the right column's two buttons (the kept sentences, and collapsing the
+ * column); the second is this episode's five steps and the settings, behind a thin line because they act on something
+ * else. The spacer before them is what pushes both groups to the right end.
  *
  * Everything it shows is handed in and every press is a callback: which layer opens, what the other drawers do when
  * this one does, and how a segment is opened are the page's, because they are the page's states.
@@ -11,7 +13,7 @@ import { segmentLabel } from '../../../features/library/index.ts'
 import type { EpisodeEntry, EpisodeSegment } from '../../../shared/protocol.ts'
 import { BackIcon } from '../../../shared/ui/icons.tsx'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
-import { StepTracker } from '../../../widgets/step-tracker/index.ts'
+import { PracticeProgressChips } from './PracticeProgressChips.tsx'
 import { PracticeSideChips, type PracticeSideChipsProps } from './PracticeSideChips.tsx'
 
 export interface PracticeTopBarProps {
@@ -94,18 +96,18 @@ export function PracticeTopBar({
         />
       ) : null}
       <span className="dsh-lingualab-spacer" />
-      <PracticeSideChips t={t} side={side} keptCount={keptCount} />
-      {episode !== null ? (
-        <StepTracker
-          key={episode.id}
-          t={t}
-          episode={episode.id}
-          open={stepsOpen}
-          onToggle={onToggleSteps}
-          onBlindRunning={onBlindRunning}
-        />
-      ) : null}
-      {settings}
+      <div className="dsh-lingualab-top-group" role="group" aria-label={t('topGroupSide')}>
+        <PracticeSideChips t={t} side={side} keptCount={keptCount} />
+      </div>
+      <span className="dsh-lingualab-top-divider" aria-hidden />
+      <PracticeProgressChips
+        t={t}
+        episode={episode}
+        stepsOpen={stepsOpen}
+        onToggleSteps={onToggleSteps}
+        onBlindRunning={onBlindRunning}
+        settings={settings}
+      />
     </div>
   )
 }

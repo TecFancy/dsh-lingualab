@@ -6,6 +6,7 @@
  * practice column).
  */
 import { describe, expect, it } from 'vitest'
+import { SPEED_STYLES } from './styles-speed.ts'
 import { STYLES } from './styles.ts'
 
 /** The block of a rule: from its selector to its closing brace. */
@@ -96,7 +97,7 @@ describe('the stylesheet', () => {
   it('folds the player card to the scrubber and one row, speed then previous, play and next, while timing', () => {
     const hidden = block('.dsh-lingualab-practice.is-timing .dsh-lingualab-keyhints')
     expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-bar-btn:not(.is-speed)')
-    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu')
+    expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed)')
     expect(hidden).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-transport-side.is-end')
     expect(hidden).toContain('{display:none}')
     // The narrow rule that dissolves the sides into one wrapping flow must not decide the row while timing.
@@ -268,7 +269,7 @@ describe('the stylesheet', () => {
 
   it('turns the follow switch into its short word where the transcript is 260px wide', () => {
     const narrow = block('@container ll-body (max-width:820px)')
-    expect(narrow).toContain('.dsh-lingualab-transcript{width:260px}')
+    expect(narrow).toContain('.dsh-lingualab-body .dsh-lingualab-side-slot{--ll-side-w:260px}')
     expect(narrow).toContain('.dsh-lingualab-switch .dsh-lingualab-label-long{display:none}')
     expect(narrow).toContain('.dsh-lingualab-switch .dsh-lingualab-label-short{display:inline}')
   })
@@ -299,6 +300,22 @@ describe('the stylesheet', () => {
     expect(touch).toContain('.dsh-lingualab-picture-local-btn::after')
   })
 
+  it('opens the speed picker from the left in three rows, and keeps its chips at 44px on touch', () => {
+    expect(STYLES).toContain(SPEED_STYLES)
+    const menu = rule('.dsh-lingualab-menu.is-speed')
+    expect(menu).toContain('left:0')
+    expect(menu).toContain('right:auto')
+    expect(menu).toContain('max-width:calc(100vw - 32px)')
+    // Slow, then 1x alone across the row, then fast.
+    expect(rule('.dsh-lingualab-speed-row.is-slow')).toContain('repeat(5,minmax(0,1fr))')
+    expect(rule('.dsh-lingualab-speed-row.is-normal')).toContain('grid-template-columns:1fr')
+    expect(rule('.dsh-lingualab-speed-row.is-fast')).toContain('repeat(4,minmax(0,1fr))')
+    expect(rule('.dsh-lingualab-speed-chip.is-on')).toContain('border-color')
+    expect(STYLES).toContain('@media (hover:none) and (pointer:coarse){\n  .dsh-lingualab-speed-chip{min-width:44px;min-height:44px}')
+    // Timing keeps the speed picker, and takes the other menus away.
+    expect(STYLES).toContain('.dsh-lingualab-practice.is-timing .dsh-lingualab-deck .dsh-lingualab-menu:not(.is-speed),')
+  })
+
   it('lets the picture take its share of the whole row when the right column is collapsed, and nothing else', () => {
     const collapsed = '.dsh-lingualab-body.is-side-collapsed'
     expect(rule(`${collapsed} .dsh-lingualab-videostage`)).toContain('--ll-pic-share:1')
@@ -311,11 +328,90 @@ describe('the stylesheet', () => {
     expect(STYLES.indexOf(`${collapsed} .dsh-lingualab-videostage{`)).toBeGreaterThan(STYLES.indexOf('@container ll-practice (max-width:600px){'))
   })
 
+  it('moves the right column and the picture together over .2s, and clips the list instead of rewrapping it', () => {
+    const slot = rule('\n.dsh-lingualab-side-slot')
+    expect(slot).toContain('flex:none')
+    expect(slot).toContain('overflow:hidden')
+    expect(slot).toContain('width:0')
+    expect(slot).toContain('opacity:0')
+    expect(slot).toContain('transition:width .2s ease,opacity .2s ease')
+    // The column's width is the old clamp, resolved against the row, and the slot is what moves it.
+    expect(slot).toContain('--ll-side-w:clamp(300px,34cqw,440px)')
+    expect(rule('.dsh-lingualab-side-slot.is-open')).toContain('width:var(--ll-side-w)')
+    // The transcript keeps that width whole, so its rows do not rewrap while the slot shrinks.
+    expect(rule('.dsh-lingualab-transcript')).toContain('width:var(--ll-side-w)')
+    // The picture's share and its own width are registered, so the stage follows in the same transition.
+    expect(STYLES).toContain("@property --ll-pic-share{syntax:'<number>';inherits:true;initial-value:.64}")
+    expect(STYLES).toContain("@property --ll-pic-w{syntax:'<length-percentage>';inherits:true;initial-value:64%}")
+    expect(STYLES).toContain('.dsh-lingualab-videostage{transition:--ll-pic-share .2s ease}')
+    expect(STYLES).toContain('.dsh-lingualab-picture,.dsh-lingualab-videocard{transition:--ll-pic-w .2s ease}')
+  })
+
+  it('floats an expanded right column over a narrow row, with a scrim, and slides both out again', () => {
+    // The row, not the open state, keeps the drawer's containing block and its place while it leaves.
+    expect(rule('.dsh-lingualab-body.is-side-narrow')).toContain('position:relative')
+    expect(rule('.dsh-lingualab-side-slot.is-floating')).toContain('display:contents')
+    const drawer = rule('.dsh-lingualab-side-slot.is-floating .dsh-lingualab-transcript')
+    expect(drawer).toContain('position:absolute')
+    expect(drawer).toContain('top:0;right:0;bottom:0')
+    expect(drawer).toContain('width:min(360px,calc(100% - 48px))')
+    expect(drawer).toContain('z-index:17')
+    expect(drawer).toContain('transform:translateX(100%)')
+    expect(drawer).toContain('opacity:0')
+    expect(drawer).toContain('transition:transform .2s ease,opacity .2s ease')
+    expect(rule('.dsh-lingualab-side-slot.is-floating.is-open .dsh-lingualab-transcript')).toContain('transform:none')
+    const scrim = rule('.dsh-lingualab-side-scrim')
+    expect(scrim).toContain('z-index:16')
+    expect(scrim).toContain('background:var(--ll-mask)')
+    expect(scrim).toContain('opacity:0')
+    expect(scrim).toContain('transition:opacity .2s ease')
+    expect(rule('.dsh-lingualab-side-scrim.is-open')).toContain('opacity:1')
+    // The stage gets the whole row for as long as the row is narrow, not only while the drawer is open.
+    expect(rule('.dsh-lingualab-body.is-side-narrow .dsh-lingualab-videostage')).toContain('--ll-pic-share:1')
+    expect(block('.dsh-lingualab-body.is-side-narrow .dsh-lingualab-picture,')).toContain(
+      '.dsh-lingualab-body.is-side-narrow .dsh-lingualab-videocard{--ll-pic-w:100%}',
+    )
+  })
+
+  it('needs no keyframes of its own, so reduced motion only has to zero the transitions', () => {
+    expect(STYLES).not.toContain('ll-side-in')
+    expect(STYLES).not.toContain('@keyframes ll-side')
+    const reduced = block('@media (prefers-reduced-motion:reduce){')
+    expect(reduced).toContain(
+      '.dsh-lingualab-page,.dsh-lingualab-page *{transition-duration:0s !important;transition-delay:0s !important}',
+    )
+  })
+
   it('lets the top bar drop the chips to their icons when the bar itself is narrow, not the window', () => {
     expect(STYLES).toContain('.dsh-lingualab-top{container:ll-top/inline-size}')
     const narrow = block('@container ll-top (max-width:696px)')
     expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip-text')
     expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}')
+  })
+
+  it('groups the top bar\'s right side by what each control acts on, with a thin line between the groups', () => {
+    const group = rule('.dsh-lingualab-top-group')
+    expect(group).toContain('flex:none')
+    expect(group).toContain('display:flex')
+    expect(group).toContain('gap:8px')
+    // The bar's own gap is the room on either side of the line, so the line adds no margin of its own.
+    expect(rule('.dsh-lingualab-top')).toContain('gap:8px')
+    const divider = rule('.dsh-lingualab-top-divider')
+    expect(divider).toContain('flex:none')
+    expect(divider).toContain('width:1px')
+    expect(divider).toContain('height:18px')
+    expect(divider).toContain('background:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))')
+    expect(divider).not.toContain('margin')
+  })
+
+  it('keeps a top-bar group, and the chips and icon buttons inside it, from shrinking', () => {
+    const fixed = rule(
+      '.dsh-lingualab-top>.dsh-lingualab-chip,.dsh-lingualab-top>.dsh-lingualab-icon-btn,.dsh-lingualab-top>.dsh-lingualab-seg-holder,.dsh-lingualab-top>.dsh-lingualab-top-group',
+    )
+    expect(fixed).toContain('flex:none')
+    expect(
+      rule('.dsh-lingualab-top-group>.dsh-lingualab-chip,.dsh-lingualab-top-group>.dsh-lingualab-icon-btn'),
+    ).toContain('flex:none')
   })
 
   it('gives the top bar\'s chips and icon buttons a 44px hit area on a touch screen without changing their size', () => {

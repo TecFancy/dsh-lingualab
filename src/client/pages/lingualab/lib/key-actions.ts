@@ -21,6 +21,8 @@ export interface KeyEffects {
   readonly dismissFinish: () => void
   readonly closeLayer: () => void
   readonly closeSteps: () => void
+  /** Escape while the right column floats over the stage: put it away without changing its view. */
+  readonly closeSide: () => void
   /** Answer the review item on stage. */
   readonly answerReview: (outcome: ReviewOutcome) => void
   /** Go back one item in the review (nothing when none runs). */
@@ -56,6 +58,7 @@ const HANDLERS: { readonly [T in KeyAction['type']]: Handler<T> } = {
   'dismiss-finish': (_action, fx) => fx.dismissFinish(),
   'close-layer': (_action, fx) => fx.closeLayer(),
   'close-steps': (_action, fx) => fx.closeSteps(),
+  'close-side': (_action, fx) => fx.closeSide(),
   'clear-ab': () => store().clearAB(),
   'review-grade': (action, fx) => fx.answerReview(action.grade),
   'stage-grade': (action, fx) => fx.gradeStage(action.grade),
@@ -96,6 +99,7 @@ const HANDLERS: { readonly [T in KeyAction['type']]: Handler<T> } = {
   'mark-b': () => store().setPoint('b'),
   'retime': (_action, fx) => fx.retime(),
   'speed': (action) => store().cycleSpeed(action.delta),
+  'speed-reset': () => store().resetSpeed(),
 }
 
 /** Do what a key (or a headset button) decided. */

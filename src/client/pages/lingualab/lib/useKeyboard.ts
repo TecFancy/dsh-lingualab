@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import type { Cue, SubtitleZhMode } from '../../../entities/cue/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { speedResetIndex, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { stepBack } from '../../../features/review/index.ts'
 import { keepsKeyForTarget } from '../../../shared/lib/focus.ts'
 import type { GivenGrade } from '../../../shared/notes-format.ts'
@@ -68,7 +68,7 @@ export interface KeyboardOptions {
   readonly stepsOpen: boolean
   readonly setStepsOpen: (open: boolean) => void
   /** The right column: `N` switches its view (or opens it into the kept sentences), `\` collapses it. */
-  readonly side: Pick<SideColumn, 'toggleKept' | 'toggleCollapsed'>
+  readonly side: Pick<SideColumn, 'toggleKept' | 'toggleCollapsed' | 'floating' | 'collapse'>
   readonly zhMode: SubtitleZhMode
   readonly setZhMode: (mode: SubtitleZhMode) => void
   /** The row picked with the arrow keys, or `null` when the playing sentence is the one. */
@@ -158,6 +158,7 @@ export function useKeyboard({
         dismissFinish,
         closeLayer: () => setLayer('none'),
         closeSteps: () => setStepsOpen(false),
+        closeSide: side.collapse,
         answerReview,
         reviewBack: () => {
           if (review !== null) runReview(stepBack(review))
@@ -198,15 +199,18 @@ export function useKeyboard({
       let action = keyAction(pressOf(event), {
         view,
         settingsOpen,
-        timingOpen: timing.session !== null,
+        timingOpen: timing.session !== null || timing.moving,
+        timingBusy: timing.moving,
         reviewing: review !== null,
         reviewFinished: reviewDone,
         finishOpen,
         layerOpen: layer !== 'none',
         stepsOpen,
+        sideFloating: side.floating,
         hasVideo: hasVideoFile,
         selection,
         activeIndex: useMediaPlayer.getState().activeIndex,
+        canResetSpeed: speedResetIndex(useMediaPlayer.getState()) !== null,
         cueCount: cues.length,
       })
       // The 「更多」 menu is the topmost thing there is, and one press closes one thing: it must not also clear the
@@ -240,6 +244,7 @@ export function useKeyboard({
       reviewDone,
       selection,
       settingsOpen,
+      side,
       stepsOpen,
       timing,
       view,

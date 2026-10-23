@@ -1,8 +1,6 @@
 /** Public API of the media-player feature: the store and the media binding. */
 export {
-  DEFAULT_SPEED_INDEX,
   LEAD_IN_CHOICES,
-  SPEED_PRESETS,
   currentSpeed,
   useMediaPlayer,
   type Compare,
@@ -10,6 +8,7 @@ export {
   type MediaPlayerState,
   type ShadowWait,
 } from './model/store.ts'
+export { DEFAULT_SPEED_INDEX, SPEED_PRESETS, speedResetIndex } from './lib/speed.ts'
 export { useMediaBinding, type MediaBinding } from './lib/useMediaBinding.ts'
 export { loopWindow, planLoop, stepCueIndex, type LoopDecision, type LoopMode } from './lib/loop.ts'
 export { SHADOW_PAUSES, SHADOW_PLAYS, type ShadowPause, type ShadowPlays, type ShadowSettings } from './lib/shadow.ts'

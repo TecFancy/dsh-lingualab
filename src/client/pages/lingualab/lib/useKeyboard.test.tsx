@@ -10,7 +10,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react'
 import { renderToStaticMarkup as render } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Cue } from '../../../entities/cue/index.ts'
-import { useMediaPlayer } from '../../../features/media-player/index.ts'
+import { DEFAULT_SPEED_INDEX, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { startReview, type ReviewItem } from '../../../features/review/index.ts'
 import { useSettings } from '../../../features/settings/index.ts'
 import type { TimingEditor } from '../../../widgets/timing-editor/index.ts'
@@ -69,7 +69,12 @@ function setup(over: Partial<KeyboardOptions> = {}, handlers: { menuOpen?: boole
     setSettingsOpen: (open) => log.push(`settings:${String(open)}`),
     stepsOpen: false,
     setStepsOpen: (open) => log.push(`steps:${String(open)}`),
-    side: { toggleKept: () => log.push('side:kept'), toggleCollapsed: () => log.push('side:collapse') },
+    side: {
+      toggleKept: () => log.push('side:kept'),
+      toggleCollapsed: () => log.push('side:collapse'),
+      floating: false,
+      collapse: () => log.push('side:close'),
+    },
     zhMode: 'dim',
     setZhMode: (mode) => log.push(`zh:${mode}`),
     selection: null,
@@ -264,6 +269,19 @@ describe('useKeyboard: what a key does', () => {
     expect(useMediaPlayer.getState().speedIndex).toBe(before)
   })
 
+  it('resets the speed on =, and leaves the key alone when there is nowhere to go', () => {
+    const { keyboard } = setup()
+    useMediaPlayer.setState({ speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: null })
+    expect(press(keyboard, '=')).toBe(false)
+
+    useMediaPlayer.getState().setSpeedIndex(2)
+    expect(press(keyboard, '=')).toBe(true)
+    expect(useMediaPlayer.getState().speedIndex).toBe(DEFAULT_SPEED_INDEX)
+
+    expect(press(keyboard, '=')).toBe(true)
+    expect(useMediaPlayer.getState().speedIndex).toBe(2)
+  })
+
   it('opens the timing strip on T', () => {
     const { keyboard, log } = setup()
     press(keyboard, 't')
@@ -306,6 +324,25 @@ describe('useKeyboard: Escape', () => {
     expect(useMediaPlayer.getState().pointA).toBeNull()
   })
 
+  it('puts a floating right column away, after the five-steps drawer', () => {
+    const log: string[] = []
+    const side = {
+      toggleKept: () => log.push('side:kept'),
+      toggleCollapsed: () => log.push('side:collapse'),
+      floating: true,
+      collapse: () => log.push('side:close'),
+    }
+    const floating = setup({ side })
+    useMediaPlayer.getState().setPoint('a')
+    press(floating.keyboard, 'Escape')
+    expect(log).toEqual(['side:close'])
+    expect(useMediaPlayer.getState().pointA).not.toBeNull()
+    const steps = setup({ side, stepsOpen: true })
+    press(steps.keyboard, 'Escape')
+    expect(steps.log).toEqual(['steps:false'])
+    expect(log).toEqual(['side:close'])
+  })
+
   it('dismisses the finish card', () => {
     const { keyboard, log } = setup({ finishOpen: true })
     press(keyboard, 'Escape')
@@ -334,6 +371,14 @@ describe('useKeyboard: the timing strip', () => {
     const { keyboard } = setup({ timing: open as unknown as TimingEditor })
     expect(press(keyboard, 'x')).toBe(false)
     expect(open.handleKey).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats a save on its way to the neighbour as an open strip', () => {
+    const moving = { session: null, moving: true, close: vi.fn(), handleKey: vi.fn(() => true) }
+    const { keyboard, log } = setup({ timing: moving as unknown as TimingEditor })
+    expect(press(keyboard, 'ArrowLeft')).toBe(true)
+    expect(moving.handleKey).toHaveBeenCalledTimes(1)
+    expect(log).toEqual([])
   })
 
   it('closes the strip on Escape', () => {

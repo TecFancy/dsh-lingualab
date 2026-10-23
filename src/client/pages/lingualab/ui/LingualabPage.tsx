@@ -104,7 +104,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
   const zhMode = useSettings((state) => state.zhMode)
   const setZhMode = useSettings((state) => state.setZhMode)
   const [layer, setLayer] = useState<Layer>('none')
-  // The right column: which view, and whether it is collapsed (a setting, so it is remembered on this device).
+  // The right column: which view, and whether it is collapsed (the stored choice, or the row's width until one is).
   const side = useSideColumn()
   /**
    * Whether a review is running, for the bookmark: a review jumps between kept sentences, and
@@ -551,7 +551,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
             },
             onReview: reviewEpisode,
           }}
-          collapsed={side.collapsed}
+          row={side.row}
           scrim={{ mounted: scrim.mounted, open: stepsOpen, onClose: () => setStepsOpen(false) }}
         />
       )}

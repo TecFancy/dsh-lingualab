@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_SPEED_INDEX, SPEED_PRESETS, useMediaPlayer } from './store.ts'
+import { DEFAULT_SPEED_INDEX, SPEED_PRESETS } from '../lib/speed.ts'
+import { useMediaPlayer } from './store.ts'
 
 const cues = [
   { start: 10, end: 12, text: 'One' },
@@ -9,6 +10,7 @@ const cues = [
 /** The store is a module singleton, so every test starts from a loaded episode. */
 beforeEach(() => {
   useMediaPlayer.getState().reset(cues)
+  useMediaPlayer.setState({ speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: null })
 })
 
 describe('the seek gate', () => {
@@ -77,19 +79,64 @@ describe("a row's loop button", () => {
 })
 
 describe('the speed button', () => {
-  it('wraps from the fastest preset back to the slowest instead of sticking', () => {
-    const last = SPEED_PRESETS.length - 1
-    useMediaPlayer.getState().setSpeedIndex(last)
-    useMediaPlayer.getState().nextSpeedWrapping()
-    expect(useMediaPlayer.getState().speedIndex).toBe(0)
-    useMediaPlayer.getState().nextSpeedWrapping()
+  it('sets any preset by index, and clamps an index outside the list', () => {
+    useMediaPlayer.getState().setSpeedIndex(1)
     expect(useMediaPlayer.getState().speedIndex).toBe(1)
+    useMediaPlayer.getState().setSpeedIndex(SPEED_PRESETS.length + 1)
+    expect(useMediaPlayer.getState().speedIndex).toBe(SPEED_PRESETS.length - 1)
   })
 
   it('keeps the keyboard step clamped at both ends', () => {
     useMediaPlayer.getState().setSpeedIndex(SPEED_PRESETS.length - 1)
     useMediaPlayer.getState().cycleSpeed(1)
     expect(useMediaPlayer.getState().speedIndex).toBe(SPEED_PRESETS.length - 1)
+  })
+
+  it('remembers a speed chosen by a step, and keeps it through 1x', () => {
+    useMediaPlayer.getState().cycleSpeed(-1)
+    expect(useMediaPlayer.getState()).toMatchObject({
+      speedIndex: DEFAULT_SPEED_INDEX - 1,
+      lastSpeedIndex: DEFAULT_SPEED_INDEX - 1,
+    })
+    useMediaPlayer.getState().setSpeedIndex(DEFAULT_SPEED_INDEX)
+    expect(useMediaPlayer.getState()).toMatchObject({
+      speedIndex: DEFAULT_SPEED_INDEX,
+      lastSpeedIndex: DEFAULT_SPEED_INDEX - 1,
+    })
+  })
+})
+
+describe('the speed reset key', () => {
+  it('goes back to 1x, then to the speed before it', () => {
+    useMediaPlayer.getState().setSpeedIndex(2)
+    expect(useMediaPlayer.getState()).toMatchObject({ speedIndex: 2, lastSpeedIndex: 2 })
+
+    useMediaPlayer.getState().resetSpeed()
+    expect(useMediaPlayer.getState()).toMatchObject({ speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: 2 })
+
+    useMediaPlayer.getState().resetSpeed()
+    expect(useMediaPlayer.getState()).toMatchObject({ speedIndex: 2, lastSpeedIndex: 2 })
+  })
+
+  it('does nothing at 1x when no speed was remembered', () => {
+    useMediaPlayer.getState().resetSpeed()
+    expect(useMediaPlayer.getState()).toMatchObject({ speedIndex: DEFAULT_SPEED_INDEX, lastSpeedIndex: null })
+  })
+
+  it('keeps the remembered speed across a change of episode', () => {
+    useMediaPlayer.getState().setSpeedIndex(3)
+    useMediaPlayer.getState().reset(cues)
+    expect(useMediaPlayer.getState()).toMatchObject({ speedIndex: 3, lastSpeedIndex: 3 })
+
+    useMediaPlayer.getState().resetSpeed()
+    useMediaPlayer.getState().reset(cues)
+    expect(useMediaPlayer.getState()).toMatchObject({
+      speedIndex: DEFAULT_SPEED_INDEX,
+      lastSpeedIndex: 3,
+    })
+
+    useMediaPlayer.getState().resetSpeed()
+    expect(useMediaPlayer.getState().speedIndex).toBe(3)
   })
 })
 

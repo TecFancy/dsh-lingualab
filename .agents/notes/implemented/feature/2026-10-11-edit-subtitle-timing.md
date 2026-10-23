@@ -32,6 +32,7 @@ strip owns the keyboard:
 | `Shift` + `←` `→` | Nudge it by 250 ms |
 | `I` / `O` | Set the start / the end to the playhead, as an editor's in and out |
 | `Space` | Play or pause |
+| `↑` / `↓` | Move to the previous / next sentence, saving a change first (added later, see [the step note](2026-10-12-step-to-neighbour-while-retiming.md)) |
 | `Enter` | Save |
 | `Esc` | Close without saving |
 

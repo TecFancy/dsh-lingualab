@@ -53,7 +53,7 @@ per episode with a `## <segment>` heading per segment.
 of its own whose sound is taken from the video, and a folder of one stem is still one episode of one segment. Cards on
 the home and rows in the segment list carry a small video mark, 「视频 · 未准备」 while the video has still to be
 prepared. A video a browser can play as it is (an `mp4` or `webm` with H.264, VP9 or AV1 and AAC, Opus or MP3) plays
-directly. Anything else is **prepared once, when the reader asks** (「准备视频」): `ffmpeg` copies the picture untouched and
+directly. Anything else is **prepared once, when the user asks** (「准备视频」): `ffmpeg` copies the picture untouched and
 converts the sound to stereo AAC (the first English track, else the first) into an `mp4` with its index first, which
 takes about as long as reading the file. A picture no browser decodes (HEVC, MPEG-4 Part 2, a 10-bit H.264) is not
 re-encoded by that; only its sound is extracted to an `m4a`, so a segment with no audio file of its own can still be
@@ -83,7 +83,7 @@ deleted, a source that plays directly is never touched, and the page plays the s
 source. 「改回原画质」 on the playing smooth picture deletes the file and prepares the video as it was before (a minute of
 remuxing; for a picture a browser cannot decode, back to the sound-only state).
 
-A segment with a video can also play it **from a file on the reader's own machine** (「用本地文件播放」, on the picture and on
+A segment with a video can also play it **from a file on the user's own machine** (「用本地文件播放」, on the picture and on
 every video card, or drop the file on the stage): it plays in place of the served video, under the same session, without
 being uploaded, which spares a slow link. Its length is compared with the served video's (the audio file's when that was
 never probed), and a difference of more than a second shows the same length warning. An `mp4` (H.264 with AAC) plays
@@ -106,7 +106,8 @@ somewhere to go.
 Practice is built around the sentence, not the file. The transport row holds only what is used
 every minute: previous and next sentence, play, speed, loop this sentence, the Chinese display
 and the star. The A-B region, its repeat count, the lead-in (start each sentence a little early) and the list of keys sit behind 「More」. Click a
-subtitle line to jump there and play it; speed has ten steps and never changes pitch. Subtitles
+subtitle line to jump there and play it. Speed has ten steps and never changes pitch: the speed
+button opens a picker of all ten, and `=` goes back to 1× and, pressed again, to the speed before. Subtitles
 put English above Chinese whatever the source order, and the Chinese side has four display modes
 so the native language never becomes the thing being read. The page remembers where you stopped
 in each episode and which of the five steps you ticked, and the home offers the place as
@@ -161,6 +162,9 @@ hand it.
 the row so the stage has the whole width (on an iPad the stage is otherwise 440 to 630px wide), and the picture grows
 with it. `N` or the 「收藏」 chip on a collapsed column opens it straight into the kept sentences; opening it on the
 subtitles lands on the sentence playing. Whether it is collapsed is kept in this browser, with the settings below.
+On a narrow row (an iPad in portrait, or in landscape with the host's sidebar open) the column opens as a drawer over
+the stage instead, and a press beside it or `Esc` puts it away. Until you press the toggle once, the column starts
+collapsed on a narrow row and expanded on a wide one.
 
 **Settings** are the sliders icon at the right end of the top bar, on the home and in the practice
 view. They open a drawer that changes only this page and never dsh itself: a theme (「默认」, 「墨蓝」,
@@ -246,20 +250,16 @@ Every route, reads included, is answered only for a request the host admits (a l
 
 ## Repository layout
 
-```text
-src/index.ts                 host half: the config, and mounting the routes
-src/host-context.ts          the slice of the host plugin context we call
-src/host/shared/             config, request trust and media serving, path rules,
-                             the ffmpeg finder, test helpers
-src/host/entities/           episode (the library scan), open state, places, notes
-                             file, subtitle choice, video cache
-src/host/features/           one slice per capability, its route in
-                             api/<name>.route.ts beside its rules
-src/shared/                  the wire contract and the notes markdown format
-src/client/entities/cue/     subtitle parsing, decoding and bilingual line ordering
-src/client/                  the page, its widgets, and the slot-free features (library,
-                             import, notes, media player, resume, settings)
-lib/                         tsdown output, committed: what the shell fetches
-locale/                      the Plugins page display name and summary
-cordis.patch.yml             bundle patch (loader row `lingualab`)
-```
+| Path | What lives there |
+|---|---|
+| `src/index.ts` | The host entry: the config, and mounting the routes |
+| `src/host-context.ts` | The slice of the host plugin context we call |
+| `src/host/shared/` | Config, request trust and media serving, path rules, the ffmpeg finder, test helpers |
+| `src/host/entities/` | Episode (the library scan), open state, places, the notes file, subtitle choice, video cache |
+| `src/host/features/` | One slice per capability, its route in `api/<name>.route.ts` beside its rules |
+| `src/shared/` | The wire contract and the notes markdown format |
+| `src/client/entities/cue/` | Subtitle parsing, decoding and bilingual line ordering |
+| `src/client/` | The page, its widgets, and the slot-free features (library, import, notes, media player, resume, settings) |
+| `lib/` | tsdown output, committed: what the shell fetches |
+| `locale/` | The Plugins page display name and summary |
+| `cordis.patch.yml` | Bundle patch (loader row `lingualab`) |

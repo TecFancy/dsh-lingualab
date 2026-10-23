@@ -20,8 +20,8 @@ export function SettingsButton({ t, open, onToggle }: SettingsButtonProps) {
       type="button"
       className={`dsh-lingualab-icon-btn${open ? ' is-on' : ''}`}
       onClick={onToggle}
-      title={t('settingsOpen')}
-      aria-label={t('settingsOpen')}
+      title={t('settingsTitle')}
+      aria-label={t('settingsTitle')}
       aria-expanded={open}
     >
       <SettingsIcon size={16} />
