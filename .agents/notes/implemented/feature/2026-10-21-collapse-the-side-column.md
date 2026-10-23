@@ -93,7 +93,7 @@ Not measured: a real dsh-web and a real iPad (Safari's height, SF Pro, real touc
 - **Make the top bar's chips 44px tall on touch.** It would change the bar's look and height for a hit area the invisible
   margin already gives.
 - **The two next steps.** Opening the column over the stage where the row is narrow, and collapsing by default there, are
-  in [the side column over a narrow stage](../../proposed/feature/2026-10-21-side-column-over-a-narrow-stage.md); finding a
+  in [the side column over a narrow stage](2026-10-21-side-column-over-a-narrow-stage.md); finding a
   sentence on the stage without the list is in
   [locate a sentence on the stage](../../proposed/feature/2026-10-21-locate-a-sentence-on-the-stage.md). Both wait until the
   collapse has been used for a while.

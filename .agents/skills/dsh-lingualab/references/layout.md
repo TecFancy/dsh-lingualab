@@ -25,6 +25,21 @@
   - 720px、405px、高度上限和 `is-picture-squeezed` 的规则不变。
 - 展开时字幕列表重新挂载，`SubtitlePanel` 的 layout effect 让它直接定位到正在播放的那一句。
 
+## 行窄时右栏是抽屉，没选过时默认收起
+
+决定与取舍见 `.agents/notes/implemented/feature/2026-10-21-side-column-over-a-narrow-stage.md`。
+
+- `.dsh-lingualab-body` 窄于 982px 就算窄（`side-column.ts` 的 `sideFloats`），由 `useSideFloating` 用 `ResizeObserver` 量。
+  这个数是从侧栏的宽度（820px 以内 260px，以上 `clamp(300px,34%,440px)`）推出来的，改侧栏宽度时要一起改 `SIDE_FLOAT_BELOW`。
+- 行窄且展开时，这一行带上 `is-side-floating`：侧栏绝对定位盖在舞台上，宽 360px，下面垫 `dsh-lingualab-side-scrim`。
+  舞台的样式和收起时一样（`styles-side.ts` 里两组选择器并列），所以抽屉开合时舞台不变。
+- 层级：遮罩 16、抽屉 17，在完成卡片（15）上面，五步抽屉（21、22）下面。
+- `Esc` 的顺序是五步抽屉、浮着的侧栏、A-B 标记（`keymap.ts` 的 `escapeAction`，`sideFloating` 与 `close-side`）。
+- `sideCollapsed` 是 `true`、`false`、`null` 三种值，`null` 表示没选过。页面实际的收起状态是
+  「本次打开的临时状态，否则存下的选择，否则行窄不窄」（`collapseFor`）。
+- 只有顶栏开关和 `\` 一定存下选择。没选过时，`N`、`showKept`、`Esc`、遮罩只改本次打开的临时状态（`collapseTarget`）。
+- 行宽在第一次绘制前的 layout effect 里量到，所以没选过的设备在窄行里不会先闪一下展开。
+
 ## 顶栏
 
 - 顶栏是名为 `ll-top` 的宽度容器。宽度不到 720px 时，「返回」和「收藏」两个按钮只显示图标（和计数）。
@@ -34,9 +49,8 @@
 
 ## 下一步
 
-已有三篇 proposed note：
+已有两篇 proposed note：
 
-- 窄栏时右栏浮在舞台上，窄栏默认收起。
 - 在舞台上拖动来定位句子。
 - 给右栏的展开收起加动画，并重新排列顶栏的按钮。
 
