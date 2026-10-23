@@ -34,6 +34,7 @@ npm run verify                   # 全部检查，开 PR 之前跑
 - **改了前端，一定要在浏览器里打开面板看一眼 console。** 有一类问题只在真的渲染时才出现：
   比如空列表每次都返回一个新的 `[]`，页面里的重置逻辑就会在每次渲染时都跑，React 报 #185。
   类型检查、ESLint、单测全过也拦不住它。
+- 不想动本机的 web profile 和真实素材时，起一个隔离的 dsh web 实例来看，步骤见 [references/host.md](references/host.md)。
 
 ## 分支与改动流程（2026-10-21 定）
 
@@ -53,7 +54,7 @@ npm run verify                   # 全部检查，开 PR 之前跑
 | 要做的事 | 读这份 |
 |---|---|
 | 分层规则、两部分之间共用的代码、面板入口 | [references/architecture.md](references/architecture.md) |
-| 改服务端、新增路由、写素材目录的代码，可选服务与 volatile 配置，重启隔离实例 | [references/host.md](references/host.md) |
+| 改服务端、新增路由、写素材目录的代码，可选服务与 volatile 配置，起一个隔离实例做真机验证 | [references/host.md](references/host.md) |
 | 改笔记格式、收藏上限与评级、收藏怎么对上原句 | [references/notes.md](references/notes.md) |
 | `betterer:ci` 报错、拆了大函数、`.betterer.results` 冲突 | [references/size-gate.md](references/size-gate.md) |
 | 升级依赖、`npm ci` 失败、装依赖慢 | [references/toolchain.md](references/toolchain.md) |
