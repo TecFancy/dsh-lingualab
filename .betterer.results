@@ -722,10 +722,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 160)", "max-lines-per-function:Function \'useTimingEditor\'@0#9"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 170)", "max-lines-per-function:Function \'useTimingEditor\'@0#10"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 180)", "max-lines-per-function:Function \'useTimingEditor\'@0#11"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 190)", "max-lines-per-function:Function \'useTimingEditor\'@0#12"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 260)", "max-lines:file@0#2"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 270)", "max-lines:file@0#3"]
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'useTimingEditor\' is over 80 lines (more than 190)", "max-lines-per-function:Function \'useTimingEditor\'@0#12"]
     ],
     "src/client/widgets/timing-editor/ui/TimingStrip.tsx:4077440195": [
       [0, 0, 0, "eslint(complexity): Function \'EdgeCard\' is over complexity 15 (reaches 16)", "complexity:Function \'EdgeCard\'@0#1"],
@@ -744,9 +741,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 22)", "complexity:Function \'TimingStrip\'@0#7"],
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 23)", "complexity:Function \'TimingStrip\'@0#8"],
       [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 24)", "complexity:Function \'TimingStrip\'@0#9"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 25)", "complexity:Function \'TimingStrip\'@0#10"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 26)", "complexity:Function \'TimingStrip\'@0#11"],
-      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 27)", "complexity:Function \'TimingStrip\'@0#12"]
+      [0, 0, 0, "eslint(complexity): Function \'TimingStrip\' is over complexity 15 (reaches 25)", "complexity:Function \'TimingStrip\'@0#10"]
     ],
     "src/client/widgets/video-stage/ui/VideoStage.tsx:1115637934": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'VideoStage\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'VideoStage\'@0#1"],

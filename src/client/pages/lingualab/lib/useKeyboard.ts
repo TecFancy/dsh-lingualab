@@ -199,7 +199,8 @@ export function useKeyboard({
       let action = keyAction(pressOf(event), {
         view,
         settingsOpen,
-        timingOpen: timing.session !== null,
+        timingOpen: timing.session !== null || timing.moving,
+        timingBusy: timing.moving,
         reviewing: review !== null,
         reviewFinished: reviewDone,
         finishOpen,

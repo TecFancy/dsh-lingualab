@@ -7,8 +7,13 @@
  * the last moment and a half before it, which is where a clipped word or a stray syllable sits.
  *
  * The strip owns the keyboard while it is open, through {@link TimingEditor.handleKey}, which the
- * page asks first. Saving goes to the host, which writes only that cue's timecode; what to do after
- * (move the kept sentence, read the subtitles again) is the page's, through the two callbacks.
+ * page asks first. `↑` and `↓` reopen it on the sentence before or after, as opening it there would
+ * but on the edge that had the focus. A changed range that can be saved is written first: the panel
+ * stays where it is, the subtitles are read back, and the neighbour opens on the new list with
+ * `saved` shown for a moment. A changed range on an episode that cannot be saved moves at once,
+ * because it has nowhere to be written. Saving goes to the host, which writes only that cue's
+ * timecode; what to do after (move the kept sentence, read the subtitles again) is the page's,
+ * through the two callbacks.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -16,110 +21,39 @@ import {
   initialRange,
   isLrc,
   moveEdge,
-  originalRange,
-  pushedNeighbours,
-  retimeLimits,
-  timingEdits,
   type Cue,
-  type PushedNeighbour,
   type RetimeEdge,
-  type RetimeLimits,
   type RetimeRange,
 } from '../../../entities/cue/index.ts'
-import type { SubtitleTracks } from '../../../features/library/index.ts'
 import { togglePlayback, useMediaPlayer } from '../../../features/media-player/index.ts'
 import { saveSubtitleTiming } from '../../../shared/lib/api.ts'
+import { BIG_STEP_MS, STEP_MS, timingKeyAction } from '../lib/keys.ts'
+import { timingSession } from '../lib/session.ts'
+import { focusAfterStep, rangeChanged, stepNeedsSave, stepTarget } from '../lib/step.ts'
+import { timingWrite } from '../lib/write.ts'
+import type { TimingEditor, TimingEditorOptions, TimingSession } from './types.ts'
+import { useStepAfterSave } from './useStepAfterSave.ts'
 
-/** One nudge, and one with Shift held. */
-export const STEP_MS = 50
-export const BIG_STEP_MS = 250
+export { BIG_STEP_MS, STEP_MS }
+export type { MovedCue, SavedTiming, TimingEditor, TimingEditorOptions, TimingSession } from './types.ts'
 
 /** How much of a sentence's end is replayed after the end moves. */
 const END_PREVIEW_MS = 1500
 
-/** One cue a save moved. */
-export interface MovedCue {
-  readonly cue: Cue
-  readonly before: RetimeRange
-  readonly after: RetimeRange
-}
-
-/** What the page learns after a save: the sentence, and the neighbours it pushed. */
-export interface SavedTiming extends MovedCue {
+/** What the strip holds while it is open. */
+interface EditorState {
   readonly index: number
-  readonly pushed: readonly MovedCue[]
-}
-
-export interface TimingEditorOptions {
-  readonly cues: readonly Cue[]
-  readonly tracks: SubtitleTracks
-  readonly episodeId: string | null
-  /** Why this episode's subtitles cannot be saved, or `null` when they can. The strip still opens to listen. */
-  readonly blocked: string | null
-  readonly onSaved: (saved: SavedTiming) => void
-  /** The host says the file changed since it was read: the page reads the subtitles again. */
-  readonly onStale: () => void
-}
-
-/** The open strip. */
-export interface TimingSession {
-  readonly index: number
-  readonly cue: Cue
   readonly range: RetimeRange
-  /** The range the strip opened with, so "changed" and the after-save move are known. */
-  readonly base: RetimeRange
   readonly focus: RetimeEdge
-  readonly limits: RetimeLimits
-  readonly lrc: boolean
-  /** The neighbours the range pushes as it stands, saved with it. */
-  readonly pushed: readonly PushedNeighbour[]
-  /**
-   * The sentence before this one and the sentence after it, as the file will hold them if the range
-   * is saved as it stands: an edge that pushed a neighbour shows the neighbour where it lands. For
-   * LRC the previous line ends where this one starts, since a line has no end of its own. `null`
-   * where there is no such sentence.
-   */
-  readonly previous: RetimeRange | null
-  readonly next: RetimeRange | null
+  readonly cues: readonly Cue[]
 }
 
-export interface TimingEditor {
-  readonly session: TimingSession | null
-  readonly saving: boolean
-  /** The host's reason for the last refusal. */
-  readonly error: string | null
-  /** True when the refusal was a stale file, so the strip offers to read it again. */
-  readonly stale: boolean
-  readonly open: (index: number) => void
-  readonly close: () => void
-  readonly setFocus: (edge: RetimeEdge) => void
-  readonly nudge: (edge: RetimeEdge, deltaMs: number) => void
-  readonly toPlayhead: (edge: RetimeEdge) => void
-  /** Put both edges back where the strip opened with them. */
-  readonly reset: () => void
-  readonly save: () => void
-  readonly reloadStale: () => void
-  /** The page's key handler asks here first while the strip is open; true means the key was used. */
-  readonly handleKey: (event: ReactKeyboardEvent) => boolean
-}
-
-/** A neighbour's range for the timeline: where a push puts it, otherwise where the file has it. */
-function neighbour(
-  cues: readonly Cue[],
-  index: number,
-  side: PushedNeighbour['side'],
-  pushed: readonly PushedNeighbour[],
-  range: RetimeRange,
-  lrc: boolean,
-): RetimeRange | null {
-  const cue = cues[index]
-  if (cue === undefined) return null
-  const moved = pushed.find((entry) => entry.side === side)
-  if (moved !== undefined) return moved.after
-  const own = originalRange(cue)
-  // An LRC line runs to the next one's start, so the one before follows the start being moved.
-  if (lrc && side === 'previous') return { start: own.start, end: Math.max(own.start, range.start) }
-  return own
+/** Pin the player to a range, and move the playhead to where the change is heard. */
+function pinPlayer(index: number, range: RetimeRange, heard: RetimeEdge | null): void {
+  const player = useMediaPlayer.getState()
+  player.setEditWindow({ index, start: range.start / 1000, end: range.end / 1000 })
+  if (heard === 'start') player.seek(range.start / 1000)
+  if (heard === 'end') player.seek(Math.max(range.start, range.end - END_PREVIEW_MS) / 1000)
 }
 
 /** Drive the strip. */
@@ -136,73 +70,71 @@ export function useTimingEditor({
    * segment, or the same file read again) means the index names a different sentence, and the
    * session is over without anything having to clear it.
    */
-  const [state, setState] = useState<{
-    index: number
-    range: RetimeRange
-    focus: RetimeEdge
-    cues: readonly Cue[]
-  } | null>(null)
+  const [state, setState] = useState<EditorState | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<{ reason: string; stale: boolean } | null>(null)
   const duration = useMediaPlayer((player) => player.duration)
   // The player lets go of the sentence by itself when the transport moves to another one or loops
   // one; the strip closes with it rather than editing edges nothing is playing.
   const pinned = useMediaPlayer((player) => player.editWindow)
-  const file = tracks.english?.file ?? null
-  const lrc = file !== null && isLrc(file)
+  const lrc = tracks.english !== null && isLrc(tracks.english.file)
 
   const session = useMemo((): TimingSession | null => {
     if (state === null || state.cues !== cues || pinned === null || pinned.index !== state.index) return null
-    const cue = cues[state.index]
-    if (cue === undefined) return null
-    const pushed = pushedNeighbours(cues, state.index, state.range, lrc)
-    return {
-      index: state.index,
-      cue,
-      range: state.range,
-      base: initialRange(cue),
-      focus: state.focus,
-      limits: retimeLimits(cues, state.index, lrc, duration > 0 ? Math.round(duration * 1000) : null),
+    return timingSession(
+      state.index,
+      state.range,
+      state.focus,
+      cues,
       lrc,
-      pushed,
-      previous: neighbour(cues, state.index - 1, 'previous', pushed, state.range, lrc),
-      next: neighbour(cues, state.index + 1, 'next', pushed, state.range, lrc),
-    }
+      duration > 0 ? Math.round(duration * 1000) : null,
+    )
   }, [state, cues, pinned, lrc, duration])
 
-  /** Put a range on screen and in the player, and move the playhead to where the change is heard. */
+  /** Put a range on screen and in the player. */
   const apply = useCallback(
     (index: number, range: RetimeRange, focus: RetimeEdge, heard: RetimeEdge | null): void => {
       setState({ index, range, focus, cues })
       setError(null)
-      const player = useMediaPlayer.getState()
-      player.setEditWindow({
-        index,
-        start: range.start / 1000,
-        end: range.end / 1000,
-      })
-      if (heard === 'start') player.seek(range.start / 1000)
-      if (heard === 'end') player.seek(Math.max(range.start, range.end - END_PREVIEW_MS) / 1000)
+      pinPlayer(index, range, heard)
     },
     [cues],
   )
+
+  /** Open a sentence on its own edges, keeping the edge a step carries over. */
+  const moveTo = useCallback(
+    (target: number, focus: RetimeEdge): void => {
+      const cue = cues[target]
+      if (cue === undefined) return
+      // Only an LRC line has an end that cannot be moved.
+      apply(target, initialRange(cue), focusAfterStep(focus, !lrc), 'start')
+      useMediaPlayer.getState().setPlaying(true)
+    },
+    [cues, lrc, apply],
+  )
+
+  const settleMove = useCallback((): void => setSaving(false), [])
+  const afterSave = useStepAfterSave({ cues, open: moveTo, settle: settleMove })
 
   const open = useCallback(
     (index: number): void => {
       const cue = cues[index]
       if (cue === undefined) return
+      afterSave.clearNotice()
       apply(index, initialRange(cue), 'start', 'start')
       // Listening is how an edge is placed, so the strip starts the loop playing.
       useMediaPlayer.getState().setPlaying(true)
     },
-    [cues, apply],
+    [cues, apply, afterSave],
   )
 
   const close = useCallback((): void => {
+    afterSave.cancel()
     setState(null)
+    setSaving(false)
     setError(null)
     useMediaPlayer.getState().setEditWindow(null)
-  }, [])
+  }, [afterSave])
 
   // Leaving the page (or the strip's owner unmounting) lets go of the player.
   useEffect(() => () => useMediaPlayer.getState().setEditWindow(null), [])
@@ -211,9 +143,10 @@ export function useTimingEditor({
     (edge: RetimeEdge, value: number): void => {
       // An LRC line has no end of its own to move.
       if (session === null || (edge === 'end' && !session.limits.endEditable)) return
+      afterSave.clearNotice()
       apply(session.index, moveEdge(session.range, edge, value, session.limits), edge, edge)
     },
-    [session, apply],
+    [session, apply, afterSave],
   )
 
   const nudge = useCallback(
@@ -231,8 +164,9 @@ export function useTimingEditor({
 
   const reset = useCallback((): void => {
     if (session === null) return
+    afterSave.clearNotice()
     apply(session.index, session.base, session.focus, session.focus)
-  }, [session, apply])
+  }, [session, apply, afterSave])
 
   const setFocus = useCallback(
     (edge: RetimeEdge): void => {
@@ -247,40 +181,53 @@ export function useTimingEditor({
     [session, cues],
   )
 
-  const save = useCallback((): void => {
-    if (session === null || saving || blocked !== null || episodeId === null) return
-    const edits = timingEdits(cues, session.index, session.range, tracks.english, tracks.chinese)
-    if (edits === null) return
-    const unchanged = session.range.start === session.base.start && session.range.end === session.base.end
-    if (unchanged) {
-      close()
-      return
-    }
-    setSaving(true)
-    void (async () => {
-      const result = await saveSubtitleTiming(episodeId, edits)
-      setSaving(false)
-      if (!result.ok) {
-        setError({
-          reason: result.reason ?? '',
-          stale: result.code === 'stale',
-        })
+  /** Write the open range; `target` is the neighbour a step should open once the new list arrives. */
+  const write = useCallback(
+    (target: number | null): void => {
+      if (session === null || saving || blocked !== null || episodeId === null) return
+      const request = timingWrite(session, cues, tracks.english, tracks.chinese, target)
+      if (request === null) return
+      if (!rangeChanged(session.range, session.base)) {
+        close()
         return
       }
-      const saved: SavedTiming = {
-        index: session.index,
-        cue: session.cue,
-        before: session.base,
-        after: session.range,
-        pushed: session.pushed.flatMap((neighbour) => {
-          const cue = cues[neighbour.index]
-          return cue === undefined ? [] : [{ cue, before: neighbour.before, after: neighbour.after }]
-        }),
+      if (target === null) afterSave.clearNotice()
+      else afterSave.begin(target, focusAfterStep(session.focus, session.limits.endEditable), cues)
+      setSaving(true)
+      void (async () => {
+        const result = await saveSubtitleTiming(episodeId, request.edits)
+        if (!result.ok) {
+          setSaving(false)
+          afterSave.cancel()
+          setError({ reason: result.reason ?? '', stale: result.code === 'stale' })
+          return
+        }
+        if (target === null) {
+          setSaving(false)
+          close()
+        }
+        onSaved(request.saved)
+      })()
+    },
+    [session, saving, blocked, episodeId, cues, tracks, close, afterSave, onSaved],
+  )
+
+  const save = useCallback((): void => write(null), [write])
+
+  const step = useCallback(
+    (direction: -1 | 1): void => {
+      if (session === null || saving) return
+      const target = stepTarget(session.index, direction, cues.length)
+      if (target === null) return
+      if (stepNeedsSave(blocked, rangeChanged(session.range, session.base))) {
+        write(target)
+        return
       }
-      close()
-      onSaved(saved)
-    })()
-  }, [session, saving, blocked, episodeId, cues, tracks, close, onSaved])
+      afterSave.clearNotice()
+      moveTo(target, session.focus)
+    },
+    [session, saving, cues.length, blocked, write, afterSave, moveTo],
+  )
 
   const reloadStale = useCallback((): void => {
     close()
@@ -289,50 +236,52 @@ export function useTimingEditor({
 
   const handleKey = useCallback(
     (event: ReactKeyboardEvent): boolean => {
+      // A save on its way to the neighbour swallows every key and does nothing with it, even after
+      // the new list has ended the session but before the panel has opened the target.
+      if (afterSave.moving) return true
       if (session === null) return false
-      const step = event.shiftKey ? BIG_STEP_MS : STEP_MS
-      switch (event.key) {
-        case 'Tab':
+      const action = timingKeyAction(event.key, event.shiftKey)
+      switch (action.kind) {
+        case 'switch':
           setFocus(session.focus === 'start' ? 'end' : 'start')
-          return true
-        case 'ArrowLeft':
-          nudge(session.focus, -step)
-          return true
-        case 'ArrowRight':
-          nudge(session.focus, step)
-          return true
-        case 'i':
-        case 'I':
-          toPlayhead('start')
-          return true
-        case 'o':
-        case 'O':
-          toPlayhead('end')
-          return true
-        case ' ':
+          break
+        case 'nudge':
+          nudge(session.focus, action.delta)
+          break
+        case 'toPlayhead':
+          toPlayhead(action.edge)
+          break
+        case 'toggle':
           togglePlayback()
-          return true
-        case 'Enter':
+          break
+        case 'save':
           save()
-          return true
-        case 'Escape':
+          break
+        case 'close':
           close()
-          return true
+          break
+        case 'step':
+          step(action.direction)
+          break
         default:
-          // Everything else is swallowed while the strip is open: a stray L or an arrow up must
-          // not move the sentence the edges belong to.
-          return true
+          // Everything else is swallowed while the strip is open: a stray L must not move the
+          // sentence the edges belong to.
+          break
       }
+      return true
     },
-    [session, setFocus, nudge, toPlayhead, save, close],
+    [afterSave.moving, session, setFocus, nudge, toPlayhead, save, close, step],
   )
 
   return {
     session,
     saving,
+    moving: afterSave.moving,
+    savedNotice: afterSave.savedNotice,
     error: error?.reason ?? null,
     stale: error?.stale ?? false,
     open,
+    step,
     close,
     setFocus,
     nudge,

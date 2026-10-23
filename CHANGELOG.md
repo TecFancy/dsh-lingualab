@@ -26,6 +26,9 @@ the plugin that was installed and used, not an artifact on a registry.
   toggle puts it away. A row of 982px or more keeps the column beside the stage.
 - A device that has never chosen starts with the right column collapsed on a narrow row and expanded on a wide one.
   The toggle and `\` store a choice; until then `N`, the kept chip, `Esc` and the scrim change it for this visit only.
+- In the timing panel, `↑` / `↓` and two buttons in its header move to the previous or next sentence with the focused
+  edge kept. A changed sentence is saved first, the neighbour opens once the subtitles are read back, and the header
+  says 「已保存」 for a moment; a refused save stays where it is.
 
 ## [0.15.0] - 2026-10-21
 

@@ -71,7 +71,8 @@
 ## 调时间模式
 
 - 调时间面板在场时，页面给练习栏加上 `is-timing`（用类名，不用 `:has()`）。「在场」指
-  `usePresence(timing.session !== null, TIMING_EXIT_MS)` 的 `mounted`，比会话多保留退出动画那一小段时间。
+  `usePresence(timing.session !== null || timing.moving, TIMING_EXIT_MS)` 的 `mounted`，比会话多保留退出动画那一小段时间；
+  先存后切的那次重新读取期间（`moving`）会话已经结束，面板也留着。
 - 布局跟着「在场」变，按键和舞台上的按钮跟着会话变。`mounted` 与 `shown` 由页面算出后传给 `TimingStrip`，
   面板自己不再带计时器，所以练习栏退出调时间模式和面板卸载发生在同一次提交里。
 - 面板从第一帧起就占满高度，只有卡片淡入淡出。**不要**改回「长出一个网格行」的做法：

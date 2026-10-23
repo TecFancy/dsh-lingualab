@@ -7,6 +7,7 @@ const PRACTICE: KeyContext = {
   view: 'practice',
   settingsOpen: false,
   timingOpen: false,
+  timingBusy: false,
   reviewing: false,
   reviewFinished: false,
   finishOpen: false,
@@ -301,6 +302,10 @@ describe('keyAction: Escape', () => {
     expect(escape({ reviewing: true })).toEqual({ type: 'end-review' })
     expect(escape({ reviewing: true, reviewFinished: true })).toEqual({ type: 'end-review' })
     expect(escape({ finishOpen: true })).toEqual({ type: 'dismiss-finish' })
+  })
+
+  it('leaves Escape to the strip while a save is moving to the neighbour', () => {
+    expect(escape({ timingOpen: true, timingBusy: true })).toEqual({ type: 'timing-key' })
   })
 
   it('closes one thing per press, topmost first', () => {
