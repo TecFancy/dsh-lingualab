@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-24
+
 ### Changed
 
 - The entry is the first row of the left rail's 「更多」 menu instead of a card on the 「应用」 page. The
