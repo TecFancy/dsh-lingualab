@@ -19,6 +19,13 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The entry is the first row of the left rail's 「更多」 menu instead of a card on the 「应用」 page. The
+  row is registered by this plugin into `sidebar.panellist.actions` and opens the page in the centre
+  column. The rail still has no row for it, and the launcher card is gone, together with the need for
+  `dsh-apps-panel` to be installed at all.
+
 ## [0.16.0] - 2026-10-23
 
 ### Added

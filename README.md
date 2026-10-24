@@ -2,10 +2,10 @@
 
 English | [简体中文](README.zh.md)
 
-The 「语言实验室」 panel: **a card on the 「应用」 page → a whole page in the centre column**,
-leaving the current Session untouched. The page turns media that already sits in the
-workspace into intensive-listening practice: one episode at a time, sentence by sentence,
-with the notes written back to disk where the agent can read them.
+The 「语言实验室」 panel: **one row in the left rail's 「更多」 menu, opening a whole page in
+the centre column**, leaving the current Session untouched. The page turns media that already
+sits in the workspace into intensive-listening practice: one episode at a time, sentence by
+sentence, with the notes written back to disk where the agent can read them.
 
 ## What it does
 
@@ -180,11 +180,11 @@ support, the browsable picker, the notes read/write path and the review list on 
 on the client side the page itself: the home, the practice view, the kept-sentences column and review,
 and the layers for browsing and for the media folder.
 
-The page has **no rail row of its own**. It is registered as a `main` panel under the key
-`lingualab`, and the entry is a card on the 「应用」 page, which `dsh-apps-panel` draws from its
-registry (`panel: lingualab`). That is a deliberate trade: the rail stops growing a row per
-plugin, and in exchange this plugin needs a launcher to be reachable. In a profile without
-`dsh-apps-panel`, the page is registered and unreachable.
+The page has **no rail row of its own**, and no card on the 「应用」 page either. It is registered as a
+`main` panel under the key `lingualab`, and the entry is the first row of the left rail's 「更多」 menu:
+this plugin registers that row into `sidebar.panellist.actions` itself, and selecting it calls
+`layout.selectPanel('lingualab')`. The rail still does not grow a row per plugin, and the entry now
+belongs to the plugin, so it no longer depends on `dsh-apps-panel` being installed.
 
 It is developed on `development` and released by pulling into `main`; nothing here is
 published to npm.
