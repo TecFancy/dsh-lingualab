@@ -1,9 +1,11 @@
 /**
  * One quiet line saying which build this is, and whether a newer release exists.
  *
- * It sits at the top of the home so the answer is there before anything is loaded, on every home
- * state. The release half is read only: a newer tag is reported, never installed. What is running
- * and what is available are kept apart, because a development build can be newer than the last tag.
+ * It is the last line of the home, under a hairline and under the folder line, in every home state.
+ * The page leads with what to do next, so a fact about the page itself goes at the end and stays
+ * lighter than the things a reader came for. The release half is read only: a newer tag is reported,
+ * never installed. What is running and what is available are kept apart, because a development build
+ * can be newer than the last tag.
  */
 import type { Translate } from '../../../context.ts'
 import type { UpdateStatus } from '../../../features/update/index.ts'

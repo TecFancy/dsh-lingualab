@@ -19,6 +19,10 @@
  * Where the files live is one quiet line at the bottom, with a way to change it.
  * It is a setting touched twice a month, and a page that leads with it reads as a
  * settings page.
+ *
+ * Below that line, and below a hairline, sits which build this is and whether a newer
+ * release exists. It is a fact about the page, not a job on it, so it goes last and
+ * lightest: in the first row it competed with the one thing the reader came to press.
  */
 import { findSegment, hasMedia, segmentLabel, videoMarkOf } from '../../../features/library/index.ts'
 import { episodeProgress, type EpisodeProgress, type Progress } from '../../../features/resume/index.ts'
@@ -30,7 +34,7 @@ import type { EpisodeEntry, LibraryPayload, ReviewPayload } from '../../../share
 import type { Translate } from '../../../context.ts'
 import type { UpdateStatus } from '../../../features/update/index.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
-import { VersionLine } from './VersionLine.tsx'
+import { PageFooter } from './PageFooter.tsx'
 
 export interface LibraryHomeProps {
   readonly t: Translate
@@ -172,8 +176,6 @@ export function LibraryHome({
     <div className="dsh-lingualab-home">
       <DropZone t={t} onFiles={onFiles} disabled={importer.busy}>
           <div className="dsh-lingualab-home-inner">
-            <VersionLine t={t} label={version} status={update} onRetry={onUpdateRetry} />
-
             {importer.busy || importer.outcomes.length > 0 || importer.unmatched.length > 0 ? (
               <ImportReport t={t} importer={importer} onOpen={onOpen} />
             ) : null}
@@ -270,7 +272,8 @@ export function LibraryHome({
               </div>
             ) : null}
 
-            {loading && playable.length === 0 ? null : <FolderLine t={t} library={library} onChange={onFolder} />}
+            <PageFooter t={t} empty={empty} hidden={loading && playable.length === 0} library={library}
+              version={version} update={update} onRetry={onUpdateRetry} onChange={onFolder} />
           </div>
       </DropZone>
     </div>
@@ -451,29 +454,6 @@ function ImportReport({
           {t('importIgnored')}：{importer.ignored.join('、')}
         </div>
       ) : null}
-    </div>
-  )
-}
-
-/** One quiet line about where the files live. */
-function FolderLine({
-  t,
-  library,
-  onChange,
-}: {
-  readonly t: Translate
-  readonly library: LibraryPayload | null
-  readonly onChange: () => void
-}) {
-  return (
-    <div className="dsh-lingualab-folderline">
-      <span>{t('filesLiveIn')}</span>
-      <code className="dsh-lingualab-path" title={library?.root ?? ''}>
-        {library?.root !== undefined && library.root.length > 0 ? library.root : t('mediaFolderSourceNone')}
-      </code>
-      <button type="button" className="dsh-lingualab-link" onClick={onChange}>
-        {t('change')}
-      </button>
     </div>
   )
 }

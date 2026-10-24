@@ -174,17 +174,26 @@ export const STYLES = `
 .dsh-lingualab-report{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:12px;
   border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));background:var(--dsw-alias-bg-layer-1,transparent)}
 .dsh-lingualab-folderline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;
-  color:var(--dsw-alias-label-secondary,#61666b);padding-top:4px}
+  color:var(--dsw-alias-label-secondary,#61666b)}
 .dsh-lingualab-link{border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:12px;
   color:var(--dsw-alias-brand-primary,#0f1115)}
 .dsh-lingualab-link:hover{text-decoration:underline}
 
+/* The bottom of the home: where the files are, then which build this is. One hairline sets both apart
+   from the page, and the build line is the lowest and lightest thing on it, because it is a fact about
+   the page and not a job on it. An empty library is one welcome card, so there the hairline is left out
+   rather than drawn under nothing. */
+.dsh-lingualab-pagefoot{display:flex;flex-direction:column;gap:6px;
+  padding-top:14px;border-top:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-pagefoot.is-empty{padding-top:0;border-top:0}
 /* The build this page is, and whether a newer release exists. Quiet: it states a fact, it does not ask for anything. */
 .dsh-lingualab-versionline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;
-  color:var(--dsw-alias-label-secondary,#61666b);padding:0 2px 10px}
+  color:var(--ll-muted);padding:0 2px}
 .dsh-lingualab-build{font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .dsh-lingualab-update.is-available{color:var(--dsw-alias-brand-primary,#0f1115);font-weight:600}
-.dsh-lingualab-update.is-unknown{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+/* A check that could not answer keeps the sentence as quiet as the rest, and puts the one thing worth
+   doing, asking again, in the warning colour so a stale page is not mistaken for a current one. */
+.dsh-lingualab-update.is-unknown + .dsh-lingualab-link{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
 
 /* ── practice: a stage on the left, the transcript on the right ─ */
 .dsh-lingualab-body{flex:1;min-height:0;display:flex;container:ll-body/inline-size}

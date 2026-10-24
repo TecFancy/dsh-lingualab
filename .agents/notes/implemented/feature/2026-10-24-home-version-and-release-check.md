@@ -33,6 +33,18 @@ so; it never falls back to "latest".
 There is no upgrade button. The host cannot restart itself, a pull would swap the client bundle under
 a host that keeps running the old half, and the checkout in use is the development one.
 
+The line is the last thing on the home, under a hairline and under the folder line, not the first.
+Which build is running and whether a newer tag exists are facts about the page, and the page exists
+to continue an episode: in the first row that line was read before the continue card and made a
+report the point of the visit. At the bottom it is still on every home state, still readable without
+a shell, and no longer in the way. The hairline is left out on an empty library, where the page is
+one welcome card and a line under it would only look like an orphaned footnote.
+
+Only "a newer release is available" is emphasised, in the brand colour and semibold, because that is
+the one state worth acting on. A check that could not answer keeps the sentence as quiet as its
+neighbours and colours the retry instead: the words say what happened, and the one thing worth doing
+is the part that stands out.
+
 ## Alternatives considered
 
 **GitHub Releases API or `gh`.** It would give release notes too, but a private repository needs a
@@ -53,8 +65,8 @@ that check.
 
 ## Consequences
 
-The line is on the home only, in every home state, above the drop zone and the continue card. It costs
-one extra Git process at load and one on each page view, cached for a quarter of an hour.
+The line is on the home only, in every home state, in the footer under the folder line. It costs one
+extra Git process at load and one on each page view, cached for a quarter of an hour.
 
 A machine without Git, a copy that is not a checkout, or a remote that is away each make the check say
 it cannot tell. The page keeps showing the version it does know.
