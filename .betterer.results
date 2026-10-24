@@ -415,7 +415,8 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1170)", "max-lines:file@0#93"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1180)", "max-lines:file@0#94"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1190)", "max-lines:file@0#95"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1200)", "max-lines:file@0#96"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1200)", "max-lines:file@0#96"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1210)", "max-lines:file@0#97"]
     ],
     "src/client/shared/ui/icons.tsx:1740066914": [
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"]
@@ -592,7 +593,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 20)", "complexity:Function \'LibraryHome\'@0#5"],
       [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 21)", "complexity:Function \'LibraryHome\'@0#6"],
       [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 22)", "complexity:Function \'LibraryHome\'@0#7"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 23)", "complexity:Function \'LibraryHome\'@0#8"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 260)", "max-lines:file@0#2"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 270)", "max-lines:file@0#3"],
@@ -604,9 +604,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 330)", "max-lines:file@0#9"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 340)", "max-lines:file@0#10"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 350)", "max-lines:file@0#11"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 360)", "max-lines:file@0#12"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 370)", "max-lines:file@0#13"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 380)", "max-lines:file@0#14"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 360)", "max-lines:file@0#12"]
     ],
     "src/client/widgets/notes-panel/ui/NotesPanel.tsx:929442158": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'NotesPanel\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'NotesPanel\'@0#1"],
