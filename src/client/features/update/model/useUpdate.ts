@@ -11,14 +11,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchUpdate } from '../../../shared/lib/api.ts'
 import type { UpdatePayload } from '../../../shared/protocol.ts'
-import { updateStatus, versionLabel, type UpdateStatus } from '../lib/update-state.ts'
+import { updateStatus, type UpdateStatus } from '../lib/update-state.ts'
 
 export interface UpdateState {
   readonly payload: UpdatePayload | null
   readonly checking: boolean
   readonly status: UpdateStatus
-  /** The running build, ready to print. */
-  readonly label: string
   readonly refresh: () => void
 }
 
@@ -45,5 +43,5 @@ export function useUpdate(): UpdateState {
 
   const checking = answered !== attempt
   const refresh = useCallback(() => setAttempt((value) => value + 1), [])
-  return { payload, checking, status: updateStatus(payload, checking), label: versionLabel(payload), refresh }
+  return { payload, checking, status: updateStatus(payload, checking), refresh }
 }

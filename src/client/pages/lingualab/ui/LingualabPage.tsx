@@ -44,7 +44,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
-import { useUpdate } from '../../../features/update/index.ts'
+import { useUpdate, versionLabel } from '../../../features/update/index.ts'
 import { hasMedia, segmentLabel, useLibrary } from '../../../features/library/index.ts'
 import {
   primeTakeAudio,
@@ -443,7 +443,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           onBrowse={() => setLayer('browse')}
           onFolder={() => setLayer('folder')}
           onReview={reviewLibrary}
-          version={update.label}
+          version={versionLabel(folder.payload?.plugin ?? null)}
           update={update.status}
           onUpdateRetry={update.refresh}
         />

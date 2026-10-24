@@ -3,7 +3,7 @@
  * a check that could not answer is never shown as "up to date".
  */
 import { describe, expect, it } from 'vitest'
-import type { UpdatePayload } from '../../../shared/protocol.ts'
+import type { PluginVersionInfo, UpdatePayload } from '../../../shared/protocol.ts'
 import { updateStatus, versionLabel } from './update-state.ts'
 
 const payload = (patch: Partial<UpdatePayload> = {}): UpdatePayload => ({
@@ -53,22 +53,27 @@ describe('updateStatus', () => {
 })
 
 describe('versionLabel', () => {
+  const info = (patch: Partial<PluginVersionInfo> = {}): PluginVersionInfo => ({
+    version: '0.17.0',
+    commit: '8609774',
+    dirty: false,
+    ...patch,
+  })
+
   it('prints the version and the short commit', () => {
-    expect(versionLabel(payload())).toBe('v0.17.0 · 8609774')
+    expect(versionLabel(info())).toBe('v0.17.0 · 8609774')
   })
 
   it('marks uncommitted changes', () => {
-    expect(versionLabel(payload({ current: { version: '0.17.0', commit: '8609774', dirty: true } }))).toBe(
-      'v0.17.0+ · 8609774',
-    )
+    expect(versionLabel(info({ dirty: true }))).toBe('v0.17.0+ · 8609774')
   })
 
   it('prints only the version outside a checkout', () => {
-    expect(versionLabel(payload({ current: { version: '0.17.0', commit: null, dirty: false } }))).toBe('v0.17.0')
+    expect(versionLabel(info({ commit: null }))).toBe('v0.17.0')
   })
 
   it('prints nothing when the host did not say', () => {
     expect(versionLabel(null)).toBe('')
-    expect(versionLabel(payload({ current: { version: '', commit: null, dirty: false } }))).toBe('')
+    expect(versionLabel(info({ version: '' }))).toBe('')
   })
 })

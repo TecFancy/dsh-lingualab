@@ -5,7 +5,7 @@
  * own: a failed check is never shown as "up to date". While the first answer is on its way the line
  * says it is checking; once it answers, the release tag decides.
  */
-import type { UpdatePayload } from '../../../shared/protocol.ts'
+import type { PluginVersionInfo, UpdatePayload } from '../../../shared/protocol.ts'
 
 export type UpdateStatus =
   | { readonly kind: 'checking' }
@@ -26,10 +26,15 @@ export function updateStatus(payload: UpdatePayload | null, checking: boolean): 
   return { kind: 'latest' }
 }
 
-/** The short label of the running build: `v0.17.0 · 8609774`, with `+` when the checkout was dirty. */
-export function versionLabel(payload: UpdatePayload | null): string {
-  if (payload === null || payload.current.version.length === 0) return ''
-  const mark = payload.current.dirty ? '+' : ''
-  const commit = payload.current.commit === null ? '' : ` · ${payload.current.commit}`
-  return `v${payload.current.version}${mark}${commit}`
+/**
+ * The short label of the running build: `v0.17.0 · 8609774`, with `+` when the checkout was dirty.
+ *
+ * Fed from the config answer rather than the release check, so the version shows the moment the home
+ * loads instead of waiting for a `git ls-remote` to come back.
+ */
+export function versionLabel(info: PluginVersionInfo | null): string {
+  if (info === null || info.version.length === 0) return ''
+  const mark = info.dirty ? '+' : ''
+  const commit = info.commit === null ? '' : ` · ${info.commit}`
+  return `v${info.version}${mark}${commit}`
 }
