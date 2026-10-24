@@ -1,21 +1,24 @@
 /**
  * dsh-lingualab — client half, entry point.
  *
- * One registration: `main` (keyed/root), the centre-column body under the key
- * `lingualab`, leaving the current Session untouched. The frame dispatches `main`
- * with `entryKey = activePanelId ?? 'conversation'`.
+ * Two registrations, both about the same page:
  *
- * The way in is a card on the 「应用」 page. `dsh-apps-panel` keeps that launcher,
- * and its registry carries an entry whose `panel` field names this key; clicking
- * the card calls `ctx.layout.selectPanel('lingualab')`, which is the same call a
- * rail row would make. So this plugin no longer registers a
- * `sidebar.panellist` row: one page, one entry, and the rail stops growing a row
- * per plugin.
+ *   · `main` (keyed/root), the centre-column body under the key `lingualab`,
+ *     leaving the current Session untouched. The frame dispatches `main` with
+ *     `entryKey = activePanelId ?? 'conversation'`.
+ *   · `sidebar.panellist.actions` (list/root), one row of the left rail's
+ *     「更多」 menu. The sidebar owns that menu button; this row is what a click on
+ *     it lists, and selecting the row calls `ctx.layout.selectPanel('lingualab')`.
  *
- * That entry lives in another package, so the two have to agree on the string
- * `lingualab`. Changing `PANEL_ID` here is a breaking change for any launcher
- * entry that names it, and `dsh-apps-panel`'s `scripts/check-host.mjs` is where
- * the other side of that agreement is written down.
+ * Why the menu and not a rail row: the rail holds one row per panel, and this page
+ * is opened now and then rather than all day, so it should not cost the rail a row.
+ * Why not the 「应用」 launcher card it had before: that page lists self-hosted web
+ * apps, while this is a page inside the shell, so the card sat in a grid whose other
+ * cards open in another tab. The row now belongs to this plugin, so the page no
+ * longer needs `dsh-apps-panel` installed to be reachable at all.
+ *
+ * `PANEL_ID` is the string the rest of the shell agrees on: the `main` key.
+ * `MENU_ROW_ID` names only this list entry, which nothing else addresses.
  *
  * This file is the wiring only. The page lives in `pages/lingualab/`, the pieces
  * it is built from in `widgets/` and `features/`, the subtitle model in
@@ -25,9 +28,11 @@
 import type { PluginContext } from './context.ts'
 import { en, zh } from './locale.ts'
 import { LingualabPage } from './pages/lingualab/index.ts'
+import { LauncherRow } from './widgets/launcher-row/index.ts'
 
 const NS = 'dsh-lingualab'
 const PANEL_ID = 'lingualab'
+const MENU_ROW_ID = 'lingualab-launcher'
 
 /** Client packages whose services this plugin uses; the loader orders them first. */
 export const inject: readonly string[] = ['slots', 'locale', 'layout']
@@ -35,7 +40,7 @@ export const inject: readonly string[] = ['slots', 'locale', 'layout']
 export function apply(ctx: PluginContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'lingualab: dictionaries')
 
-  // The page itself, under the key the launcher card names; `back` closes the
+  // The page itself, under the key the launcher row opens; `back` closes the
   // panel by hand.
   ctx.slots.inject('main', () =>
     ctx.slots.register(
@@ -46,6 +51,21 @@ export function apply(ctx: PluginContext): void {
         inject: () => ({ back: () => ctx.layout.selectPanel(null) }),
       },
       LingualabPage,
+    ),
+  )
+
+  // The way in. `order` is negative on purpose: the other rows of that menu are
+  // plugin housekeeping, and the row that opens a page should not sit under them.
+  ctx.slots.inject('sidebar.panellist.actions', () =>
+    ctx.slots.register(
+      {
+        name: 'sidebar.panellist.actions',
+        id: MENU_ROW_ID,
+        order: -10,
+        locale: NS,
+        inject: () => ({ open: () => ctx.layout.selectPanel(PANEL_ID) }),
+      },
+      LauncherRow,
     ),
   )
 }
