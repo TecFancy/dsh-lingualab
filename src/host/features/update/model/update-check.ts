@@ -19,8 +19,13 @@ const CACHE_MS = 15 * 60 * 1000
 /** How long a failed answer is reused; shorter, because the remote may simply have been away. */
 const FAILED_CACHE_MS = 60 * 1000
 
-/** How long `git ls-remote` may take before the answer is "unknown". */
-const GIT_TIMEOUT_MS = 5000
+/**
+ * How long `git ls-remote` may take before the answer is "unknown".
+ *
+ * Generous on purpose: over SSH the handshake alone was measured at five seconds on this machine,
+ * and a read-only status must not fail because the remote was slow rather than absent.
+ */
+const GIT_TIMEOUT_MS = 12000
 
 /** Run Git in the plugin's checkout; `null` when it cannot answer. */
 export type GitRun = (args: readonly string[], cwd: string) => string | null
@@ -72,7 +77,7 @@ function ttlOf(payload: UpdatePayload): number {
 export function readUpdate(root: string, current: PluginVersionInfo, git: GitRun): UpdatePayload {
   if (current.version.length === 0) return unanswered(current, '读不到这个插件的版本')
   const output = git(['ls-remote', '--tags', 'origin', 'v*'], root)
-  if (output === null) return unanswered(current, '这台机器上执行不了 git ls-remote')
+  if (output === null) return unanswered(current, 'git ls-remote 没跑成：这台机器上执行不了，或者超时了')
   const latest = newestRelease(parseReleaseTags(output))
   if (latest === null) return unanswered(current, '远端没有读到 vX.Y.Z 标签')
   const order = compareVersions(current.version, latest.version)
