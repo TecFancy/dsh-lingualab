@@ -211,6 +211,7 @@ npm run deploy                      # pull on the server, restart the service, c
 | `GET`、`POST /lingualab/notes` | exact | 某一集的短语，整体读取或整体替换 |
 | `GET /lingualab/review` | exact | 整个库里还没评为「记住了」的收藏，按库的顺序一集一集列出，集内按播放顺序；只读 |
 | `GET`、`POST /lingualab/config` | exact | 媒体库在哪、怎么修改：可以给路径，也可以给位置与相对目录 |
+| `GET /lingualab/update` | exact | 现在跑的是哪个构建（版本号与短提交，宿主加载时读的），以及检出自己的远端声明的最新 `vX.Y.Z` 发布标签；只读，不取、不拉、不装，`?refresh=1` 跳过缓存的答案 |
 | `GET /lingualab/places` | exact | 选择层可以浏览的根目录：每个工作区，加上媒体库本身 |
 | `GET /lingualab/browse` | exact | 某个位置下的一个目录：子目录、音频、字幕，以及每个音频配到了哪些字幕 |
 | `POST /lingualab/open` | exact | 把某一集设为当前：扫描到的文件夹剧集（可以带 `segment` 打开其中一段，不带就是第一段），或一个音频文件加旁边的字幕 |

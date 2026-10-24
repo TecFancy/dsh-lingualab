@@ -28,7 +28,9 @@ import { AudioIcon, FolderIcon, PlayIcon, StarIcon, UploadIcon, VideoIcon } from
 import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
 import type { EpisodeEntry, LibraryPayload, ReviewPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
+import type { UpdateStatus } from '../../../features/update/index.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
+import { VersionLine } from './VersionLine.tsx'
 
 export interface LibraryHomeProps {
   readonly t: Translate
@@ -58,6 +60,12 @@ export interface LibraryHomeProps {
   readonly review: ReviewPayload | null
   /** Start a review over all of it. */
   readonly onReview: () => void
+  /** The running build, ready to print; `''` when the host did not say. */
+  readonly version: string
+  /** Whether a newer release exists, and what the line says about it. */
+  readonly update: UpdateStatus
+  /** Ask the host again, after a check that could not answer. */
+  readonly onUpdateRetry: () => void
 }
 
 /**
@@ -144,6 +152,9 @@ export function LibraryHome({
   onFolder,
   review,
   onReview,
+  version,
+  update,
+  onUpdateRetry,
 }: LibraryHomeProps) {
   const episodes = allEpisodes(library, current)
   const playable = episodes.filter(hasMedia)
@@ -161,6 +172,8 @@ export function LibraryHome({
     <div className="dsh-lingualab-home">
       <DropZone t={t} onFiles={onFiles} disabled={importer.busy}>
           <div className="dsh-lingualab-home-inner">
+            <VersionLine t={t} label={version} status={update} onRetry={onUpdateRetry} />
+
             {importer.busy || importer.outcomes.length > 0 || importer.unmatched.length > 0 ? (
               <ImportReport t={t} importer={importer} onOpen={onOpen} />
             ) : null}

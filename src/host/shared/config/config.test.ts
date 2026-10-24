@@ -71,7 +71,7 @@ describe('describeConfig', () => {
   })
 
   it('builds the payload the panel reads', () => {
-    const payload = configPayload(describeConfig(root, root, 'config', true), [], root)
+    const payload = configPayload(describeConfig(root, root, 'config', true), [], root, null)
     expect(payload.ok).toBe(true)
     expect(payload.source).toBe('config')
     expect(payload.candidates.map((candidate) => candidate.path)).toEqual([root])

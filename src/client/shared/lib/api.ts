@@ -19,6 +19,7 @@ import {
   REVIEW_PATH,
   SUBTITLE_CHOICE_PATH,
   SUBTITLE_TIMING_PATH,
+  UPDATE_PATH,
   VIDEO_CANCEL_PATH,
   VIDEO_PATH,
   VIDEO_PREPARE_PATH,
@@ -34,6 +35,7 @@ import {
   type ProgressTable,
   type ReviewPayload,
   type SubtitleChoice,
+  type UpdatePayload,
   type SubtitleChoicePayload,
   type TimingEdit,
   type TimingWritePayload,
@@ -53,6 +55,7 @@ const EMPTY_CONFIG = (root: string, reason: string): LibraryConfigPayload => ({
   episodes: null,
   writable: true,
   candidates: [],
+  plugin: null,
 })
 
 const EMPTY_BROWSE = (reason: string): BrowsePayload => ({
@@ -100,6 +103,23 @@ export async function fetchConfig(): Promise<LibraryConfigPayload | null> {
   try {
     const response = await fetch(CONFIG_PATH, { headers: { accept: 'application/json' } })
     return (await response.json()) as LibraryConfigPayload
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ask the host whether a newer release exists, and which version is running.
+ *
+ * `refresh` skips the host's cache. An older host has no such route, so an unusable answer reads as
+ * `null`, and the page says it cannot tell rather than claiming anything.
+ */
+export async function fetchUpdate(refresh = false): Promise<UpdatePayload | null> {
+  try {
+    const query = refresh ? '?refresh=1' : ''
+    const response = await fetch(`${UPDATE_PATH}${query}`, { headers: { accept: 'application/json' } })
+    if (!response.ok) return null
+    return (await response.json()) as UpdatePayload
   } catch {
     return null
   }

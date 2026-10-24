@@ -19,6 +19,15 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- The home opens with one quiet line saying which build it is (`v0.17.0 · 8609774`, with `+` when the
+  checkout has uncommitted changes), read when the host half loaded rather than from the manifest on
+  disk, so it names the code that is actually running. Next to it, the newest `vX.Y.Z` release tag is
+  read with `git ls-remote` against the checkout's own remote: nothing is fetched, pulled or
+  installed, and a newer tag is reported only. A check that cannot answer says so and offers a retry;
+  it is never shown as "up to date".
+
 ## [0.17.0] - 2026-10-24
 
 ### Changed

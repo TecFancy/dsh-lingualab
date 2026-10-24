@@ -441,6 +441,14 @@ export const zh: Record<string, string> = {
   localFileStop: '停用',
   noticeLocalFailed: '本地文件「{name}」放不了，已改回原来的来源。请换成 mp4（H.264 加 AAC）。',
   noticeLocalUnreadable: '没能打开之前选的本地文件，可能没有授权，或者文件已经不在了',
+
+  // ── 版本行 ───────────────────────────────────────────────────
+  updateChecking: '正在检查更新…',
+  updateLatest: '已是最新发布版',
+  updateSameVersion: '版本号相同，提交不同',
+  updateAvailable: '发现新版本 v{version}',
+  updateAhead: '比最新发布版新（v{version}）',
+  updateUnknown: '暂时查不到有没有新版本',
 }
 /** English copy, same keys, same order. */
 export const en: Record<string, string> = {
@@ -861,4 +869,12 @@ export const en: Record<string, string> = {
   localFileStop: 'Stop using',
   noticeLocalFailed: 'The local file "{name}" could not be played, so the page went back to the original source. Use an mp4 (H.264 with AAC) instead.',
   noticeLocalUnreadable: 'The local file chosen before could not be opened: it was not allowed, or it is gone',
+
+  // ── Version line ─────────────────────────────────────────────
+  updateChecking: 'Checking for updates…',
+  updateLatest: 'Latest release',
+  updateSameVersion: 'Same version, different commit',
+  updateAvailable: 'v{version} available',
+  updateAhead: 'Ahead of release v{version}',
+  updateUnknown: 'Update status unavailable',
 }

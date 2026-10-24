@@ -238,6 +238,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 | `GET`, `POST /lingualab/notes` | exact | One episode's phrases, read or replaced wholesale |
 | `GET /lingualab/review` | exact | Every kept sentence not graded 「记住了」 across the library, episode by episode in library order and in play order inside each; read only |
 | `GET`, `POST /lingualab/config` | exact | Where the library is, and how to change it — by path, or by place and relative folder |
+| `GET /lingualab/update` | exact | Which build is running (its version and short commit, read when the host loaded), and the newest `vX.Y.Z` release tag the checkout's own remote declares; read only — nothing is fetched, pulled or installed, and `?refresh=1` skips the cached answer |
 | `GET /lingualab/places` | exact | The roots the picker may browse: every workspace, plus the library itself |
 | `GET /lingualab/browse` | exact | One directory under one place: directories, audio, subtitles, and each audio file's subtitle pairing |
 | `POST /lingualab/open` | exact | Make one episode current: a scanned folder (with an optional `segment` to open one of its segments, the first when omitted), or a single audio file with the subtitles beside it |
