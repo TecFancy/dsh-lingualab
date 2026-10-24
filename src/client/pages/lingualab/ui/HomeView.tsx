@@ -11,6 +11,7 @@ import type { LibraryState } from '../../../features/library/index.ts'
 import type { PositionTable } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import type { ReviewPayload } from '../../../shared/protocol.ts'
+import type { UpdateStatus } from '../../../features/update/index.ts'
 import { LibraryHome } from '../../../widgets/library-home/index.ts'
 
 export interface HomeViewProps {
@@ -30,6 +31,12 @@ export interface HomeViewProps {
   readonly onBrowse: () => void
   readonly onFolder: () => void
   readonly onReview: () => void
+  /** The running build, ready to print; `''` when the host did not say. */
+  readonly version: string
+  /** Whether a newer release exists. */
+  readonly update: UpdateStatus
+  /** Ask again, after a check that could not answer. */
+  readonly onUpdateRetry: () => void
 }
 
 export function HomeView({
@@ -45,6 +52,9 @@ export function HomeView({
   onBrowse,
   onFolder,
   onReview,
+  version,
+  update,
+  onUpdateRetry,
 }: HomeViewProps) {
   return (
     <>
@@ -74,6 +84,9 @@ export function HomeView({
         onFolder={onFolder}
         review={review}
         onReview={onReview}
+        version={version}
+        update={update}
+        onUpdateRetry={onUpdateRetry}
       />
     </>
   )

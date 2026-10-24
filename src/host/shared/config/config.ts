@@ -122,6 +122,7 @@ export function configPayload(
   description: ConfigDescription,
   workspaces: readonly { path: string }[],
   root: string,
+  plugin: LibraryConfigPayload['plugin'],
 ): LibraryConfigPayload {
   return {
     ok: description.reason === null,
@@ -133,6 +134,7 @@ export function configPayload(
     episodes: description.episodes,
     writable: description.writable,
     candidates: candidateRoots(workspaces, root),
+    plugin,
   }
 }
 

@@ -126,6 +126,16 @@ export const VIDEO_PREPARE_PATH = '/lingualab/video-prepare'
 /** Cancelling the running preparing job, if there is one; its partial file is removed. */
 export const VIDEO_CANCEL_PATH = '/lingualab/video-cancel'
 
+/**
+ * The version this plugin is, and whether a newer release exists.
+ *
+ * The version comes from the host half, read once when it loaded: it names the code that is actually
+ * running rather than whatever `package.json` says on disk now. The release check reads the newest
+ * `vX.Y.Z` tag from the checkout's own `origin` with `git ls-remote`; it fetches and pulls nothing,
+ * so the page can offer it without changing the working tree.
+ */
+export const UPDATE_PATH = '/lingualab/update'
+
 /** The hidden file at the library root that holds the progress, next to the episodes' `notes.md`. */
 export const PROGRESS_FILE = '.lingualab-progress.json'
 
@@ -391,6 +401,8 @@ export interface LibraryConfigPayload {
   /** Whether this deployment can persist a new root, or only report it. */
   readonly writable: boolean
   readonly candidates: readonly LibraryCandidate[]
+  /** The running plugin's own version, or `null` on a host that predates this field. */
+  readonly plugin: PluginVersionInfo | null
 }
 
 /** `POST /lingualab/config` request body. */
@@ -792,4 +804,31 @@ export interface TimingWritePayload {
 export interface LibraryConfigFromPlaceRequest {
   readonly place: string
   readonly rel: string
+}
+
+/** The plugin as the running host half knows itself. */
+export interface PluginVersionInfo {
+  /** The `version` in the package's manifest, or `''` when it could not be read. */
+  readonly version: string
+  /** Short hash of the commit the running code came from, or `null` when this is not a Git checkout. */
+  readonly commit: string | null
+  /** Whether the checkout had uncommitted changes when the host loaded. */
+  readonly dirty: boolean
+}
+
+/**
+ * What a release check found: `latest` is the same release and commit, `same-version` the same
+ * version on another commit (a development build), `available` a newer release, `ahead` a running
+ * version newer than any tag, and `unknown` a check that could not answer.
+ */
+export type UpdateState = 'latest' | 'same-version' | 'available' | 'ahead' | 'unknown'
+
+/** `GET /lingualab/update`. */
+export interface UpdatePayload {
+  readonly state: UpdateState
+  readonly current: PluginVersionInfo
+  /** The newest release tag, when one was readable. */
+  readonly latest: { readonly version: string; readonly commit: string | null } | null
+  /** Why the check could not answer; `null` when it did. */
+  readonly reason: string | null
 }

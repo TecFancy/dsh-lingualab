@@ -87,6 +87,10 @@
       {
         "kind": "exact",
         "path": "/lingualab/video-cancel"
+      },
+      {
+        "kind": "exact",
+        "path": "/lingualab/update"
       }
     ]
   }

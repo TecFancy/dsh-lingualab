@@ -5,7 +5,7 @@
  * request and writes the choice through the settings service.
  */
 import type { HostContext, WebRoute } from '../../../../host-context.ts'
-import { CONFIG_PATH, type LibraryConfigWriteRequest } from '../../../../shared/protocol.ts'
+import { CONFIG_PATH, type LibraryConfigWriteRequest, type PluginVersionInfo } from '../../../../shared/protocol.ts'
 import { findPlace, listPlaces, resolveInPlace } from '../../../entities/place/index.ts'
 import {
   configPayload,
@@ -18,7 +18,12 @@ import {
 import { methodAllowed, readJsonBody, sendJson } from '../../../shared/http/index.ts'
 
 /** `GET|POST /lingualab/config` — where the library is, and how to change it. */
-export function configRoute(ctx: HostContext, configured: () => string, pluginName: string): WebRoute {
+export function configRoute(
+  ctx: HostContext,
+  configured: () => string,
+  pluginName: string,
+  plugin: PluginVersionInfo,
+): WebRoute {
   return {
     kind: 'exact',
     path: CONFIG_PATH,
@@ -36,6 +41,7 @@ export function configRoute(ctx: HostContext, configured: () => string, pluginNa
             describeConfig(resolved.root, configured(), resolved.source, settings !== null),
             workspaces,
             resolved.root,
+            plugin,
           ),
         )
         return
@@ -119,6 +125,7 @@ export function configRoute(ctx: HostContext, configured: () => string, pluginNa
           describeConfig(resolved.root, proposed.trim(), resolved.source, true),
           workspaces,
           resolved.root,
+          plugin,
         ),
       )
     },

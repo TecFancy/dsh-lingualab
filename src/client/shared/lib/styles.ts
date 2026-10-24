@@ -179,6 +179,13 @@ export const STYLES = `
   color:var(--dsw-alias-brand-primary,#0f1115)}
 .dsh-lingualab-link:hover{text-decoration:underline}
 
+/* The build this page is, and whether a newer release exists. Quiet: it states a fact, it does not ask for anything. */
+.dsh-lingualab-versionline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;
+  color:var(--dsw-alias-label-secondary,#61666b);padding:0 2px 10px}
+.dsh-lingualab-build{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.dsh-lingualab-update.is-available{color:var(--dsw-alias-brand-primary,#0f1115);font-weight:600}
+.dsh-lingualab-update.is-unknown{color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+
 /* ── practice: a stage on the left, the transcript on the right ─ */
 .dsh-lingualab-body{flex:1;min-height:0;display:flex;container:ll-body/inline-size}
 .dsh-lingualab-practice{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;

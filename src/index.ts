@@ -25,6 +25,7 @@
  * into a file. It is persisted in this plugin's own config (`openState`), through
  * the settings service, so the profile remains the single home for plugin state.
  */
+import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import type { HostContext } from './host-context.ts'
 import { parseState, serializeState, type OpenState } from './host/entities/open-state/index.ts'
@@ -39,6 +40,7 @@ import { progressRoute } from './host/features/progress/index.ts'
 import { reviewRoute } from './host/features/review/index.ts'
 import { subtitleChoiceRoute } from './host/features/subtitle-choice/index.ts'
 import { timingRoute } from './host/features/timing/index.ts'
+import { createUpdateChecker, readPluginInfo, updateRoute } from './host/features/update/index.ts'
 import {
   createVideoJobs,
   videoCancelRoute,
@@ -168,13 +170,19 @@ export function apply(ctx: HostContext, config: Config): void {
       return ''
     }
   }
+  // The version this process is running, read once: after a pull but before a restart the manifest
+  // on disk already says the newer one, and that is not the code answering these requests.
+  const packageRoot = fileURLToPath(new URL('..', import.meta.url))
+  const pluginInfo = readPluginInfo(packageRoot)
+  const updateChecker = createUpdateChecker(packageRoot, pluginInfo)
+
   const jobs = createVideoJobs(realSpawn)
   // A job still running when the plugin goes away is stopped, so its process and its `.part` do not outlive it.
   ctx.effect(() => () => void jobs.cancel(), 'lingualab: stop the preparing job')
 
   // Every route goes through the host's request trust, reads included; see `guard.ts`.
   const routes = [
-    configRoute(ctx, configured, name),
+    configRoute(ctx, configured, name, pluginInfo),
     placesRoute(ctx, configured, readState),
     browseRoute(ctx, configured),
     openRoute(ctx, configured, readState, writeState),
@@ -190,6 +198,7 @@ export function apply(ctx: HostContext, config: Config): void {
     videoRoute(ctx, configured, ffmpegPath, jobs),
     videoPrepareRoute(ctx, configured, ffmpegPath, jobs),
     videoCancelRoute(jobs),
+    updateRoute(updateChecker),
   ].map((route) => guarded(ctx, route))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)
