@@ -198,7 +198,11 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 770)", "max-lines:file@0#53"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 780)", "max-lines:file@0#54"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 790)", "max-lines:file@0#55"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 800)", "max-lines:file@0#56"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 800)", "max-lines:file@0#56"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 810)", "max-lines:file@0#57"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 820)", "max-lines:file@0#58"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 830)", "max-lines:file@0#59"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 840)", "max-lines:file@0#60"]
     ],
     "src/client/pages/lingualab/lib/useKeyboard.ts:2094482246": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'useKeyboard\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'useKeyboard\'@0#1"],
@@ -244,6 +248,7 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines-per-function): Function \'LingualabPage\' is over 80 lines (more than 390)", "max-lines-per-function:Function \'LingualabPage\'@0#32"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'LingualabPage\' is over 80 lines (more than 400)", "max-lines-per-function:Function \'LingualabPage\'@0#33"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'LingualabPage\' is over 80 lines (more than 410)", "max-lines-per-function:Function \'LingualabPage\'@0#34"],
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'LingualabPage\' is over 80 lines (more than 420)", "max-lines-per-function:Function \'LingualabPage\'@0#35"],
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 16)", "complexity:Function \'LingualabPage\'@0#1"],
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 17)", "complexity:Function \'LingualabPage\'@0#2"],
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 18)", "complexity:Function \'LingualabPage\'@0#3"],
@@ -264,6 +269,8 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 33)", "complexity:Function \'LingualabPage\'@0#18"],
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 34)", "complexity:Function \'LingualabPage\'@0#19"],
       [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 35)", "complexity:Function \'LingualabPage\'@0#20"],
+      [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 36)", "complexity:Function \'LingualabPage\'@0#21"],
+      [0, 0, 0, "eslint(complexity): Function \'LingualabPage\' is over complexity 15 (reaches 37)", "complexity:Function \'LingualabPage\'@0#22"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 260)", "max-lines:file@0#2"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 270)", "max-lines:file@0#3"],
@@ -285,7 +292,8 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 430)", "max-lines:file@0#19"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 440)", "max-lines:file@0#20"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 450)", "max-lines:file@0#21"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 460)", "max-lines:file@0#22"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 460)", "max-lines:file@0#22"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 470)", "max-lines:file@0#23"]
     ],
     "src/client/shared/lib/api.ts:853395105": [
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
@@ -295,7 +303,9 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 290)", "max-lines:file@0#5"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 300)", "max-lines:file@0#6"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 310)", "max-lines:file@0#7"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 320)", "max-lines:file@0#8"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 320)", "max-lines:file@0#8"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 330)", "max-lines:file@0#9"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 340)", "max-lines:file@0#10"]
     ],
     "src/client/shared/lib/sha256.ts:4120024466": [
       [0, 0, 0, "eslint(complexity): Function \'sha256Hex\' is over complexity 15 (reaches 16)", "complexity:Function \'sha256Hex\'@0#1"],
@@ -406,7 +416,19 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1160)", "max-lines:file@0#92"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1170)", "max-lines:file@0#93"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1180)", "max-lines:file@0#94"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1190)", "max-lines:file@0#95"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1190)", "max-lines:file@0#95"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1200)", "max-lines:file@0#96"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1210)", "max-lines:file@0#97"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1220)", "max-lines:file@0#98"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1230)", "max-lines:file@0#99"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1240)", "max-lines:file@0#100"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1250)", "max-lines:file@0#101"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1260)", "max-lines:file@0#102"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1270)", "max-lines:file@0#103"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1280)", "max-lines:file@0#104"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1290)", "max-lines:file@0#105"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1300)", "max-lines:file@0#106"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1310)", "max-lines:file@0#107"]
     ],
     "src/client/shared/ui/icons.tsx:1740066914": [
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"]
@@ -571,19 +593,6 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 390)", "max-lines:file@0#15"]
     ],
     "src/client/widgets/library-home/ui/LibraryHome.tsx:2290268270": [
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'LibraryHome\'@0#1"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'LibraryHome\'@0#2"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 100)", "max-lines-per-function:Function \'LibraryHome\'@0#3"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 110)", "max-lines-per-function:Function \'LibraryHome\'@0#4"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 120)", "max-lines-per-function:Function \'LibraryHome\'@0#5"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 16)", "complexity:Function \'LibraryHome\'@0#1"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 17)", "complexity:Function \'LibraryHome\'@0#2"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 18)", "complexity:Function \'LibraryHome\'@0#3"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 19)", "complexity:Function \'LibraryHome\'@0#4"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 20)", "complexity:Function \'LibraryHome\'@0#5"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 21)", "complexity:Function \'LibraryHome\'@0#6"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 22)", "complexity:Function \'LibraryHome\'@0#7"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 23)", "complexity:Function \'LibraryHome\'@0#8"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 260)", "max-lines:file@0#2"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 270)", "max-lines:file@0#3"],
@@ -596,7 +605,37 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 340)", "max-lines:file@0#10"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 350)", "max-lines:file@0#11"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 360)", "max-lines:file@0#12"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 370)", "max-lines:file@0#13"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 370)", "max-lines:file@0#13"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 380)", "max-lines:file@0#14"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 390)", "max-lines:file@0#15"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 400)", "max-lines:file@0#16"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 410)", "max-lines:file@0#17"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 420)", "max-lines:file@0#18"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 430)", "max-lines:file@0#19"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 440)", "max-lines:file@0#20"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 450)", "max-lines:file@0#21"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 460)", "max-lines:file@0#22"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 470)", "max-lines:file@0#23"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 480)", "max-lines:file@0#24"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 490)", "max-lines:file@0#25"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 500)", "max-lines:file@0#26"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 510)", "max-lines:file@0#27"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 520)", "max-lines:file@0#28"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 530)", "max-lines:file@0#29"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 540)", "max-lines:file@0#30"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 550)", "max-lines:file@0#31"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 560)", "max-lines:file@0#32"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 570)", "max-lines:file@0#33"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 580)", "max-lines:file@0#34"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 590)", "max-lines:file@0#35"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 600)", "max-lines:file@0#36"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 610)", "max-lines:file@0#37"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 620)", "max-lines:file@0#38"],
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'LibraryHome\'@0#1"],
+      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 16)", "complexity:Function \'LibraryHome\'@0#1"],
+      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 17)", "complexity:Function \'LibraryHome\'@0#2"],
+      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 18)", "complexity:Function \'LibraryHome\'@0#3"],
+      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 19)", "complexity:Function \'LibraryHome\'@0#4"]
     ],
     "src/client/widgets/notes-panel/ui/NotesPanel.tsx:929442158": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'NotesPanel\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'NotesPanel\'@0#1"],
@@ -870,6 +909,7 @@ exports[`no-size-regression`] = {
     "src/host/features/library-config/api/library-config.route.ts:2141709257": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'configRoute\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'configRoute\'@0#1"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'configRoute\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'configRoute\'@0#2"],
+      [0, 0, 0, "eslint(max-lines-per-function): Function \'configRoute\' is over 80 lines (more than 100)", "max-lines-per-function:Function \'configRoute\'@0#3"],
       [0, 0, 0, "eslint(max-lines-per-function): Async method \'handler\' is over 80 lines (more than 80)", "max-lines-per-function:Async method \'handler\'@0#1"],
       [0, 0, 0, "eslint(complexity): Async method \'handler\' is over complexity 15 (reaches 16)", "complexity:Async method \'handler\'@0#1"],
       [0, 0, 0, "eslint(complexity): Async method \'handler\' is over complexity 15 (reaches 17)", "complexity:Async method \'handler\'@0#2"],
@@ -937,7 +977,9 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 290)", "max-lines:file@0#5"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 300)", "max-lines:file@0#6"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 310)", "max-lines:file@0#7"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 320)", "max-lines:file@0#8"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 320)", "max-lines:file@0#8"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 330)", "max-lines:file@0#9"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 340)", "max-lines:file@0#10"]
     ]
   }`
 };

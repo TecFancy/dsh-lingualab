@@ -28,7 +28,7 @@ src/host/               服务端，FSD 的下三层，没有 widgets、pages、
                         subtitle-choice（手选字幕的存取与覆盖规则）、video-cache（缓存路径）；实体之间只经 `@x/<读者>.ts` 互读
   features/             一个能力一个切片，路由在 `api/<名字>.route.ts`，挨着它调用的规则：browse、library-config、
                         import（不覆盖）、library、media（含 `.lingualab/` 缓存里的 mp4 与 m4a）、notes、open、progress（进度文件）、
-                        review（跨集复习清单，只读）、subtitle-choice、timing（字幕时间）、
+                        review（跨集复习清单，只读）、subtitle-choice、timing（字幕时间）、update（版本快照与发布标签检查，只读）、
                         video（`lib/video-plan` 纯规划、`video-jobs` 一次一个的任务、`video` 状态）；
                         写素材目录只有导入、notes.md、进度文件、字幕时间、手选字幕文件与视频缓存
 src/shared/             两端共用的协议、笔记格式与文件名配对（最长词干归属），只有这一份
@@ -40,7 +40,7 @@ src/client/             前端，FSD 分层，没有 app 层
                         review（复习队列：本集或整个库，逐句评级）、
                         subtitle-choice（读写一集或一段手选的字幕文件）、
                         settings（主题、明暗、舞台字号、「中文显示」、画面状态与右栏是否收起，存浏览器；主题是覆盖宿主 token 的调色板）、
-                        video（一段的视频状态、准备任务与哪张卡片，决定播放器放视频还是音频文件）
+                        update（首页页脚的版本行与发布检查）、video（一段的视频状态、准备任务与哪张卡片，决定播放器放视频还是音频文件）
   widgets/              library-home（首页与拖放区）、control-bar（含「字幕」弹层）、subtitle-panel、notes-panel（右栏的「收藏」）、
                         episode-picker（只剩浏览）、media-folder、step-tracker、segment-picker（分段按钮与列表）、
                         timing-editor（舞台下面调整一句开头和结尾的横栏）、review-strip（复习横栏与结束卡片）、

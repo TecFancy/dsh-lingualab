@@ -44,6 +44,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'
 import { useImport } from '../../../features/import-media/index.ts'
 import { useLibraryConfig } from '../../../features/library-config/index.ts'
+import { useUpdate, versionLabel } from '../../../features/update/index.ts'
 import { hasMedia, segmentLabel, useLibrary } from '../../../features/library/index.ts'
 import {
   primeTakeAudio,
@@ -94,6 +95,7 @@ export interface LingualabPageProps extends PanelProps {
 export function LingualabPage({ back, t }: LingualabPageProps) {
   const library = useLibrary()
   const folder = useLibraryConfig()
+  const update = useUpdate()
   const notes = useNotes(library.episode?.id ?? null)
   // The episode folders the library lists, so a subtitle dropped on its own can join the
   // episode it names instead of being reported as having no audio.
@@ -441,6 +443,9 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           onBrowse={() => setLayer('browse')}
           onFolder={() => setLayer('folder')}
           onReview={reviewLibrary}
+          version={versionLabel(folder.payload?.plugin ?? null)}
+          update={update.status}
+          onUpdateRetry={update.refresh}
         />
       ) : (
         <PracticeView

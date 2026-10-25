@@ -19,6 +19,36 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-25
+
+### Added
+
+- The home closes with one quiet line saying which build it is (`v0.17.0 · 8609774`, with `+` when the
+  checkout has uncommitted changes), read when the host half loaded rather than from the manifest on
+  disk, so it names the code that is actually running. It sits at the bottom, in the footer under the
+  folder line and under a hairline, where it is read after the episode to continue rather than before
+  it; an empty library leaves the hairline out. Next to it, the newest `vX.Y.Z` release tag is read
+  with `git ls-remote` against the checkout's own remote: nothing is fetched, pulled or installed, and
+  a newer tag is reported only, in the one state that is emphasised. A check that cannot answer says
+  so and offers a retry; it is never shown as "up to date".
+
+### Changed
+
+- An empty library is no longer a dashed card: a centred plus sign, the promise, the two ways in, the
+  naming rule, and a footer that drops its hairline. The first load shows four skeleton bars in the
+  shape of the stage rather than four stat blocks.
+- The rest of the library is a list of rows rather than a grid of cards: a title with where practice
+  stopped on the right, one line of facts, and the same segment bar pressed down to 5px. A finished
+  episode's title steps back and gets a green dot, and the drop strip becomes a quiet rule with a plus
+  sign instead of a dashed box.
+- The first block of the home is a stage, not a card: an eyebrow, the episode title at 40px, one cell
+  per segment filled by the position already recorded, a single line of facts, and the only solid
+  button on the page. The weekly pass becomes a thin bar under it, with the count at 36px and the
+  names of the episodes the sentences come from; when they need more than two rows the last name
+  becomes 「等 N 集」. The import report keeps its behaviour and loses its card chrome. Spacing moves
+  from one gap on the container to each block's own padding, so neighbouring blocks no longer share
+  one rhythm.
+
 ## [0.17.0] - 2026-10-24
 
 ### Changed
