@@ -108,14 +108,17 @@ export const STYLES = `
 .dsh-lingualab-drop{position:relative;flex:1;min-height:0;overflow:auto}
 .dsh-lingualab-home-inner{display:flex;flex-direction:column;width:min(900px,100%);
   margin:0 auto;padding:0;box-sizing:border-box}
-.dsh-lingualab-welcome{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
-  padding:40px 24px;border:1.5px dashed var(--dsw-alias-border-l2,rgba(0,0,0,0.1));border-radius:16px;
-  background:var(--dsw-alias-bg-layer-1,transparent);transition:border-color var(--ll-fade)}
-.dsh-lingualab-welcome h1{margin:0;font-size:20px;font-weight:600}
-.dsh-lingualab-welcome p{margin:0;max-width:460px;color:var(--dsw-alias-label-secondary,#61666b)}
-.dsh-lingualab-welcome-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;
-  border-radius:999px;background:var(--ll-hover);color:var(--dsw-alias-brand-primary,#0f1115)}
-.dsh-lingualab-drop.is-over .dsh-lingualab-welcome{border-color:var(--dsw-alias-brand-primary,#0f1115)}
+/* An empty library is the whole page: one mark, the promise, the two ways in, and how files
+   pair up. No card, no fill, no dashed frame. */
+.dsh-lingualab-welcome{display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:48px 32px 28px}
+.dsh-lingualab-welcome h1{margin:16px 0 0;font-size:22px;font-weight:600;
+  color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-welcome-body{margin:10px 0 0;max-width:440px;font-size:14px;line-height:1.65;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-welcome-act{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:22px}
+.dsh-lingualab-welcome-naming{margin:16px 0 0;max-width:480px;font-size:12px;line-height:1.55;
+  color:var(--ll-muted)}
 .dsh-lingualab-drop-veil{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
   background:var(--ll-mask);pointer-events:none}
 .dsh-lingualab-drop-veil-card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 40px;
@@ -191,7 +194,7 @@ export const STYLES = `
   font-variant-numeric:tabular-nums}
 /* The home's buttons: the filled one is 36px high, the outlined one 32px over a 1px hairline.
    Scoped to the home, so the practice page keeps its own sizes. */
-.dsh-lingualab-home .dsh-lingualab-btn{height:32px;padding:0 14px;border-width:1px;
+.dsh-lingualab-home .dsh-lingualab-btn{height:32px;padding:0 14px;border-width:1px;box-sizing:border-box;
   border-color:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
 .dsh-lingualab-home .dsh-lingualab-btn.is-primary{height:36px;padding:0 18px;border-radius:10px;
   border-color:transparent;font-weight:600;gap:8px}
@@ -239,6 +242,16 @@ export const STYLES = `
 .dsh-lingualab-plus::before,.dsh-lingualab-plus::after{content:"";position:absolute;background:currentColor}
 .dsh-lingualab-plus::before{left:6px;top:0;width:1px;height:14px}
 .dsh-lingualab-plus::after{top:6px;left:0;width:14px;height:1px}
+/* The empty page's mark: the same two lines, larger and in the secondary colour. */
+.dsh-lingualab-plus.is-lg{width:22px;height:22px;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-plus.is-lg::before{left:10px;height:22px}
+.dsh-lingualab-plus.is-lg::after{top:10px;width:22px}
+/* The home while the listing loads: four bars where the stage will be, then one line of text. */
+.dsh-lingualab-sk-home{gap:0;margin:14px 32px 0}
+.dsh-lingualab-sk-home .dsh-lingualab-sk-title{margin-top:14px}
+.dsh-lingualab-sk-home .dsh-lingualab-sk-cells{margin-top:22px}
+.dsh-lingualab-sk-home .dsh-lingualab-sk-button{margin-top:20px}
+.dsh-lingualab-sk-note{margin:14px 0 0;font-size:12.5px;color:var(--ll-muted)}
 .dsh-lingualab-episode-row{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;padding:10px 12px;
   border:0;border-radius:10px;background:none;color:inherit;font:inherit;cursor:pointer;text-align:left;
   transition:background var(--ll-fade),opacity var(--ll-fade)}

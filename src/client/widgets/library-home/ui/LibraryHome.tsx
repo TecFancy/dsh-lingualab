@@ -494,9 +494,10 @@ export function LibraryHome({
 
             {empty ? (
               <div className="dsh-lingualab-welcome">
+                <span className="dsh-lingualab-plus is-lg" aria-hidden />
                 <h1>{t('welcomeTitle')}</h1>
-                <p>{t('welcomeBody')}</p>
-                <div className="dsh-lingualab-actions" style={{ justifyContent: 'center' }}>
+                <p className="dsh-lingualab-welcome-body">{t('welcomeBody')}</p>
+                <div className="dsh-lingualab-welcome-act">
                   <FilePicker className="dsh-lingualab-btn is-primary" onFiles={onFiles} disabled={importer.busy}>
                     {t('chooseFiles')}
                   </FilePicker>
@@ -504,7 +505,7 @@ export function LibraryHome({
                     {t('browseExisting')}
                   </button>
                 </div>
-                <p className="dsh-lingualab-hint">{t('welcomeNaming')}</p>
+                <p className="dsh-lingualab-welcome-naming">{t('welcomeNaming')}</p>
               </div>
             ) : null}
 
@@ -519,7 +520,7 @@ export function LibraryHome({
               />
             ) : null}
 
-            {review !== null && review.total > 0 ? (
+            {!loading && review !== null && review.total > 0 ? (
               <ReviewBar t={t} review={review} opening={opening} onReview={onReview} />
             ) : null}
 

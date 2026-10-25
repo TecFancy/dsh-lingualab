@@ -32,6 +32,9 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Changed
 
+- An empty library is no longer a dashed card: a centred plus sign, the promise, the two ways in, the
+  naming rule, and a footer that drops its hairline. The first load shows four skeleton bars in the
+  shape of the stage rather than four stat blocks.
 - The rest of the library is a list of rows rather than a grid of cards: a title with where practice
   stopped on the right, one line of facts, and the same segment bar pressed down to 5px. A finished
   episode's title steps back and gets a green dot, and the drop strip becomes a quiet rule with a plus
