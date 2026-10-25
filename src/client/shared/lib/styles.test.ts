@@ -75,8 +75,9 @@ describe('the stylesheet', () => {
     // The rules the mode replaced: a shown picture hidden under 1000px, the strip of 100cqh less 880px, the 440px hide.
     expect(STYLES).not.toContain('max-height:1000px')
     expect(STYLES).not.toContain('880px')
-    expect(STYLES).not.toContain('max-width:440px')
-    expect(STYLES).not.toContain('max-width:520px')
+    // 440px and 520px may still be a box's own width; what must not come back is a container query
+    // that hides a panel at either step.
+    expect(STYLES).not.toMatch(/@container[^{]*\(max-width:(440|520)px\)/)
   })
 
   it('gives the timing panel its full height from the first frame to the last, and moves only the card', () => {

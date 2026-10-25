@@ -8,41 +8,36 @@
  */
 
 /** One shimmering bar. */
-function Bar({ width, height, radius }: { readonly width: string; readonly height: number; readonly radius?: number }) {
-  return <span className="dsh-lingualab-sk" style={{ width, height, borderRadius: radius ?? 8 }} />
+function Bar({
+  width,
+  height,
+  radius,
+  className,
+}: {
+  readonly width: string
+  readonly height: number
+  readonly radius?: number
+  readonly className?: string
+}) {
+  const classes = className === undefined ? 'dsh-lingualab-sk' : `dsh-lingualab-sk ${className}`
+  return <span className={classes} style={{ width, height, borderRadius: radius ?? 8 }} />
 }
 
-/** The home page while the library listing loads. */
+/**
+ * The home page while the library listing loads.
+ *
+ * Four bars where the stage will be: the small line above the title, the title, the strip of
+ * segments, and the one button. The page does not jump when the listing lands, and the reader
+ * is not shown a grid of numbers that is not a thing the page has.
+ */
 export function HomeSkeleton({ label }: { readonly label: string }) {
   return (
-    <div className="dsh-lingualab-sk-wrap" role="status" aria-live="polite" aria-label={label}>
-      <div className="dsh-lingualab-sk-resume">
-        <Bar width="84px" height={12} />
-        <Bar width="62%" height={30} />
-        <div className="dsh-lingualab-sk-row">
-          <Bar width="72px" height={12} />
-          <Bar width="56px" height={12} />
-          <Bar width="96px" height={12} />
-        </div>
-        <Bar width="100%" height={6} radius={999} />
-        <Bar width="148px" height={40} radius={999} />
-      </div>
-      <div className="dsh-lingualab-sk-row">
-        <Bar width="96px" height={16} />
-      </div>
-      <div className="dsh-lingualab-sk-grid">
-        {[0, 1, 2].map((index) => (
-          <div className="dsh-lingualab-sk-card" key={index}>
-            <div className="dsh-lingualab-sk-row is-between">
-              <Bar width="32px" height={32} radius={10} />
-              <Bar width="56px" height={20} radius={999} />
-            </div>
-            <Bar width="86%" height={16} />
-            <Bar width="52%" height={12} />
-            <Bar width="100%" height={4} radius={999} />
-          </div>
-        ))}
-      </div>
+    <div className="dsh-lingualab-sk-wrap dsh-lingualab-sk-home" role="status" aria-live="polite" aria-label={label}>
+      <Bar width="72px" height={12} radius={4} />
+      <Bar className="dsh-lingualab-sk-title" width="280px" height={28} radius={4} />
+      <Bar className="dsh-lingualab-sk-cells" width="100%" height={14} radius={4} />
+      <Bar className="dsh-lingualab-sk-button" width="112px" height={36} radius={10} />
+      <p className="dsh-lingualab-sk-note">{label}</p>
     </div>
   )
 }
