@@ -32,6 +32,10 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Changed
 
+- The rest of the library is a list of rows rather than a grid of cards: a title with where practice
+  stopped on the right, one line of facts, and the same segment bar pressed down to 5px. A finished
+  episode's title steps back and gets a green dot, and the drop strip becomes a quiet rule with a plus
+  sign instead of a dashed box.
 - The first block of the home is a stage, not a card: an eyebrow, the episode title at 40px, one cell
   per segment filled by the position already recorded, a single line of facts, and the only solid
   button on the page. The weekly pass becomes a thin bar under it, with the count at 36px and the
