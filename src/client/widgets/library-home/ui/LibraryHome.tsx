@@ -24,15 +24,25 @@
  * release exists. It is a fact about the page, not a job on it, so it goes last and
  * lightest: in the first row it competed with the one thing the reader came to press.
  */
-import { findSegment, hasMedia, segmentLabel, videoMarkOf } from '../../../features/library/index.ts'
-import { episodeProgress, type EpisodeProgress, type Progress } from '../../../features/resume/index.ts'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { findSegment, hasMedia, segmentLabel, segmentNumber, videoMarkOf } from '../../../features/library/index.ts'
+import {
+  episodeProgress,
+  finishedSegments,
+  isFinished,
+  type EpisodeProgress,
+  type PositionTable,
+  type Progress,
+} from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import { formatBytes, formatClock } from '../../../shared/lib/format.ts'
-import { AudioIcon, FolderIcon, PlayIcon, StarIcon, UploadIcon, VideoIcon } from '../../../shared/ui/icons.tsx'
+import { segmentProgress } from '../../../shared/progress.ts'
+import { AudioIcon, FolderIcon, UploadIcon, VideoIcon } from '../../../shared/ui/icons.tsx'
 import { HomeSkeleton } from '../../../shared/ui/Skeleton.tsx'
-import type { EpisodeEntry, LibraryPayload, ReviewPayload } from '../../../shared/protocol.ts'
+import type { EpisodeEntry, LibraryPayload, ReviewEpisode, ReviewPayload } from '../../../shared/protocol.ts'
 import type { Translate } from '../../../context.ts'
 import type { UpdateStatus } from '../../../features/update/index.ts'
+import { fitSources, SOURCE_GAP } from '../lib/review-sources.ts'
 import { DropZone, FilePicker } from './DropZone.tsx'
 import { PageFooter } from './PageFooter.tsx'
 
@@ -139,6 +149,286 @@ function sizeOf(entry: EpisodeEntry): number | null {
   return entry.audioBytes ?? entry.video?.bytes ?? null
 }
 
+/** One item of an episode's say line: what it says, and whether it is a warning. */
+interface SayPart {
+  readonly text: string
+  readonly warn: boolean
+}
+
+/**
+ * What an episode is, one item at a time: subtitles, video, kept phrases, hard ones, size.
+ *
+ * The stage and the rows say the same things in the same order, so the parts are built once
+ * and joined by whatever draws them. An item with nothing to say is left out, never printed
+ * as a zero. The caller joins them with ` · `.
+ */
+function episodeSay(t: Translate, entry: EpisodeEntry): readonly SayPart[] {
+  const parts: SayPart[] = []
+  parts.push({ text: subtitleWord(t, entry), warn: subtitleTone(entry) === 'warn' })
+  const video = videoMarkOf(entry)
+  if (video === 'ready') parts.push({ text: t('videoMark'), warn: false })
+  else if (video === 'unprepared') parts.push({ text: t('videoMarkUnprepared'), warn: true })
+  if (entry.notes.count > 0) {
+    parts.push({
+      text:
+        entry.notes.review > 0
+          ? t('homeKeptReview', { count: entry.notes.count, review: entry.notes.review })
+          : t('homeKept', { count: entry.notes.count }),
+      warn: false,
+    })
+  }
+  if (entry.notes.hard > 0) parts.push({ text: t('homeHard', { count: entry.notes.hard }), warn: false })
+  const size = formatBytes(sizeOf(entry))
+  if (size !== '') parts.push({ text: size, warn: false })
+  return parts
+}
+
+/** The say line as one sentence, its warning items in the warning colour. */
+function SayLine({ parts }: { readonly parts: readonly SayPart[] }) {
+  return (
+    <p className="dsh-lingualab-say">
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index === 0 ? null : ' · '}
+          {part.warn ? <em className="is-warn">{part.text}</em> : part.text}
+        </Fragment>
+      ))}
+    </p>
+  )
+}
+
+/** One cell of the segment strip: how far into it listening got, and whether it was heard out. */
+interface CellSpec {
+  readonly at: number
+  readonly duration: number
+  readonly finished: boolean
+}
+
+/** What the position table says about each segment of an episode, in segment order. */
+function segmentCells(
+  progress: PositionTable,
+  entry: EpisodeEntry,
+  summary: EpisodeProgress,
+): readonly CellSpec[] {
+  if (entry.segments.length === 0) {
+    const item = summary.entry
+    return [{ at: item?.at ?? 0, duration: item?.duration ?? 0, finished: isFinished(item) }]
+  }
+  const ids = entry.segments.map((segment) => segment.id)
+  const done = finishedSegments(progress, entry)
+  return entry.segments.map((segment) => {
+    const item = segmentProgress(progress, entry.id, segment.id, ids)
+    return { at: item?.at ?? 0, duration: item?.duration ?? 0, finished: done.has(segment.id) }
+  })
+}
+
+/** Which cell carries the current position: the segment the big number names. */
+function currentCell(entry: EpisodeEntry, summary: EpisodeProgress): number | null {
+  if (summary.entry === null || entry.segments.length === 0) return null
+  const id = summary.next === summary.segment ? summary.segment : summary.next
+  const index = entry.segments.findIndex((segment) => segment.id === id)
+  return index < 0 ? null : index
+}
+
+/**
+ * One cell per segment, drawn to the size the stage or a row gives it.
+ *
+ * A finished cell is filled; the current one is taller and filled as far as listening got,
+ * and when its length is unknown it keeps the height of the others and gets a ring instead,
+ * so an unknown length does not read as a layout mistake. A single file has one cell.
+ */
+function SegmentCells({
+  cells,
+  current,
+  variant,
+}: {
+  readonly cells: readonly CellSpec[]
+  readonly current: number | null
+  readonly variant: 'stage' | 'row' | 'file'
+}) {
+  return (
+    <div className={`dsh-lingualab-cells is-${variant}`} aria-hidden="true">
+      {cells.map((cell, index) => {
+        const now = index === current
+        const fill = cell.duration > 0 ? Math.min(1, Math.max(0, cell.at / cell.duration)) : null
+        const classes = ['dsh-lingualab-seg']
+        if (cell.finished) classes.push('is-done')
+        if (now) classes.push('is-now')
+        if (now && fill === null) classes.push('is-hollow')
+        return (
+          <span key={index} className={classes.join(' ')}>
+            {fill !== null && (now || variant === 'file') ? <i style={{ width: `${String(fill * 100)}%` }} /> : null}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+/** The stage's right column: the number of the segment to continue, or the clock for a whole file. */
+function StageWhere({
+  t,
+  entry,
+  summary,
+}: {
+  readonly t: Translate
+  readonly entry: EpisodeEntry
+  readonly summary: EpisodeProgress
+}) {
+  const item = summary.entry
+  if (item === null) {
+    return (
+      <div className="dsh-lingualab-where">
+        <div className="dsh-lingualab-where-num is-word">{t('homeNotStarted')}</div>
+      </div>
+    )
+  }
+  if (entry.segments.length === 0) {
+    return (
+      <div className="dsh-lingualab-where">
+        <div className="dsh-lingualab-where-num">{formatClock(item.at)}</div>
+        {item.duration > 0 ? <div className="dsh-lingualab-where-sub">{t('homeWholeFile')}</div> : null}
+      </div>
+    )
+  }
+  // Continuing an episode whose last segment was heard out names the next segment, not the
+  // one that was just finished, because that is the place the button opens.
+  const next = summary.next !== summary.segment
+  const segment = findSegment(entry.segments, next ? summary.next : summary.segment)
+  return (
+    <div className="dsh-lingualab-where">
+      <div className="dsh-lingualab-where-num">{segment === null ? '' : segmentNumber(segment)}</div>
+      <div className="dsh-lingualab-where-sub">{next ? t('homeNextSegment') : formatClock(item.at)}</div>
+    </div>
+  )
+}
+
+/**
+ * The stage: the one episode to continue, as the biggest thing on the page.
+ *
+ * Not a card. It says where listening stopped (a segment number, a clock, or 「还没开始」),
+ * draws one cell per segment, and offers the page's only filled button.
+ */
+function Stage({
+  t,
+  entry,
+  summary,
+  progress,
+  opening,
+  onOpen,
+}: {
+  readonly t: Translate
+  readonly entry: EpisodeEntry
+  readonly summary: EpisodeProgress
+  readonly progress: PositionTable
+  readonly opening: boolean
+  readonly onOpen: (id: string) => void
+}) {
+  const say = episodeSay(t, entry)
+  return (
+    <section className="dsh-lingualab-resume">
+      <p className="dsh-lingualab-kicker">{summary.entry === null ? t('homeStart') : t('homeContinue')}</p>
+      <div className="dsh-lingualab-resume-head">
+        <h1 className="dsh-lingualab-resume-title">{entry.title}</h1>
+        <StageWhere t={t} entry={entry} summary={summary} />
+      </div>
+      <SegmentCells
+        cells={segmentCells(progress, entry, summary)}
+        current={currentCell(entry, summary)}
+        variant={entry.segments.length === 0 ? 'file' : 'stage'}
+      />
+      {entry.segments.length === 0 ? null : (
+        <p className="dsh-lingualab-meter">
+          {summary.entry === null
+            ? t('homeSegmentTotal', { total: summary.total })
+            : t('homeSegmentCount', { done: summary.finished, total: summary.total })}
+        </p>
+      )}
+      {say.length === 0 ? null : <SayLine parts={say} />}
+      <div className="dsh-lingualab-stage-act">
+        <button
+          type="button"
+          className="dsh-lingualab-btn is-primary"
+          onClick={() => onOpen(entry.id)}
+          disabled={opening}
+        >
+          {opening ? <span className="dsh-lingualab-spinner" aria-hidden /> : <span className="dsh-lingualab-tri" aria-hidden />}
+          {summary.entry === null ? t('startPractice') : t('resumePractice')}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Which episodes the kept sentences come from.
+ *
+ * The list gets two rows; past that the last item becomes 「等 N 集」, so the bar cannot grow
+ * with the library. Which items land on the first row depends on their titles, so the widths
+ * are measured after the first paint and `fitSources` decides; before that everything is drawn
+ * and no summary is shown. Remounted when the episodes change, so the measurement starts over.
+ */
+function ReviewSources({ t, episodes }: { readonly t: Translate; readonly episodes: readonly ReviewEpisode[] }) {
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const [shown, setShown] = useState<number | null>(null)
+  useEffect(() => {
+    const list = listRef.current
+    if (list === null) return
+    const widths = [...list.children].map((item) => item.getBoundingClientRect().width)
+    const fit = fitSources(widths, list.clientWidth, SOURCE_GAP)
+    if (fit.shown < widths.length) setShown(fit.shown)
+  }, [])
+  const visible = shown === null ? episodes : episodes.slice(0, Math.max(0, shown - 1))
+  const rest = shown === null ? 0 : episodes.length - shown + 1
+  return (
+    <ul className="dsh-lingualab-reviewcard-from" ref={listRef}>
+      {visible.map((item) => (
+        <li key={item.episode}>
+          {item.title} <b>{t('reviewFromCount', { count: item.phrases.length })}</b>
+        </li>
+      ))}
+      {rest > 0 ? <li>{t('reviewFromMore', { count: rest })}</li> : null}
+    </ul>
+  )
+}
+
+/** The weekly pass: how many kept sentences are still being practised, and where they come from. */
+function ReviewBar({
+  t,
+  review,
+  opening,
+  onReview,
+}: {
+  readonly t: Translate
+  readonly review: ReviewPayload
+  readonly opening: boolean
+  readonly onReview: () => void
+}) {
+  return (
+    <section className="dsh-lingualab-reviewcard">
+      <div className="dsh-lingualab-reviewcard-top">
+        <div className="dsh-lingualab-reviewcard-main">
+          <p className="dsh-lingualab-kicker">{t('reviewHomeTitle')}</p>
+          <div className="dsh-lingualab-reviewcard-line">
+            <span className="dsh-lingualab-reviewcard-num">{review.total}</span>
+            <span className="dsh-lingualab-reviewcard-sub">
+              {t('reviewHomeSub', { count: review.total, episodes: review.episodes.length })}
+            </span>
+          </div>
+        </div>
+        <button type="button" className="dsh-lingualab-btn" onClick={onReview} disabled={opening}>
+          {t('reviewHomeStart')}
+        </button>
+      </div>
+      <ReviewSources
+        key={review.episodes.map((item) => item.episode).join('|')}
+        t={t}
+        episodes={review.episodes}
+      />
+    </section>
+  )
+}
+
 /** The home page of the panel. */
 export function LibraryHome({
   t,
@@ -204,23 +494,18 @@ export function LibraryHome({
             ) : null}
 
             {resume !== null ? (
-              <ResumeCard t={t} entry={resume} summary={episodeProgress(progress, resume)} opening={opening} onOpen={onOpen} />
+              <Stage
+                t={t}
+                entry={resume}
+                summary={episodeProgress(progress, resume)}
+                progress={progress}
+                opening={opening}
+                onOpen={onOpen}
+              />
             ) : null}
 
             {review !== null && review.total > 0 ? (
-              <section className="dsh-lingualab-reviewcard">
-                <span className="dsh-lingualab-reviewcard-icon">
-                  <StarIcon size={18} filled />
-                </span>
-                <span className="dsh-lingualab-reviewcard-text">
-                  <strong>{t('reviewHomeTitle')}</strong>
-                  <span>{t('reviewHomeSub', { count: review.total, episodes: review.episodes.length })}</span>
-                </span>
-                <span className="dsh-lingualab-spacer" />
-                <button type="button" className="dsh-lingualab-btn" onClick={onReview} disabled={opening}>
-                  <PlayIcon size={13} /> {t('reviewHomeStart')}
-                </button>
-              </section>
+              <ReviewBar t={t} review={review} opening={opening} onReview={onReview} />
             ) : null}
 
             {rest.length > 0 ? (
@@ -277,64 +562,6 @@ export function LibraryHome({
           </div>
       </DropZone>
     </div>
-  )
-}
-
-/**
- * The big "continue where you stopped" card.
- *
- * For an episode cut into segments the button continues the segment listened to most
- * recently; the page chooses it when it opens the episode, so this card only says where
- * that is.
- */
-function ResumeCard({
-  t,
-  entry,
-  summary,
-  opening,
-  onOpen,
-}: {
-  readonly t: Translate
-  readonly entry: EpisodeEntry
-  readonly summary: EpisodeProgress
-  readonly opening: boolean
-  readonly onOpen: (id: string) => void
-}) {
-  const { fraction } = summary
-  const progress = summary.entry
-  const stopped = stoppedWord(t, entry, summary)
-  return (
-    <section className="dsh-lingualab-resume">
-      <div className="dsh-lingualab-resume-label">{progress === null ? t('homeStart') : t('homeContinue')}</div>
-      <h1 className="dsh-lingualab-resume-title">{cardTitle(t, entry, summary)}</h1>
-      <div className="dsh-lingualab-resume-meta">
-        <span>{subtitleWord(t, entry)}</span>
-        <span>{formatBytes(sizeOf(entry))}</span>
-        <VideoMark t={t} entry={entry} />
-        {entry.notes.count > 0 ? (
-          <span>
-            {t('notesKept')} {entry.notes.count}
-          </span>
-        ) : null}
-        {stopped !== null ? <span>{stopped}</span> : null}
-      </div>
-      {progress !== null && fraction > 0 ? (
-        <div className="dsh-lingualab-bar" aria-hidden>
-          <div className="dsh-lingualab-bar-fill" style={{ width: `${String(fraction * 100)}%` }} />
-        </div>
-      ) : null}
-      <div className="dsh-lingualab-actions">
-        <button
-          type="button"
-          className="dsh-lingualab-btn is-primary is-large"
-          onClick={() => onOpen(entry.id)}
-          disabled={opening}
-        >
-          {opening ? <span className="dsh-lingualab-spinner" aria-hidden /> : <PlayIcon size={16} />}{' '}
-          {progress === null ? t('startPractice') : t('resumePractice')}
-        </button>
-      </div>
-    </section>
   )
 }
 
@@ -398,7 +625,7 @@ function ImportReport({
 
   return (
     <div className="dsh-lingualab-report" role="status">
-      <div className="dsh-lingualab-actions">
+      <div className="dsh-lingualab-report-top">
         <strong>
           {importer.busy
             ? t('importing', { done: importer.done, total: importer.total })
@@ -427,9 +654,8 @@ function ImportReport({
         ) : null}
       </div>
       {importer.busy ? (
-        <div className="dsh-lingualab-bar" aria-hidden>
-          <div
-            className="dsh-lingualab-bar-fill"
+        <div className="dsh-lingualab-filebar" aria-hidden>
+          <i
             style={{ width: `${String(importer.total === 0 ? 0 : (importer.done / importer.total) * 100)}%` }}
           />
         </div>

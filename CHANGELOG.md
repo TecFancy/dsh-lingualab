@@ -30,6 +30,16 @@ the plugin that was installed and used, not an artifact on a registry.
   a newer tag is reported only, in the one state that is emphasised. A check that cannot answer says
   so and offers a retry; it is never shown as "up to date".
 
+### Changed
+
+- The first block of the home is a stage, not a card: an eyebrow, the episode title at 40px, one cell
+  per segment filled by the position already recorded, a single line of facts, and the only solid
+  button on the page. The weekly pass becomes a thin bar under it, with the count at 36px and the
+  names of the episodes the sentences come from; when they need more than two rows the last name
+  becomes 「等 N 集」. The import report keeps its behaviour and loses its card chrome. Spacing moves
+  from one gap on the container to each block's own padding, so neighbouring blocks no longer share
+  one rhythm.
+
 ## [0.17.0] - 2026-10-24
 
 ### Changed
