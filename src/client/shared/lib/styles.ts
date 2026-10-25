@@ -164,15 +164,16 @@ export const STYLES = `
 .dsh-lingualab-cells.is-file.is-row .dsh-lingualab-seg{height:5px}
 .dsh-lingualab-meter{margin-top:8px;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);
   font-variant-numeric:tabular-nums}
-.dsh-lingualab-say{margin:18px 0 0;font-size:13px;line-height:1.5;
+.dsh-lingualab-say{display:block;margin:18px 0 0;font-size:13px;line-height:1.5;
   color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-say.is-small{margin:0;font-size:12.5px;line-height:1.45}
 .dsh-lingualab-say .is-warn{color:var(--dsw-alias-state-warn-primary,#f59e0b);font-style:normal;
   font-weight:500}
 .dsh-lingualab-stage-act{display:flex;align-items:center;gap:12px;margin-top:22px}
 /* The play mark is a CSS triangle, not one of the icons. */
 .dsh-lingualab-tri{width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;
   border-color:transparent transparent transparent currentColor}
-.dsh-lingualab-section{display:flex;flex-direction:column;gap:8px;padding:0 32px}
+.dsh-lingualab-section{display:flex;flex-direction:column;padding:36px 32px 0}
 /* The home's weekly pass: how much is left to review across the library, where it comes from,
    and its button. One hairline above and below, nothing else. */
 .dsh-lingualab-reviewcard{display:flex;flex-direction:column;margin:0 32px;padding:20px 0 16px;
@@ -196,29 +197,48 @@ export const STYLES = `
   border-color:transparent;font-weight:600;gap:8px}
 .dsh-lingualab-home .dsh-lingualab-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#0f1115);
   outline-offset:2px}
-.dsh-lingualab-section-head{display:flex;align-items:center;gap:8px}
-.dsh-lingualab-section-head h2{margin:0;font-size:14px;font-weight:600}
-.dsh-lingualab-episodes{display:flex;flex-direction:column;gap:2px}
-.dsh-lingualab-episodes.is-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-.dsh-lingualab-episode-card{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:16px;border-radius:16px;
-  text-align:left;color:inherit;font:inherit;cursor:pointer;background:var(--dsw-alias-bg-layer-1,transparent);
-  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));
-  transition:transform var(--ll-fade),border-color var(--ll-fade),box-shadow var(--ll-fade),opacity var(--ll-fade)}
-.dsh-lingualab-episode-card:hover:not(:disabled){transform:translateY(-2px);
-  border-color:var(--dsw-alias-brand-primary,#0f1115);box-shadow:0 10px 26px rgba(0,0,0,0.14)}
-.dsh-lingualab-episode-card:active:not(:disabled){transform:none}
-.dsh-lingualab-episode-card:disabled{opacity:0.6;cursor:default}
-.dsh-lingualab-episode-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.dsh-lingualab-episode-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
-  border-radius:10px;color:var(--dsw-alias-brand-primary,#0f1115);
-  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 12%,transparent)}
-.dsh-lingualab-episode-title{font-size:16px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;
-  -webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-.dsh-lingualab-dropstrip{display:flex;align-items:center;gap:12px;margin:0 32px;padding:14px 18px;border-radius:14px;
-  border:1.5px dashed var(--dsw-alias-border-l2,rgba(0,0,0,0.1));color:var(--dsw-alias-label-secondary,#61666b);
-  transition:border-color var(--ll-fade),background var(--ll-fade)}
-.dsh-lingualab-drop.is-over .dsh-lingualab-dropstrip{border-color:var(--dsw-alias-brand-primary,#0f1115);
-  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 8%,transparent)}
+/* A text button: the browse line, which is a word rather than a control frame. */
+.dsh-lingualab-home .dsh-lingualab-btn.is-text{border-color:transparent;padding:0 8px;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+/* The list of the other episodes: a heading with the count and the two ways to add more, then
+   one row per episode. Nothing here is a card: a hairline under each row is the whole frame. */
+.dsh-lingualab-section-head{display:flex;align-items:center;gap:8px;margin:0 0 4px}
+.dsh-lingualab-section-head h2{margin:0;font-size:15px;font-weight:600;
+  color:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-count{font-size:12px;color:var(--ll-muted);font-variant-numeric:tabular-nums}
+.dsh-lingualab-episodes{display:flex;flex-direction:column}
+.dsh-lingualab-episode-card{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%;
+  padding:15px 0;border:0;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));
+  background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;
+  transition:background var(--ll-fade),opacity var(--ll-fade)}
+.dsh-lingualab-episode-card:hover:not(:disabled){background:var(--ll-hover)}
+.dsh-lingualab-episode-card:disabled{opacity:0.45;cursor:default}
+.dsh-lingualab-episode-head{display:flex;align-items:baseline;gap:16px}
+.dsh-lingualab-episode-title{flex:1;min-width:0;font-size:16px;font-weight:600;line-height:1.35;
+  letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;word-break:break-word}
+.dsh-lingualab-episode-card.is-done .dsh-lingualab-episode-title{
+  color:var(--dsw-alias-label-secondary,#61666b);font-weight:500}
+.dsh-lingualab-episode-where{flex:none;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dsh-lingualab-episode-where.is-quiet{color:var(--ll-muted)}
+/* The mark of a row heard to the end: a dot, not an icon. */
+.dsh-lingualab-dot{display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;
+  background:var(--dsw-alias-state-success-primary,#22c55e);vertical-align:1px}
+.dsh-lingualab-dropstrip{display:flex;align-items:center;gap:12px;margin:8px 32px 0;padding:16px 0;
+  border-top:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));
+  color:var(--dsw-alias-label-secondary,#61666b);font-size:13px;
+  transition:border-color var(--ll-fade),background var(--ll-fade),color var(--ll-fade)}
+.dsh-lingualab-drop.is-over .dsh-lingualab-dropstrip{border-top-color:var(--dsw-alias-brand-primary,#0f1115);
+  color:var(--dsw-alias-label-primary,inherit);background:var(--ll-wash)}
+/* Dropping shows the one sentence that says what letting go does. */
+.dsh-lingualab-dropstrip-release{display:none}
+.dsh-lingualab-drop.is-over .dsh-lingualab-dropstrip-text{display:none}
+.dsh-lingualab-drop.is-over .dsh-lingualab-dropstrip-release{display:inline}
+/* The add mark of the drop strip, two 1px lines, drawn rather than an icon. */
+.dsh-lingualab-plus{position:relative;width:14px;height:14px;flex:none}
+.dsh-lingualab-plus::before,.dsh-lingualab-plus::after{content:"";position:absolute;background:currentColor}
+.dsh-lingualab-plus::before{left:6px;top:0;width:1px;height:14px}
+.dsh-lingualab-plus::after{top:6px;left:0;width:14px;height:1px}
 .dsh-lingualab-episode-row{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;padding:10px 12px;
   border:0;border-radius:10px;background:none;color:inherit;font:inherit;cursor:pointer;text-align:left;
   transition:background var(--ll-fade),opacity var(--ll-fade)}

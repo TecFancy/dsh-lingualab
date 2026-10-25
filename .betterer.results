@@ -424,7 +424,9 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1240)", "max-lines:file@0#100"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1250)", "max-lines:file@0#101"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1260)", "max-lines:file@0#102"],
-      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1270)", "max-lines:file@0#103"]
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1270)", "max-lines:file@0#103"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1280)", "max-lines:file@0#104"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 1290)", "max-lines:file@0#105"]
     ],
     "src/client/shared/ui/icons.tsx:1740066914": [
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 250)", "max-lines:file@0#1"]
@@ -619,18 +621,17 @@ exports[`no-size-regression`] = {
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 520)", "max-lines:file@0#28"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 530)", "max-lines:file@0#29"],
       [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 540)", "max-lines:file@0#30"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 550)", "max-lines:file@0#31"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 560)", "max-lines:file@0#32"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 570)", "max-lines:file@0#33"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 580)", "max-lines:file@0#34"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 590)", "max-lines:file@0#35"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 600)", "max-lines:file@0#36"],
+      [0, 0, 0, "eslint(max-lines): file is over 250 lines (more than 610)", "max-lines:file@0#37"],
       [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'LibraryHome\'@0#1"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 90)", "max-lines-per-function:Function \'LibraryHome\'@0#2"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 100)", "max-lines-per-function:Function \'LibraryHome\'@0#3"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 110)", "max-lines-per-function:Function \'LibraryHome\'@0#4"],
-      [0, 0, 0, "eslint(max-lines-per-function): Function \'LibraryHome\' is over 80 lines (more than 120)", "max-lines-per-function:Function \'LibraryHome\'@0#5"],
       [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 16)", "complexity:Function \'LibraryHome\'@0#1"],
       [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 17)", "complexity:Function \'LibraryHome\'@0#2"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 18)", "complexity:Function \'LibraryHome\'@0#3"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 19)", "complexity:Function \'LibraryHome\'@0#4"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 20)", "complexity:Function \'LibraryHome\'@0#5"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 21)", "complexity:Function \'LibraryHome\'@0#6"],
-      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 22)", "complexity:Function \'LibraryHome\'@0#7"]
+      [0, 0, 0, "eslint(complexity): Function \'LibraryHome\' is over complexity 15 (reaches 18)", "complexity:Function \'LibraryHome\'@0#3"]
     ],
     "src/client/widgets/notes-panel/ui/NotesPanel.tsx:929442158": [
       [0, 0, 0, "eslint(max-lines-per-function): Function \'NotesPanel\' is over 80 lines (more than 80)", "max-lines-per-function:Function \'NotesPanel\'@0#1"],
