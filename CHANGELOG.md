@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-25
+
 ### Added
 
 - The home closes with one quiet line saying which build it is (`v0.17.0 · 8609774`, with `+` when the
