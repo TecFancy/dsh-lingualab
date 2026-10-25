@@ -106,8 +106,8 @@ export const STYLES = `
 /* ── home ────────────────────────────────────────────────────── */
 .dsh-lingualab-home{flex:1;min-height:0;display:flex;flex-direction:column}
 .dsh-lingualab-drop{position:relative;flex:1;min-height:0;overflow:auto}
-.dsh-lingualab-home-inner{display:flex;flex-direction:column;gap:22px;width:min(900px,100%);
-  margin:0 auto;padding:28px 24px 32px;box-sizing:border-box}
+.dsh-lingualab-home-inner{display:flex;flex-direction:column;width:min(900px,100%);
+  margin:0 auto;padding:0;box-sizing:border-box}
 .dsh-lingualab-welcome{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
   padding:40px 24px;border:1.5px dashed var(--dsw-alias-border-l2,rgba(0,0,0,0.1));border-radius:16px;
   background:var(--dsw-alias-bg-layer-1,transparent);transition:border-color var(--ll-fade)}
@@ -123,21 +123,79 @@ export const STYLES = `
   background:var(--ll-surface);font-size:16px}
 .dsh-lingualab-drop-veil-card span{font-size:12px;color:var(--dsw-alias-label-secondary,#61666b)}
 
-.dsh-lingualab-resume{display:flex;flex-direction:column;gap:12px;padding:26px 28px;border-radius:20px;
-  border:0.5px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 35%,transparent);
-  background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 9%,var(--dsw-alias-bg-base,transparent))}
-.dsh-lingualab-resume-label{font-size:12px;color:var(--dsw-alias-brand-primary,#0f1115);font-weight:600;letter-spacing:.02em}
-.dsh-lingualab-resume-title{margin:0;font-size:28px;line-height:1.25;font-weight:700;letter-spacing:-.01em;word-break:break-word}
-.dsh-lingualab-resume-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--dsw-alias-label-secondary,#61666b)}
-.dsh-lingualab-section{display:flex;flex-direction:column;gap:8px}
-/* The home's weekly pass: how much is left to review across the library, and its button. */
-.dsh-lingualab-reviewcard{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:14px;
-  background:var(--dsw-alias-bg-layer-1,transparent);border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
-.dsh-lingualab-reviewcard-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;
-  flex:none;border-radius:10px;color:var(--dsw-alias-state-warn-primary,#f59e0b);
-  background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#f59e0b) 13%,transparent)}
-.dsh-lingualab-reviewcard-text{display:flex;flex-direction:column;gap:2px;min-width:0}
-.dsh-lingualab-reviewcard-text span{font-size:12.5px;color:var(--dsw-alias-label-secondary,#61666b)}
+/* The stage: the episode to continue, as the biggest thing on the page. No card, no fill,
+   no hairline; the weight comes from the type and the one filled button. */
+.dsh-lingualab-resume{display:flex;flex-direction:column;padding:40px 32px 32px}
+/* The small line above a block's heading, the same one on the stage and the review bar. */
+.dsh-lingualab-kicker{display:flex;align-items:center;gap:10px;margin:0;font-size:12px;font-weight:500;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-kicker::before{content:"";width:16px;height:1px;background:currentColor;opacity:.7}
+.dsh-lingualab-resume-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:28px;
+  align-items:baseline;margin-top:12px}
+.dsh-lingualab-resume-title{margin:0;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-.03em;
+  word-break:break-word}
+.dsh-lingualab-where{text-align:right}
+.dsh-lingualab-where-num{font-size:40px;line-height:1;font-weight:600;letter-spacing:-.04em;
+  font-variant-numeric:tabular-nums}
+.dsh-lingualab-where-num.is-word{font-size:15px;font-weight:500;letter-spacing:0;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-where-sub{margin-top:6px;font-size:13px;color:var(--dsw-alias-label-secondary,#61666b);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+/* One cell per segment. A finished cell is filled; the current one is taller than the rest and
+   filled as far as listening got. An unknown length keeps the height and gets a ring instead,
+   so it does not read as a layout mistake. A single file is one cell. */
+.dsh-lingualab-cells{display:flex;align-items:flex-end;gap:4px;height:20px;margin-top:26px}
+.dsh-lingualab-seg{position:relative;flex:1;height:12px;border-radius:2px;background:var(--ll-track);
+  overflow:hidden}
+.dsh-lingualab-seg.is-done{background:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-seg.is-now{height:20px}
+.dsh-lingualab-seg.is-now i{position:absolute;left:0;top:0;bottom:0;
+  background:var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-seg.is-now.is-hollow{height:12px;background:transparent;
+  box-shadow:inset 0 0 0 1.5px var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-cells.is-row{height:5px;margin-top:2px;align-items:center}
+.dsh-lingualab-cells.is-row .dsh-lingualab-seg,.dsh-lingualab-cells.is-row .dsh-lingualab-seg.is-now,
+.dsh-lingualab-cells.is-row .dsh-lingualab-seg.is-now.is-hollow{height:5px;box-shadow:none}
+.dsh-lingualab-cells.is-row .dsh-lingualab-seg.is-now.is-hollow{
+  box-shadow:inset 0 0 0 1px var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-cells.is-file{height:12px;align-items:center}
+.dsh-lingualab-cells.is-file .dsh-lingualab-seg{height:8px}
+.dsh-lingualab-cells.is-file.is-row{height:5px}
+.dsh-lingualab-cells.is-file.is-row .dsh-lingualab-seg{height:5px}
+.dsh-lingualab-meter{margin-top:8px;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);
+  font-variant-numeric:tabular-nums}
+.dsh-lingualab-say{margin:18px 0 0;font-size:13px;line-height:1.5;
+  color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-say .is-warn{color:var(--dsw-alias-state-warn-primary,#f59e0b);font-style:normal;
+  font-weight:500}
+.dsh-lingualab-stage-act{display:flex;align-items:center;gap:12px;margin-top:22px}
+/* The play mark is a CSS triangle, not one of the icons. */
+.dsh-lingualab-tri{width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;
+  border-color:transparent transparent transparent currentColor}
+.dsh-lingualab-section{display:flex;flex-direction:column;gap:8px;padding:0 32px}
+/* The home's weekly pass: how much is left to review across the library, where it comes from,
+   and its button. One hairline above and below, nothing else. */
+.dsh-lingualab-reviewcard{display:flex;flex-direction:column;margin:0 32px;padding:20px 0 16px;
+  border-top:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));
+  border-bottom:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
+.dsh-lingualab-reviewcard-top{display:flex;align-items:flex-end;gap:16px}
+.dsh-lingualab-reviewcard-main{min-width:0;flex:1}
+.dsh-lingualab-reviewcard-line{display:flex;align-items:baseline;gap:12px;margin-top:8px}
+.dsh-lingualab-reviewcard-num{font-size:36px;line-height:.85;font-weight:600;letter-spacing:-.04em;
+  font-variant-numeric:tabular-nums}
+.dsh-lingualab-reviewcard-sub{font-size:13px;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-reviewcard-from{display:flex;flex-wrap:wrap;gap:4px 18px;margin:12px 0 0;padding:0;
+  list-style:none;font-size:13px;color:var(--dsw-alias-label-secondary,#61666b)}
+.dsh-lingualab-reviewcard-from b{color:var(--dsw-alias-label-primary,inherit);font-weight:600;
+  font-variant-numeric:tabular-nums}
+/* The home's buttons: the filled one is 36px high, the outlined one 32px over a 1px hairline.
+   Scoped to the home, so the practice page keeps its own sizes. */
+.dsh-lingualab-home .dsh-lingualab-btn{height:32px;padding:0 14px;border-width:1px;
+  border-color:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-home .dsh-lingualab-btn.is-primary{height:36px;padding:0 18px;border-radius:10px;
+  border-color:transparent;font-weight:600;gap:8px}
+.dsh-lingualab-home .dsh-lingualab-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#0f1115);
+  outline-offset:2px}
 .dsh-lingualab-section-head{display:flex;align-items:center;gap:8px}
 .dsh-lingualab-section-head h2{margin:0;font-size:14px;font-weight:600}
 .dsh-lingualab-episodes{display:flex;flex-direction:column;gap:2px}
@@ -156,7 +214,7 @@ export const STYLES = `
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 12%,transparent)}
 .dsh-lingualab-episode-title{font-size:16px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;
   -webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-.dsh-lingualab-dropstrip{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:14px;
+.dsh-lingualab-dropstrip{display:flex;align-items:center;gap:12px;margin:0 32px;padding:14px 18px;border-radius:14px;
   border:1.5px dashed var(--dsw-alias-border-l2,rgba(0,0,0,0.1));color:var(--dsw-alias-label-secondary,#61666b);
   transition:border-color var(--ll-fade),background var(--ll-fade)}
 .dsh-lingualab-drop.is-over .dsh-lingualab-dropstrip{border-color:var(--dsw-alias-brand-primary,#0f1115);
@@ -166,13 +224,20 @@ export const STYLES = `
   transition:background var(--ll-fade),opacity var(--ll-fade)}
 .dsh-lingualab-episode-row:hover{background:var(--ll-hover)}
 .dsh-lingualab-episode-row:disabled{opacity:0.6;cursor:default}
-.dsh-lingualab-resume .dsh-lingualab-bar{height:6px}
 .dsh-lingualab-bar{position:relative;height:4px;border-radius:999px;background:var(--ll-track);overflow:hidden}
 .dsh-lingualab-bar.is-small{flex:none;width:64px;height:3px}
 .dsh-lingualab-bar-fill{position:absolute;top:0;bottom:0;left:0;border-radius:999px;
   background:var(--dsw-alias-brand-primary,#0f1115)}
-.dsh-lingualab-report{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:12px;
-  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));background:var(--dsw-alias-bg-layer-1,transparent)}
+/* A drop in progress or just finished: a note above the stage, marked by one vertical line
+   rather than a card, so it does not compete with the stage for the eye. */
+.dsh-lingualab-report{display:flex;flex-direction:column;gap:8px;margin:14px 32px 0;padding:2px 0 2px 14px;
+  border-left:2px solid var(--dsw-alias-label-primary,inherit)}
+.dsh-lingualab-report-top{display:flex;align-items:center;gap:8px}
+.dsh-lingualab-report-top strong{font-size:14px;font-weight:600}
+.dsh-lingualab-report .dsh-lingualab-hint,.dsh-lingualab-report .dsh-lingualab-warn,
+.dsh-lingualab-report .dsh-lingualab-error{padding:0;font-size:12.5px;line-height:1.55}
+.dsh-lingualab-filebar{height:4px;border-radius:999px;background:var(--ll-track);overflow:hidden}
+.dsh-lingualab-filebar i{display:block;height:100%;background:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-folderline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;
   color:var(--dsw-alias-label-secondary,#61666b)}
 .dsh-lingualab-link{border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:12px;
@@ -183,9 +248,9 @@ export const STYLES = `
    from the page, and the build line is the lowest and lightest thing on it, because it is a fact about
    the page and not a job on it. An empty library is one welcome card, so there the hairline is left out
    rather than drawn under nothing. */
-.dsh-lingualab-pagefoot{display:flex;flex-direction:column;gap:6px;
-  padding-top:14px;border-top:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
-.dsh-lingualab-pagefoot.is-empty{padding-top:0;border-top:0}
+.dsh-lingualab-pagefoot{display:flex;flex-direction:column;gap:6px;margin:12px 32px 0;padding:14px 0 28px;
+  border-top:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+.dsh-lingualab-pagefoot.is-empty{margin-top:0;padding-top:0;border-top:0}
 /* The build this page is, and whether a newer release exists. Quiet: it states a fact, it does not ask for anything. */
 .dsh-lingualab-versionline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;
   color:var(--ll-muted);padding:0 2px}
