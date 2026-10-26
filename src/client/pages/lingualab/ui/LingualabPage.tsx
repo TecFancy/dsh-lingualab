@@ -436,6 +436,7 @@ export function LingualabPage({ back, t }: LingualabPageProps) {
           library={library}
           importer={importer}
           progress={progress}
+          steps={resume.steps}
           review={reviewList.payload}
           settings={settings}
           onOpen={openEpisode}

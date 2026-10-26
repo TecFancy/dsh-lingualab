@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { segmentKey } from '../../../shared/progress.ts'
 import { clearProgress, fractionOf, readAllProgress, readProgress, writeProgress } from './progress.ts'
-import { readSteps, writeSteps } from './steps.ts'
+import { readAllSteps, readSteps, writeSteps } from './steps.ts'
 import { readTable, resetMigrationForTests } from './store.ts'
 
 /** The few `localStorage` members the modules use, over a plain map. */
@@ -104,6 +104,15 @@ describe('steps', () => {
     writeSteps('E1', { blind: { done: true, seconds: 61 } }, 1000)
     expect(readSteps('E1')).toEqual({ blind: { done: true, seconds: 61 } })
     expect(readSteps('E2')).toEqual({})
+  })
+
+  it('reads every episode at once, as the home shows them', () => {
+    writeSteps('E1', { blind: { done: true, seconds: 61 } }, 1000)
+    writeSteps('E2', { read: { done: false, seconds: 5 } }, 1000)
+    expect(readAllSteps()).toEqual({
+      E1: { blind: { done: true, seconds: 61 } },
+      E2: { read: { done: false, seconds: 5 } },
+    })
   })
 
   it('folds the per-episode keys of earlier versions into the table, once, and removes them', () => {
