@@ -27,7 +27,7 @@
  */
 import type { PluginContext } from './context.ts'
 import { en, zh } from './locale.ts'
-import { LingualabPage } from './pages/lingualab/index.ts'
+import { LinguaLabPage } from './pages/lingualab/index.ts'
 import { LauncherRow } from './widgets/launcher-row/index.ts'
 
 const NS = 'dsh-lingualab'
@@ -50,7 +50,7 @@ export function apply(ctx: PluginContext): void {
         locale: NS,
         inject: () => ({ back: () => ctx.layout.selectPanel(null) }),
       },
-      LingualabPage,
+      LinguaLabPage,
     ),
   )
 

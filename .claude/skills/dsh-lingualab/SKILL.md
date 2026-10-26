@@ -1,11 +1,11 @@
 ---
 name: dsh-lingualab
-description: 在 dsh-lingualab 仓库里改代码时的操作手册：改完怎么生效、怎么验证、分支怎么开，各类改动的细节放在 references/，用到时再读。提到「继续做语言实验室 / 改精听面板 / lingualab 出问题了」时加载。
+description: 在 dsh-lingualab 仓库里改代码时的操作手册：改完怎么生效、怎么验证、分支怎么开，各类改动的细节放在 references/，用到时再读。提到「继续做 LinguaLab / 改精听面板 / lingualab 出问题了」时加载。
 ---
 
 # dsh-lingualab 操作手册
 
-「语言实验室」是 dsh 的一个整页面板插件，把工作区里的音频与字幕变成逐句精听练习，笔记写回磁盘给
+LinguaLab 是 dsh 的一个整页面板插件，把工作区里的音频与字幕变成逐句精听练习，笔记写回磁盘给
 agent 读。默认分支是 `development`，合进 `main` 出版本，不发 npm。
 
 ## 改完怎么生效

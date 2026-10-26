@@ -14,7 +14,7 @@
 export const zh: Record<string, string> = {
   // ── 页面与顶栏 ────────────────────────────────────────────────
   back: '← 返回会话',
-  appTitle: '语言实验室',
+  appTitle: 'LinguaLab',
   backToList: '全部剧集',
   close: '关闭',
   cancel: '取消',
@@ -35,7 +35,7 @@ export const zh: Record<string, string> = {
 
   // ── 首页 ─────────────────────────────────────────────────────
   welcomeTitle: '把音频拖进来，就能开始',
-  welcomeBody: '拖入一个音频文件和它的字幕（srt、vtt、lrc），语言实验室会替你放好。也可以一次拖入很多集。',
+  welcomeBody: '拖入一个音频文件和它的字幕（srt、vtt、lrc），LinguaLab 会替你放好。也可以一次拖入很多集。',
   welcomeNaming: '字幕文件名以音频文件名开头就会自动配对，例如 s01e01.mp3 与 s01e01.en.srt、s01e01.zh.srt。',
   chooseFiles: '选择文件',
   browseExisting: '浏览已有的文件',
@@ -371,7 +371,7 @@ export const zh: Record<string, string> = {
 
   // ── 设置 ─────────────────────────────────────────────────────
   settingsTitle: '设置',
-  settingsSub: '只影响语言实验室，不改 dsh 本身',
+  settingsSub: '只影响 LinguaLab，不改 dsh 本身',
   settingsAppearance: '外观',
   settingsScheme: '明暗',
   settingsAppearanceAuto: '跟随 dsh',
@@ -489,7 +489,7 @@ export const zh: Record<string, string> = {
 /** English copy, same keys, same order. */
 export const en: Record<string, string> = {
   back: '← Back to conversation',
-  appTitle: 'Language Lab',
+  appTitle: 'LinguaLab',
   backToList: 'All episodes',
   close: 'Close',
   cancel: 'Cancel',
@@ -510,7 +510,7 @@ export const en: Record<string, string> = {
 
   welcomeTitle: 'Drop audio here to begin',
   welcomeBody:
-    'Drop an audio file with its subtitles (srt, vtt, lrc) and Language Lab files them for you. Dropping a whole season at once works too.',
+    'Drop an audio file with its subtitles (srt, vtt, lrc) and LinguaLab files them for you. Dropping a whole season at once works too.',
   welcomeNaming:
     'Subtitles pair up by name: a file that starts with the audio file name belongs to it, such as s01e01.mp3 with s01e01.en.srt and s01e01.zh.srt.',
   chooseFiles: 'Choose files',
@@ -836,7 +836,7 @@ export const en: Record<string, string> = {
   stepUndone: 'Undo done',
 
   settingsTitle: 'Settings',
-  settingsSub: 'Only changes Language Lab, not dsh itself',
+  settingsSub: 'Only changes LinguaLab, not dsh itself',
   settingsAppearance: 'Appearance',
   settingsScheme: 'Light or dark',
   settingsAppearanceAuto: 'Follow dsh',

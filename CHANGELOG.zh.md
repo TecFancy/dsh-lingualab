@@ -17,6 +17,13 @@
 
 ## [Unreleased]
 
+### 变更
+
+- 插件在中英两种语言里都叫 LinguaLab。窗口标题、左栏那一行、设置里的说明、锁屏的专辑名、
+  两份 README 和 `package.json` 的描述里，原来的「语言实验室」和「Language Lab」都换掉了。
+  标识符不动，仍然全小写：包名与 Loader 行 `dsh-lingualab`、`/lingualab/` 下的路由、
+  `main` 槽的键。页面组件改名，`LingualabPage` 现在叫 `LinguaLabPage`。
+
 ## [0.19.0] - 2026-10-26
 
 ### 变更
