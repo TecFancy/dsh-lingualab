@@ -13,6 +13,7 @@ import {
   episodeProgress,
   isFinished,
   practiceStatus,
+  stepBars,
   STEPS,
   type EpisodeProgress,
   type PositionTable,
@@ -93,10 +94,11 @@ function whereText(t: Translate, entry: EpisodeEntry, summary: EpisodeProgress):
  */
 function StepDots({ t, records, fresh }: { readonly t: Translate; readonly records: StepRecords; readonly fresh: boolean }) {
   const current = fresh ? null : currentStep(records)
+  const bars = stepBars(records, current?.id ?? null)
   return (
     <span className="dsh-lingualab-dots">
-      {STEPS.map((step) => {
-        const state = records[step.id]?.done === true ? ' is-done' : step.id === current?.id ? ' is-now' : ''
+      {STEPS.map((step, index) => {
+        const state = bars[index] === 'todo' ? '' : ` is-${bars[index] ?? ''}`
         return <span key={step.id} className={`dsh-lingualab-dot-bar${state}`} aria-hidden="true" />
       })}
       {fresh ? null : (

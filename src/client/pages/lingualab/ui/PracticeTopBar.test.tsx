@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
- * The practice top bar's right side, rendered to static markup: two groups named by what their buttons act on, the
- * thin line between them, and the order the second group keeps at the far right.
+ * The practice top bar's right side, rendered to static markup: the five steps, the thin line, and the two icon
+ * buttons at the far right, with the kept count on the column's toggle while the column is collapsed.
  *
  * The repository renders components to static markup rather than into a DOM, so what a screen reader names and in
  * what order the parts come is read from the markup.
@@ -40,7 +40,7 @@ const props: PracticeTopBarProps = {
   finishedIds: new Set(),
   segmentsOpen: false,
   sentence: null,
-  side: { collapsed: false, keptShown: false, toggleKept: noop, toggleCollapsed: noop },
+  side: { collapsed: false, toggleCollapsed: noop },
   keptCount: 0,
   stepsOpen: false,
   settings: <button type="button" aria-label={t('settingsTitle')}>settings</button>,
@@ -71,36 +71,48 @@ function group(name: string): string {
 }
 
 describe('the practice top bar right side', () => {
-  it('draws the right column group before the progress and settings group', () => {
+  it('draws the five steps group, the thin line, then the tools group', () => {
     expect(html.match(/role="group"/g)).toHaveLength(2)
-    const side = html.indexOf('aria-label="topGroupSide"')
-    const progress = html.indexOf('aria-label="topGroupProgress"')
+    const steps = html.indexOf('aria-label="topGroupSteps"')
+    const tools = html.indexOf('aria-label="topGroupTools"')
     const divider = html.indexOf('class="dsh-lingualab-top-divider"')
-    expect(side).toBeGreaterThanOrEqual(0)
-    expect(progress).toBeGreaterThan(side)
-    expect(divider).toBeGreaterThan(side)
-    expect(divider).toBeLessThan(progress)
+    expect(steps).toBeGreaterThanOrEqual(0)
+    expect(divider).toBeGreaterThan(steps)
+    expect(tools).toBeGreaterThan(divider)
     expect(html).toContain('class="dsh-lingualab-top-divider" aria-hidden="true"')
   })
 
-  it('puts the kept chip and the column toggle in the right column group', () => {
-    const side = group('topGroupSide')
-    expect(side).toContain('title="keyColumn"')
-    expect(side).toContain('aria-label="keySide"')
-    expect(side).not.toContain('stepsChip')
-    expect(side).not.toContain('aria-label="settingsTitle"')
+  it('puts only the five steps in the first group', () => {
+    const steps = group('topGroupSteps')
+    expect(steps).toContain('aria-label="stepsChip"')
+    expect(steps).not.toContain('aria-label="keySide"')
+    expect(steps).not.toContain('aria-label="settingsTitle"')
   })
 
-  it('puts the five steps and the settings in the last group, in that order', () => {
-    const progress = group('topGroupProgress')
-    const steps = progress.indexOf('stepsChip')
-    const settings = progress.indexOf('aria-label="settingsTitle"')
-    expect(steps).toBeGreaterThanOrEqual(0)
-    expect(settings).toBeGreaterThan(steps)
-    expect(progress).not.toContain('title="keyColumn"')
-    expect(progress).not.toContain('aria-label="keySide"')
+  it('has no button of its own for the kept sentences', () => {
+    expect(html).not.toContain('title="keyColumn"')
+    expect(html).not.toContain('columnKept')
+  })
+
+  it('ends with the column toggle and the settings, in that order', () => {
+    const tools = group('topGroupTools')
+    const toggle = tools.indexOf('aria-label="keySide"')
+    const settings = tools.indexOf('aria-label="settingsTitle"')
+    expect(toggle).toBeGreaterThanOrEqual(0)
+    expect(settings).toBeGreaterThan(toggle)
     // Nothing comes after this group but the bar's own closing tag.
-    const after = html.slice(html.indexOf(progress) + progress.length)
+    const after = html.slice(html.indexOf(tools) + tools.length)
     expect(after).not.toMatch(/<button|role="group"|dsh-lingualab-top-group/)
+  })
+
+  it('shows the kept count on the toggle only while the column is collapsed', () => {
+    const side = (collapsed: boolean) => ({ collapsed, toggleCollapsed: noop })
+    const collapsed = renderToStaticMarkup(<PracticeTopBar {...props} side={side(true)} keptCount={2} />)
+    expect(collapsed).toContain('aria-label="keySide · columnKept 2"')
+    expect(collapsed).toMatch(/dsh-lingualab-icon-badge[^>]*>2</)
+    const open = renderToStaticMarkup(<PracticeTopBar {...props} side={side(false)} keptCount={2} />)
+    expect(open).not.toContain('dsh-lingualab-icon-badge')
+    const none = renderToStaticMarkup(<PracticeTopBar {...props} side={side(true)} keptCount={0} />)
+    expect(none).not.toContain('dsh-lingualab-icon-badge')
   })
 })
