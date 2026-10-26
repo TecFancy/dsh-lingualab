@@ -6,7 +6,7 @@
  * practice column).
  */
 import { describe, expect, it } from 'vitest'
-import { SPEED_STYLES } from './styles-speed.ts'
+import { SPEED_STYLES } from './sheets/index.ts'
 import { STYLES } from './styles.ts'
 
 /** The block of a rule: from its selector to its closing brace. */
@@ -42,7 +42,7 @@ describe('the stylesheet', () => {
   it('asks only containers that exist', () => {
     const asked = [...STYLES.matchAll(/@container\s+([\w-]+)\s*\(/g)].map((match) => match[1])
     expect(asked.length).toBeGreaterThan(0)
-    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video', 'll-top']).toContain(name)
+    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video', 'll-top', 'll-home', 'll-stage']).toContain(name)
   })
 
   it('keeps only the browse layer on a viewport width', () => {

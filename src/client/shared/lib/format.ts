@@ -38,3 +38,19 @@ export function formatBytes(bytes: number | null): string {
 export function formatCount(used: number, limit: number): string {
   return `${used} / ${limit}`
 }
+
+/** How long ago something happened, in the largest whole unit that fits; the caller words it. */
+export interface Ago {
+  readonly unit: 'now' | 'minutes' | 'hours' | 'days'
+  readonly count: number
+}
+
+/** `then` against `now`, both in epoch milliseconds. A time in the future reads as now. */
+export function agoOf(then: number, now: number): Ago {
+  const minutes = Math.floor(Math.max(0, now - then) / 60_000)
+  if (minutes < 1) return { unit: 'now', count: 0 }
+  if (minutes < 60) return { unit: 'minutes', count: minutes }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return { unit: 'hours', count: hours }
+  return { unit: 'days', count: Math.floor(hours / 24) }
+}

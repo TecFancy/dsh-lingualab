@@ -19,6 +19,19 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The home is a practice bench. On the left, the episode to continue as a framed stage: when it was
+  last heard (「接着上次 · 2 小时前」), where it stopped (`11:04 / 22:41`, the bar filled to the place),
+  its five steps with what each took or is suggested to take, and one button that names the step it
+  opens (「继续跟读模仿」), with the place the audio resumes beside it. On the right, the weekly review
+  as one number and up to three source episodes, and the one card for adding an episode, whose edge
+  turns the brand colour while a file is over the page. Below, once there is more than one episode, a
+  table of the library with where each stopped, five small step bars and what was kept, filtered by in
+  practice, not started and done. The folder and the build share one line at the foot. The audio's
+  size is no longer shown, and the four ways to add files are down to one card. On a narrow stage the
+  steps stack one per row.
+
 ## [0.18.0] - 2026-10-25
 
 ### Added

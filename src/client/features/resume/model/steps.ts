@@ -13,6 +13,15 @@ import { schedulePush } from './sync.ts'
 
 export type { StepRecord }
 
+/** Every episode's step records, keyed by episode id; the home reads them all at once. */
+export type StepsTable = Readonly<Record<string, Readonly<Record<string, StepRecord>>>>
+
+/** Every episode's step records, as the home shows them. */
+export function readAllSteps(): StepsTable {
+  const steps = readTable().steps
+  return Object.fromEntries(Object.entries(steps).map(([episode, entry]) => [episode, entry.records]))
+}
+
 /** One episode's step records, keyed by step id; empty when nothing was ticked. */
 export function readSteps(episode: string): Readonly<Record<string, StepRecord>> {
   return readTable().steps[episode]?.records ?? {}

@@ -20,31 +20,21 @@
  * only say so. The drawer slides out as it slid in, which is why it outlives `open` for a moment.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readSteps, writeSteps, type StepRecord } from '../../../features/resume/index.ts'
+import {
+  readSteps,
+  STEPS,
+  stepClock as clockOf,
+  stepFill as fillOf,
+  writeSteps,
+  type StepDefinition,
+  type StepRecord,
+  type StepRecords,
+} from '../../../features/resume/index.ts'
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { CheckIcon, CloseIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
 
-interface StepDefinition {
-  readonly id: string
-  readonly labelKey: string
-  /** One line on how to spend the step; only the steps done on this page have one. */
-  readonly tipKey?: string
-  readonly minutes: number
-  /** False for the two steps that happen in the conversation, not on this page. */
-  readonly inSession: boolean
-}
-
-/** The method's five steps, in order. */
-export const STEPS: readonly StepDefinition[] = [
-  { id: 'blind', labelKey: 'stepBlind', tipKey: 'stepTipBlind', minutes: 22, inSession: true },
-  { id: 'read', labelKey: 'stepRead', tipKey: 'stepTipRead', minutes: 22, inSession: true },
-  { id: 'shadow', labelKey: 'stepShadow', tipKey: 'stepTipShadow', minutes: 10, inSession: true },
-  { id: 'next-day', labelKey: 'stepNextDay', minutes: 3, inSession: false },
-  { id: 'weekly', labelKey: 'stepWeekly', minutes: 15, inSession: false },
-]
-
-type StepRecords = Readonly<Record<string, StepRecord>>
+export { STEPS }
 
 const EMPTY: StepRecord = { done: false, seconds: 0 }
 
@@ -53,18 +43,6 @@ const EMPTY: StepRecord = { done: false, seconds: 0 }
  * keeps the scrim behind it for as long.
  */
 export const STEPS_EXIT_MS = 200
-
-/** `0:19`, `22:04`: seconds as minutes and seconds. */
-function clockOf(seconds: number): string {
-  return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`
-}
-
-/** How full a step's segment is, in percent: all of it once done, else the clock against the suggested time. */
-function fillOf(step: StepDefinition, record: StepRecord): number {
-  if (record.done) return 100
-  if (!step.inSession) return 0
-  return Math.min(100, (record.seconds / (step.minutes * 60)) * 100)
-}
 
 /** The step whose timer the picture follows: the blind watch, which is the first one. */
 export const BLIND_STEP = 'blind'
