@@ -70,7 +70,6 @@ export const STYLES = `
   border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));background:none;cursor:pointer;
   color:var(--dsw-alias-label-secondary,#61666b);font:inherit;font-size:12px;white-space:nowrap;
   transition:background var(--ll-fade),color var(--ll-fade),border-color var(--ll-fade),opacity var(--ll-fade)}
-.dsh-lingualab-chip kbd{font:inherit;font-size:11px;opacity:.6}
 .dsh-lingualab-chip:hover{background:var(--ll-hover);color:var(--dsw-alias-label-primary,inherit)}
 .dsh-lingualab-chip.is-on{border-color:var(--dsw-alias-brand-primary,#0f1115);color:var(--dsw-alias-brand-primary,#0f1115)}
 .dsh-lingualab-chip:disabled{opacity:0.45;cursor:default}

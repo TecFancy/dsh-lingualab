@@ -15,7 +15,7 @@ export const zh: Record<string, string> = {
   // ── 页面与顶栏 ────────────────────────────────────────────────
   back: '← 返回会话',
   appTitle: 'LinguaLab',
-  backToList: '全部剧集',
+  backToList: '练习台',
   close: '关闭',
   cancel: '取消',
   save: '保存',
@@ -26,12 +26,13 @@ export const zh: Record<string, string> = {
   notesReloaded: '笔记在别处改过了，已经重新读取，刚才那一下没有保存',
   retry: '重试',
   openEpisode: '打开一集',
-  stepsChip: '五步',
+  stepsChip: '五步 {done}/{total}，{step}',
+  stepsChipDone: '练完',
   mediaFolder: '媒体目录',
   more: '更多',
   change: '更改',
-  topGroupSide: '右栏',
-  topGroupProgress: '进度与设置',
+  topGroupSteps: '五步',
+  topGroupTools: '右栏与设置',
 
   // ── 首页 ─────────────────────────────────────────────────────
   welcomeTitle: '把音频拖进来，就能开始',
@@ -490,7 +491,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
   back: '← Back to conversation',
   appTitle: 'LinguaLab',
-  backToList: 'All episodes',
+  backToList: 'Home',
   close: 'Close',
   cancel: 'Cancel',
   save: 'Save',
@@ -501,12 +502,13 @@ export const en: Record<string, string> = {
   notesReloaded: 'The notes changed elsewhere and were read again; the last change was not saved',
   retry: 'Retry',
   openEpisode: 'Open an episode',
-  stepsChip: 'Steps',
+  stepsChip: 'Steps {done}/{total}, {step}',
+  stepsChipDone: 'Done',
   mediaFolder: 'Media folder',
   more: 'More',
   change: 'Change',
-  topGroupSide: 'Right column',
-  topGroupProgress: 'Progress and settings',
+  topGroupSteps: 'The five steps',
+  topGroupTools: 'Right column and settings',
 
   welcomeTitle: 'Drop audio here to begin',
   welcomeBody:

@@ -1,5 +1,5 @@
 /**
- * The five steps of the study method, as a chip with a drawer.
+ * The five steps of the study method, as a chip with a drawer (the chip is `StepsChip`).
  *
  * The method is a timed ritual (blind watch, subtitle read, shadowing, next-day
  * review, weekly review) and the reason the earlier standalone app went unused was
@@ -33,6 +33,7 @@ import {
 import { usePresence } from '../../../shared/lib/usePresence.ts'
 import { CheckIcon, CloseIcon } from '../../../shared/ui/icons.tsx'
 import type { Translate } from '../../../context.ts'
+import { StepsChip } from './StepsChip.tsx'
 
 export { STEPS }
 
@@ -151,9 +152,7 @@ export function StepTracker({ t, episode, open, onToggle, onBlindRunning }: Step
 
   return (
     <>
-      <button type="button" className={`dsh-lingualab-chip${open ? ' is-on' : ''}`} onClick={onToggle}>
-        {t('stepsChip')} {done}/{STEPS.length}
-      </button>
+      <StepsChip t={t} records={records} running={running} open={open} onToggle={onToggle} />
       {mounted ? (
         <aside
           ref={drawer}

@@ -26,11 +26,13 @@ export {
 export {
   currentStep,
   practiceStatus,
+  stepBars,
   stepClock,
   stepFill,
   STEPS,
   stepsDone,
   type PracticeStatus,
+  type StepBar,
   type StepDefinition,
   type StepRecords,
 } from './lib/steps.ts'

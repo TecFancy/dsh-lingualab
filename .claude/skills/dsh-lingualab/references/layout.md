@@ -19,7 +19,8 @@
 
 - 「收起」是设置里的 `sideCollapsed`，按浏览器记住；「显示哪个视图」是页面本次打开的状态。两者分开存放
   （`pages/lingualab/lib/side-column.ts` 的纯函数与 `useSideColumn`）。
-- 所以 `N` 仍然只切换视图，只有在收起时才直接展开到收藏。顶栏「收藏」旁边的开关和 `\` 键负责收起或展开，不改变视图。
+- 所以 `N` 仍然只切换视图，只有在收起时才直接展开到收藏。顶栏的右栏开关和 `\` 键负责收起或展开，不改变视图。
+  顶栏没有单独的「收藏」按钮，右栏自己的标签就是入口；收起时右栏开关的右上角显示收藏数。
 - 收起后右栏完全不渲染（不留窄条），`.dsh-lingualab-body` 带上 `is-side-collapsed`：
   - 画面占满整个宽度（`--ll-pic-share:1`、`--ll-pic-w:100%`）。
   - 720px、405px、高度上限和 `is-picture-squeezed` 的规则不变。
@@ -50,11 +51,15 @@
 
 ## 顶栏
 
-- 顶栏是名为 `ll-top` 的宽度容器。宽度不到 720px 时，「返回」和「收藏」两个按钮只显示图标（和计数）。
+- 决定与取舍见 `.agents/notes/implemented/feature/2026-10-26-top-bar-names-the-step.md`。
+- 按钮只有两种：带字的圆角按钮（返回、分段、五步）说正在练什么，纯图标按钮（右栏、设置）是工具。
+  按钮上不标快捷键，快捷键在悬停提示和播放卡片下面那一排里。
+- 顶栏是名为 `ll-top` 的宽度容器。宽度不到 720px 时，「返回」和五步按钮去掉文字，留下图标或五根小条（和计时）。
 - 顶栏的按钮是 `flex:none`，空间不够时只压缩标题。
-- 右侧按作用对象分两组（`.dsh-lingualab-top-group`，带 `role="group"` 和组名），中间一条 1px 的竖线：
-  - 「右栏」组：收藏和右栏开关（`PracticeSideChips.tsx`）。
-  - 「进度与设置」组：五步和设置，放在最右边（`PracticeProgressChips.tsx`）。
+- 右侧分两组（`.dsh-lingualab-top-group`，带 `role="group"` 和组名），中间一条 1px 的竖线：
+  - 「五步」组：五步按钮（`PracticeStepsGroup.tsx`，按钮本身是 step-tracker 的 `StepsChip.tsx`）。五根小条的状态来自
+    resume 的 `stepBars`，首页剧集表用的也是它。
+  - 「右栏与设置」组：右栏开关和设置，放在最右边（`PracticeToolButtons.tsx`）。
   - 组内间距仍是 8px，触屏 44px 点按区域就是按这个间距算的。组不定位也不裁剪，五步抽屉照旧相对页面定位。
 - 触屏上按钮靠透明的 `::after` 把点按区域扩到 44px，外观不变。
 - 这几条样式在 `shared/lib/sheets/side.ts`，接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。

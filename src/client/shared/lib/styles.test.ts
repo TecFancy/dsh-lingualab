@@ -386,8 +386,7 @@ describe('the stylesheet', () => {
   it('lets the top bar drop the chips to their icons when the bar itself is narrow, not the window', () => {
     expect(STYLES).toContain('.dsh-lingualab-top{container:ll-top/inline-size}')
     const narrow = block('@container ll-top (max-width:696px)')
-    expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip-text')
-    expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}')
+    expect(narrow).toContain('.dsh-lingualab-top .dsh-lingualab-chip-text{display:none}')
   })
 
   it('groups the top bar\'s right side by what each control acts on, with a thin line between the groups', () => {

@@ -36,9 +36,8 @@ export const SIDE_STYLES = `
 .dsh-lingualab-body.is-side-collapsed .dsh-lingualab-videocard{--ll-pic-w:100%}
 
 /* ── the top bar grouped by what each control acts on ───────────────────────────────────────────
-   The two buttons that act on the right column (the kept sentences, and collapsing it) form one group; the five steps
-   and the settings form another, because they are this episode's progress and the page's global settings rather than
-   the column's. A group keeps the bar's 8px gap between its own buttons, and the bar's gap puts 8px on either side of
+   The five steps form one group, because they are this episode's practice; the right column's toggle and the settings
+   form another, two bare icons that are tools for the page. A group keeps the bar's 8px gap between its own buttons, and the bar's gap puts 8px on either side of
    the 1px line that separates the groups, so neither group needs margin of its own. The line uses the chips' border
    token: the bar's own bottom border is too faint to read on an 18px line. Neither group is positioned and neither clips, so the five steps' drawer inside one of them still
    places itself against the page rather than against the bar. */
@@ -46,17 +45,29 @@ export const SIDE_STYLES = `
 .dsh-lingualab-top-group>.dsh-lingualab-chip,.dsh-lingualab-top-group>.dsh-lingualab-icon-btn{flex:none}
 .dsh-lingualab-top-divider{flex:none;width:1px;height:18px;
   background:var(--dsw-alias-border-l2,rgba(0,0,0,0.1))}
+/* The five steps' chip: five small bars in the colours of the home's table (ticked green, the step it is on in the brand
+   colour), then the step's name, then its clock while one runs. The clock keeps its width as the seconds change. */
+.dsh-lingualab-chip-bars{display:inline-flex;align-items:center;gap:2px}
+.dsh-lingualab-chip-bar{width:8px;height:4px;border-radius:999px;background:var(--ll-track)}
+.dsh-lingualab-chip-bar.is-done{background:var(--dsw-alias-state-success-primary,#22c55e)}
+.dsh-lingualab-chip-bar.is-now{background:var(--dsw-alias-brand-primary,#0f1115)}
+.dsh-lingualab-chip-clock{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary,inherit)}
+/* The kept count on the column's toggle while the column is collapsed: a small pill on the icon's top right corner. */
+.dsh-lingualab-side-toggle{position:relative}
+.dsh-lingualab-icon-badge{position:absolute;top:1px;right:0;min-width:15px;height:15px;padding:0 4px;box-sizing:border-box;
+  border-radius:999px;background:var(--dsw-alias-brand-primary,#0f1115);color:var(--ll-on-brand);
+  font-size:10px;font-weight:600;line-height:15px;text-align:center;pointer-events:none}
 
 /* ── the top bar in a narrow row ──────────────────────────────────────────────────────────────────
    The top bar spans the panel, so its own width is the question (ll-top), not the window's. Its buttons take about 480px
    with their words (more with a segment list), so in a bar of 720px or less (a 696px content box; an iPad in portrait with
-   the host's sidebar open gives 540px) the back chip and the kept chip drop their words and key cap and keep their icon
-   (and the count), about 110px back for the title. Their names stay as aria-label and title. */
+   the host's sidebar open gives 540px) the back chip and the steps chip drop their words and keep their icon or bars
+   (and the steps' clock), about 110px back for the title. Their names stay as aria-label and title. */
 .dsh-lingualab-top{container:ll-top/inline-size}
 /* Only the title gives way: a group, a chip or a button that shrinks clips its word or its icon. */
 .dsh-lingualab-top>.dsh-lingualab-chip,.dsh-lingualab-top>.dsh-lingualab-icon-btn,.dsh-lingualab-top>.dsh-lingualab-seg-holder,.dsh-lingualab-top>.dsh-lingualab-top-group{flex:none}
 @container ll-top (max-width:696px){
-  .dsh-lingualab-top .dsh-lingualab-chip-text,.dsh-lingualab-top .dsh-lingualab-chip kbd{display:none}
+  .dsh-lingualab-top .dsh-lingualab-chip-text{display:none}
   .dsh-lingualab-top .dsh-lingualab-chip{padding:0 9px}
 }
 
