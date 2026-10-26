@@ -1,9 +1,10 @@
 /**
- * The foot of the home: where the files live, then which build this is, both under a hairline.
+ * The foot of the home: where the files live, and which build this is, on one line under a hairline.
  *
  * It is the last thing on the page and the lightest: the folder line is a setting touched twice a
  * month and the build line is a fact about the page, so neither belongs above the episode to
- * continue. The folder line is hidden while the first listing is still on its way, since all it
+ * continue. The two share a row, folder on the left and build on the right, and wrap on a narrow
+ * screen. The folder line is hidden while the first listing is still on its way, since all it
  * could say then is that no folder is set yet; the build line shows from the first moment, because
  * it rides along with the config the page has already read.
  *
@@ -13,6 +14,7 @@
 import type { Translate } from '../../../context.ts'
 import type { UpdateStatus } from '../../../features/update/index.ts'
 import type { LibraryPayload } from '../../../shared/protocol.ts'
+import { FolderIcon } from '../../../shared/ui/icons.tsx'
 import { VersionLine } from './VersionLine.tsx'
 
 export interface PageFooterProps {
@@ -52,7 +54,8 @@ function FolderLine({
 }) {
   return (
     <div className="dsh-lingualab-folderline">
-      <span>{t('filesLiveIn')}</span>
+      <FolderIcon size={14} />
+      <span className="dsh-lingualab-visually-hidden">{t('filesLiveIn')}</span>
       <code className="dsh-lingualab-path" title={library?.root ?? ''}>
         {library?.root !== undefined && library.root.length > 0 ? library.root : t('mediaFolderSourceNone')}
       </code>

@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 import type { Translate } from '../../../context.ts'
 import type { LibraryState } from '../../../features/library/index.ts'
-import type { PositionTable } from '../../../features/resume/index.ts'
+import type { PositionTable, StepsTable } from '../../../features/resume/index.ts'
 import type { ImportState } from '../../../features/import-media/index.ts'
 import type { ReviewPayload } from '../../../shared/protocol.ts'
 import type { UpdateStatus } from '../../../features/update/index.ts'
@@ -22,6 +22,8 @@ export interface HomeViewProps {
   readonly importer: ImportState
   /** Every stored position, which the cards show. */
   readonly progress: PositionTable
+  /** Every episode's five-step ticks, which the stage and the table show. */
+  readonly steps: StepsTable
   /** What is left to review across the library, or `null` before it has been read. */
   readonly review: ReviewPayload | null
   /** The settings button, at the bar's right end. */
@@ -45,6 +47,7 @@ export function HomeView({
   library,
   importer,
   progress,
+  steps,
   review,
   settings,
   onOpen,
@@ -74,6 +77,7 @@ export function HomeView({
         loading={library.loading}
         importer={importer}
         progress={progress}
+        steps={steps}
         currentId={library.episode?.id ?? null}
         current={library.episode}
         opening={library.opening}

@@ -23,5 +23,16 @@ export {
   type PositionTable,
   type SegmentedEpisode,
 } from './lib/segments.ts'
-export { readSteps, writeSteps, type StepRecord } from './model/steps.ts'
+export {
+  currentStep,
+  practiceStatus,
+  stepClock,
+  stepFill,
+  STEPS,
+  stepsDone,
+  type PracticeStatus,
+  type StepDefinition,
+  type StepRecords,
+} from './lib/steps.ts'
+export { readAllSteps, readSteps, writeSteps, type StepRecord, type StepsTable } from './model/steps.ts'
 export { startProgressSync, syncNow } from './model/sync.ts'

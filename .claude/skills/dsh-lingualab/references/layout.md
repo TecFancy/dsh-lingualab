@@ -57,7 +57,7 @@
   - 「进度与设置」组：五步和设置，放在最右边（`PracticeProgressChips.tsx`）。
   - 组内间距仍是 8px，触屏 44px 点按区域就是按这个间距算的。组不定位也不裁剪，五步抽屉照旧相对页面定位。
 - 触屏上按钮靠透明的 `::after` 把点按区域扩到 44px，外观不变。
-- 这几条样式在 `shared/lib/styles-side.ts`，接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。
+- 这几条样式在 `shared/lib/sheets/side.ts`，接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。
 
 ## 下一步
 

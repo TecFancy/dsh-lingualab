@@ -1,7 +1,7 @@
 /**
  * Placeholders shown while the library or an episode's subtitles are on their way.
  *
- * They mirror the real layout (the resume card, the episode grid, the big sentence), so
+ * They mirror the real layout (the home's bench, the episode grid, the big sentence), so
  * the page does not jump when the content arrives. The wrapper fades in after a short
  * delay (see `.dsh-lingualab-sk-wrap`): a load that finishes within that delay never
  * shows a placeholder at all, which beats a skeleton that flashes for one frame.
@@ -26,18 +26,24 @@ function Bar({
 /**
  * The home page while the library listing loads.
  *
- * Four bars where the stage will be: the small line above the title, the title, the strip of
- * segments, and the one button. The page does not jump when the listing lands, and the reader
- * is not shown a grid of numbers that is not a thing the page has.
+ * The bench's shape: a framed block where the stage will be (the line above the title, the title, the
+ * bar, the five steps and the button) and two washed blocks where the right column's cards go. The page
+ * does not jump when the listing lands. The label is read out, not shown.
  */
 export function HomeSkeleton({ label }: { readonly label: string }) {
   return (
     <div className="dsh-lingualab-sk-wrap dsh-lingualab-sk-home" role="status" aria-live="polite" aria-label={label}>
-      <Bar width="72px" height={12} radius={4} />
-      <Bar className="dsh-lingualab-sk-title" width="280px" height={28} radius={4} />
-      <Bar className="dsh-lingualab-sk-cells" width="100%" height={14} radius={4} />
-      <Bar className="dsh-lingualab-sk-button" width="112px" height={36} radius={10} />
-      <p className="dsh-lingualab-sk-note">{label}</p>
+      <div className="dsh-lingualab-sk-home-stage">
+        <Bar width="96px" height={12} radius={4} />
+        <Bar width="220px" height={36} radius={6} />
+        <Bar width="100%" height={6} radius={999} />
+        <Bar width="100%" height={40} radius={6} />
+        <Bar width="132px" height={44} radius={10} />
+      </div>
+      <div className="dsh-lingualab-sk-home-side" aria-hidden="true">
+        <span />
+        <span />
+      </div>
     </div>
   )
 }

@@ -22,10 +22,12 @@ import { useMediaPlayer } from '../../../features/media-player/index.ts'
 import {
   progressKeyOf,
   readAllProgress,
+  readAllSteps,
   startProgressSync,
   writeProgress,
   type PositionTable,
   type Progress,
+  type StepsTable,
 } from '../../../features/resume/index.ts'
 import type { EpisodeMedia } from '../../../shared/protocol.ts'
 import type { View } from './panel.ts'
@@ -56,7 +58,9 @@ export interface ResumeOptions {
 export interface Resume {
   /** Every stored position, as the home and the segment list show them. */
   readonly progress: PositionTable
-  /** Read the stored positions again, or take the table just read; the home picks up what changed. */
+  /** Every episode's five-step ticks, as the home shows them; read again with the positions. */
+  readonly steps: StepsTable
+  /** Read the stored positions (and the ticks) again, or take the table just read; the home picks up what changed. */
   readonly refreshProgress: (positions?: PositionTable) => void
   /** Write the position down now (a no-op while a resume is waiting or a review runs). */
   readonly bookmark: () => void
@@ -168,13 +172,28 @@ export function useResume({
     }
   }, [finishCount, positionKey, view, reviewingRef])
 
+  const { progress, steps, refreshProgress } = useStoredProgress()
+  return { progress, steps, refreshProgress, bookmark, arm, disarm }
+}
+
+/**
+ * The stored positions and step ticks, as the home and the segment list show them, shared with the host for as long
+ * as the page is open: what another device left arrives here, and the home picks it up the moment it does.
+ */
+function useStoredProgress(): Pick<Resume, 'progress' | 'steps' | 'refreshProgress'> {
   const [progress, setProgress] = useState<Readonly<Record<string, Progress>>>(() => readAllProgress())
-  // Share progress with the host for as long as the page is open: what another device left
-  // arrives here, and the home picks it up the moment it does.
-  useEffect(() => startProgressSync(() => setProgress(readAllProgress())), [])
+  const [steps, setSteps] = useState<StepsTable>(() => readAllSteps())
+  useEffect(
+    () =>
+      startProgressSync(() => {
+        setProgress(readAllProgress())
+        setSteps(readAllSteps())
+      }),
+    [],
+  )
   const refreshProgress = useCallback((positions?: PositionTable): void => {
     setProgress(positions ?? readAllProgress())
+    setSteps(readAllSteps())
   }, [])
-
-  return { progress, refreshProgress, bookmark, arm, disarm }
+  return { progress, steps, refreshProgress }
 }
