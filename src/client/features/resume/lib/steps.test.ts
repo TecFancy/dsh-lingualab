@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { currentStep, practiceStatus, STEPS, stepsDone } from './steps.ts'
+import { currentStep, practiceStatus, stepBars, STEPS, stepsDone } from './steps.ts'
 
 const done = { done: true, seconds: 0 }
 const timed = { done: false, seconds: 90 }
@@ -19,6 +19,13 @@ describe('the five steps', () => {
   it('has no current step once all five are ticked', () => {
     const all = Object.fromEntries(STEPS.map((step) => [step.id, done]))
     expect(currentStep(all)).toBeNull()
+  })
+
+  it('draws a bar per step: ticked, the one named now, or still to come', () => {
+    expect(stepBars({ blind: done, read: timed }, 'read')).toEqual(['done', 'now', 'todo', 'todo', 'todo'])
+    expect(stepBars({}, null)).toEqual(['todo', 'todo', 'todo', 'todo', 'todo'])
+    // A ticked step stays ticked even when it is the one named.
+    expect(stepBars({ blind: done }, 'blind')[0]).toBe('done')
   })
 })
 

@@ -87,12 +87,12 @@ import { SettingsButton } from './SettingsButton.tsx'
 /** The set of finished segments of an episode that has none. One value, so the memo below stays stable. */
 const NO_FINISHED: ReadonlySet<string> = new Set()
 
-export interface LingualabPageProps extends PanelProps {
+export interface LinguaLabPageProps extends PanelProps {
   readonly t: Translate
 }
 
 /** The panel's centre-column page. */
-export function LingualabPage({ back, t }: LingualabPageProps) {
+export function LinguaLabPage({ back, t }: LinguaLabPageProps) {
   const library = useLibrary()
   const folder = useLibraryConfig()
   const update = useUpdate()

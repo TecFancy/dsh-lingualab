@@ -74,8 +74,8 @@ describe('openSession', () => {
     const session = new FakeSession()
     const control = openSession(handlers(), envOf(session))
 
-    control.setMetadata({ title: 'Sentence 2 of 8', artist: 'S01E01', album: 'Language Lab' })
-    expect(session.metadata).toEqual({ made: { title: 'Sentence 2 of 8', artist: 'S01E01', album: 'Language Lab' } })
+    control.setMetadata({ title: 'Sentence 2 of 8', artist: 'S01E01', album: 'LinguaLab' })
+    expect(session.metadata).toEqual({ made: { title: 'Sentence 2 of 8', artist: 'S01E01', album: 'LinguaLab' } })
     control.setMetadata(null)
     expect(session.metadata).toBeNull()
   })
@@ -171,13 +171,13 @@ describe('sessionMetadata', () => {
     total: 80,
     episode: 'S01E02 Pilot',
     segment: null,
-    album: 'Language Lab',
+    album: 'LinguaLab',
     sentence: (n, total) => `Sentence ${String(n)} of ${String(total)}`,
     ...over,
   })
 
   it('titles the sentence by its 1-based place, and names the episode and the plugin', () => {
-    expect(sessionMetadata(text())).toEqual({ title: 'Sentence 12 of 80', artist: 'S01E02 Pilot', album: 'Language Lab' })
+    expect(sessionMetadata(text())).toEqual({ title: 'Sentence 12 of 80', artist: 'S01E02 Pilot', album: 'LinguaLab' })
   })
 
   it('adds the open segment to the artist', () => {
@@ -191,17 +191,17 @@ describe('sessionMetadata', () => {
 
   it('puts the episode in the title when no sentence is active', () => {
     for (const index of [-1, 80, 200]) {
-      expect(sessionMetadata(text({ index }))).toEqual({ title: 'S01E02 Pilot', artist: '', album: 'Language Lab' })
+      expect(sessionMetadata(text({ index }))).toEqual({ title: 'S01E02 Pilot', artist: '', album: 'LinguaLab' })
     }
     expect(sessionMetadata(text({ index: 3, total: 0, segment: 'Part 2' }))).toEqual({
       title: 'S01E02 Pilot',
       artist: 'Part 2',
-      album: 'Language Lab',
+      album: 'LinguaLab',
     })
   })
 
   it('falls back to the plugin name for an episode with no name, and leaves out the empty artist part', () => {
-    expect(sessionMetadata(text({ index: -1, episode: '' })).title).toBe('Language Lab')
+    expect(sessionMetadata(text({ index: -1, episode: '' })).title).toBe('LinguaLab')
     expect(sessionMetadata(text({ episode: '', segment: 'Part 2' })).artist).toBe('Part 2')
   })
 })

@@ -3,7 +3,7 @@ name: lingualab-media-prep
 description: 把视频剧集（mkv、mp4）转成 mp3、抽出内嵌字幕，并把字幕配好对。提到「转一下视频 / 把这集变成音频 / 准备新一集素材 / mkv 转 mp3 / 抽字幕」时加载。
 ---
 
-# 给语言实验室准备素材
+# 给 LinguaLab 准备素材
 
 视频可以直接拖进首页导入：它和同名的音频算作一段，没有同名音频就单独算一段，播放前由页面在
 `.lingualab/` 里生成缓存（见[视频剧集](../../notes/implemented/feature/2026-10-12-video-episodes.md)）。
@@ -40,7 +40,7 @@ description: 把视频剧集（mkv、mp4）转成 mp3、抽出内嵌字幕，并
 
 ## 转完之后
 
-- 把 mp3、视频和字幕拖进语言实验室首页，由服务端导入，导入时不覆盖已有文件。
+- 把 mp3、视频和字幕拖进 LinguaLab 首页，由服务端导入，导入时不覆盖已有文件。
 - 素材不进任何 git 仓库。工作区里给它留的目录是 `notes/learning/english/media/`，自带 `.gitignore`。
 - 在 [references/log.md](references/log.md) 的转换记录里加一行。
 

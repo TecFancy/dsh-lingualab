@@ -1,8 +1,9 @@
 /**
- * The practice view's top bar: back to the list, what is open and where in it, the segment list, and then the right
- * side in two groups. The first group is the right column's two buttons (the kept sentences, and collapsing the
- * column); the second is this episode's five steps and the settings, behind a thin line because they act on something
- * else. The spacer before them is what pushes both groups to the right end.
+ * The practice view's top bar: back to the bench, what is open and where in it, the segment list, and then the right
+ * side in two groups. The first is this episode's five steps, which say the step it is on; the second, behind a thin
+ * line, is two icon buttons that are tools for the page (the right column's toggle and the settings). So the bar has
+ * two kinds of button: chips with words for what is being practised, and bare icons for the tools. The spacer before
+ * the groups is what pushes both to the right end.
  *
  * Everything it shows is handed in and every press is a callback: which layer opens, what the other drawers do when
  * this one does, and how a segment is opened are the page's, because they are the page's states.
@@ -13,8 +14,8 @@ import { segmentLabel } from '../../../features/library/index.ts'
 import type { EpisodeEntry, EpisodeSegment } from '../../../shared/protocol.ts'
 import { BackIcon } from '../../../shared/ui/icons.tsx'
 import { SegmentPicker } from '../../../widgets/segment-picker/index.ts'
-import { PracticeProgressChips } from './PracticeProgressChips.tsx'
-import { PracticeSideChips, type PracticeSideChipsProps } from './PracticeSideChips.tsx'
+import { PracticeStepsGroup } from './PracticeStepsGroup.tsx'
+import { PracticeToolButtons, type PracticeToolButtonsProps } from './PracticeToolButtons.tsx'
 
 export interface PracticeTopBarProps {
   readonly t: Translate
@@ -28,9 +29,9 @@ export interface PracticeTopBarProps {
   readonly segmentsOpen: boolean
   /** The sentence on stage, counted from 0, and how many there are; `null` while there is none. */
   readonly sentence: { readonly index: number; readonly total: number } | null
-  /** The right column: whether it is collapsed, which view it shows, and the moves of its two buttons. */
-  readonly side: PracticeSideChipsProps['side']
-  /** How many sentences are kept. */
+  /** The right column: whether it is collapsed, and the toggle's move. */
+  readonly side: PracticeToolButtonsProps['side']
+  /** How many sentences are kept, which the column's toggle shows while it is collapsed. */
   readonly keptCount: number
   readonly stepsOpen: boolean
   /** The settings button, at the bar's right end. */
@@ -96,18 +97,15 @@ export function PracticeTopBar({
         />
       ) : null}
       <span className="dsh-lingualab-spacer" />
-      <div className="dsh-lingualab-top-group" role="group" aria-label={t('topGroupSide')}>
-        <PracticeSideChips t={t} side={side} keptCount={keptCount} />
-      </div>
-      <span className="dsh-lingualab-top-divider" aria-hidden />
-      <PracticeProgressChips
+      <PracticeStepsGroup
         t={t}
         episode={episode}
         stepsOpen={stepsOpen}
         onToggleSteps={onToggleSteps}
         onBlindRunning={onBlindRunning}
-        settings={settings}
       />
+      <span className="dsh-lingualab-top-divider" aria-hidden />
+      <PracticeToolButtons t={t} side={side} keptCount={keptCount} settings={settings} />
     </div>
   )
 }

@@ -51,6 +51,14 @@ export function currentStep(records: StepRecords): StepDefinition | null {
   return STEPS.find((step) => records[step.id]?.done !== true) ?? null
 }
 
+/** How one of the five small bars is drawn: ticked, the step being done now, or still to come. */
+export type StepBar = 'done' | 'now' | 'todo'
+
+/** The five small bars, in order; `now` is the step to mark as the one being done, or `null` for none. */
+export function stepBars(records: StepRecords, now: string | null): readonly StepBar[] {
+  return STEPS.map((step) => (records[step.id]?.done === true ? 'done' : step.id === now ? 'now' : 'todo'))
+}
+
 /** Where an episode stands in the method, as the home's filter sorts it. */
 export type PracticeStatus = 'new' | 'active' | 'done'
 

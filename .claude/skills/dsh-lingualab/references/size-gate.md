@@ -45,4 +45,4 @@
 
 - 新逻辑放进切片自己 `lib/` 里带测试的 hook 或纯函数。
 - 一个组件快要超过 80 行就拆成几个小组件，不要把它记进 baseline。
-- 页面（`LingualabPage`）要组合很多 feature，目前仍在 baseline 里。这只是现状，不代表允许它变大：它不能比现在更大。
+- 页面（`LinguaLabPage`）要组合很多 feature，目前仍在 baseline 里。这只是现状，不代表允许它变大：它不能比现在更大。
