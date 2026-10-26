@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-26
+
 ### Changed
 
 - The home is a practice bench. On the left, the episode to continue as a framed stage: when it was
