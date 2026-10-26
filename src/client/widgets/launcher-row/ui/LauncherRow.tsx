@@ -21,7 +21,7 @@ export interface LauncherRowProps {
   readonly onDismiss?: () => void
 }
 
-/** The 「语言实验室」 row of the sidebar's 「更多」 menu. */
+/** The LinguaLab row of the sidebar's 「更多」 menu. */
 export function LauncherRow({ t, open, onDismiss }: LauncherRowProps) {
   return (
     <MenuItemButton

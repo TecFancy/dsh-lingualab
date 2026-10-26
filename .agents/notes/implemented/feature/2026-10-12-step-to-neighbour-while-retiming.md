@@ -87,7 +87,7 @@ at 1400 by 900:
 ## Consequences
 
 - The move depends on the order of the page's effects when the new list arrives: the player's reset,
-  then the resume's seek, then the panel. `LingualabPage` declares them in that order (the reset
+  then the resume's seek, then the panel. `LinguaLabPage` declares them in that order (the reset
   effect, `useResume`, `useRetime`); moving `useRetime` above either would let the reset drop the pin
   the panel just set.
 - While a move is in flight the keys do nothing. If the reload never brings a new list, the move

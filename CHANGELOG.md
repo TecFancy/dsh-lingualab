@@ -21,6 +21,11 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ### Changed
 
+- The plugin is called LinguaLab in both languages. The Chinese name 「语言实验室」 and the English
+  「Language Lab」 are gone from the window title, the launcher row, the settings subtitle, the
+  lock-screen album line, the READMEs and the package description. Identifiers are untouched and
+  stay lowercase: the package and loader row `dsh-lingualab`, the routes under `/lingualab/`, and
+  the `main` slot key. The page component is now `LinguaLabPage`, previously `LingualabPage`.
 - The practice top bar names the step you are on. The five steps' button shows five small bars and the
   step's name (「跟读模仿」), with its clock while one runs, or 「练完」 once all five are ticked, instead of
   「五步 2/5」. The kept button is gone: the right column's own tabs are the way in and `N` still switches

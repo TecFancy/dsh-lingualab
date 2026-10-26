@@ -8,7 +8,7 @@ The page had a row in the left rail at order 40, under the plugin, schedule, lau
 rows. That row was one of five, and every plugin that ships a page adds one more: the rail pays for
 each page in width, whether or not the page is somewhere you navigate to on its own.
 
-「应用」 already is that place — a launcher that lists the things you open. 语言实验室 is one of
+「应用」 already is that place — a launcher that lists the things you open. LinguaLab is one of
 them, and it was the only entry there that also had a door of its own.
 
 ## Decision
