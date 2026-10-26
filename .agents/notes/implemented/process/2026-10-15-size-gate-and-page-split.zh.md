@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-`LingualabPage.tsx` 长到了 1662 行：一个组件函数约 1180 行代码，圈复杂度 130，有 29 个
+`LinguaLabPage.tsx` 长到了 1662 行：一个组件函数约 1180 行代码，圈复杂度 130，有 29 个
 `useCallback`、16 个 `useState`、12 个 `useEffect`。九月以来每个功能都改过它，这不是因为马虎：
 几个 feature 之间不许互相导入，只能在页面里组合，所以每新增一项能力，接线就加在这里。结果是一个没人能完整记在
 脑子里的文件：

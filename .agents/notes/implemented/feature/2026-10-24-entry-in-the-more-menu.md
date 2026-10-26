@@ -5,7 +5,7 @@ Status: implemented
 ## Problem
 
 The entry was a card on the 「应用」 page. That page is a launcher for self-hosted web apps: a card
-there opens a URL in another tab, and every card in the grid does that. 语言实验室 is a page inside
+there opens a URL in another tab, and every card in the grid does that. LinguaLab is a page inside
 the shell, so it was the one tile in the grid that behaved differently, and the grid cannot show
 that difference.
 

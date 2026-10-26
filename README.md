@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh.md)
 
-The 「语言实验室」 panel: **one row in the left rail's 「更多」 menu, opening a whole page in
+The LinguaLab panel: **one row in the left rail's 「更多」 menu, opening a whole page in
 the centre column**, leaving the current Session untouched. The page turns media that already
 sits in the workspace into intensive-listening practice: one episode at a time, sentence by
 sentence, with the notes written back to disk where the agent can read them.

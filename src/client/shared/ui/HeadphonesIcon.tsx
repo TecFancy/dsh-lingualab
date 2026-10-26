@@ -7,7 +7,7 @@
  */
 import { Svg, type IconProps } from './icons.tsx'
 
-/** The headphone mark of 「语言实验室」. */
+/** The headphone mark of LinguaLab. */
 export function HeadphonesIcon(props: IconProps) {
   return (
     <Svg {...props}>

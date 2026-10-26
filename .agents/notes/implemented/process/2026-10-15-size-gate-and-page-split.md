@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-`LingualabPage.tsx` had grown to 1662 lines: one component function of about 1180 code
+`LinguaLabPage.tsx` had grown to 1662 lines: one component function of about 1180 code
 lines, cyclomatic complexity 130, with 29 `useCallback`, 16 `useState` and 12 `useEffect`.
 Every feature since September touched it, and that is not carelessness: the page is where
 features that may not import each other meet, so each new capability adds its wiring there.

@@ -1,6 +1,6 @@
 # AGENTS.md — dsh-lingualab
 
-「语言实验室」：dsh 的一个整页面板插件，把工作区里的音频与字幕变成逐句精听练习。页面注册在 `main`
+LinguaLab：dsh 的一个整页面板插件，把工作区里的音频与字幕变成逐句精听练习。页面注册在 `main`
 槽的 `lingualab` 键上，入口是左栏「更多」菜单里的第一行（本插件自己注册进 `sidebar.panellist.actions`），
 左栏没有它自己的一行。每次会话先读这份，细节在 `.agents/skills/dsh-lingualab/SKILL.md`，
 决策理由在 `.agents/notes/`。
@@ -46,7 +46,7 @@ src/client/             前端，FSD 分层，没有 app 层
                         timing-editor（舞台下面调整一句开头和结尾的横栏）、review-strip（复习横栏与结束卡片）、
                         settings-panel（右侧「设置」抽屉：主题卡片、明暗、舞台字号、提前起播）、
                         video-stage（舞台顶部的画面或代替它的卡片，与提示条）
-  pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature。`ui/LingualabPage.tsx` 只放状态、接线与组合，
+  pages/lingualab/      页面，首页与练习两个视图，负责组合各 feature。`ui/LinguaLabPage.tsx` 只放状态、接线与组合，
                         视图（HomeView、PracticeView 与它的顶栏和两个面板）也在 `ui/`；页面自己的 hook 与纯函数在 `lib/`：
                         keymap 与 useKeyboard（键盘）、useResume、useOpening、useReplay（听到哪里与打开）、useReviewRun、
                         useSideColumn（右栏的视图与收起）、useStageNotes、useRetime、useVideoSource、useVideoNotices，每个带单测

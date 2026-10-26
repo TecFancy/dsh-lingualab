@@ -62,7 +62,7 @@ Status: implemented
 ## Consequences
 
 - 这次切换依赖新列表到达时页面上几个 effect 的顺序：先重置播放器，再由恢复位置的逻辑 seek，最后才是面板。
-  `LingualabPage` 里就是按这个顺序声明的（重置的 effect、`useResume`、`useRetime`）；把 `useRetime` 挪到其中任何一个前面，
+  `LinguaLabPage` 里就是按这个顺序声明的（重置的 effect、`useResume`、`useRetime`）；把 `useRetime` 挪到其中任何一个前面，
   重置就会清掉面板刚设好的锁定。
 - 切换进行中按键不起作用。如果重新读取一直没带来新列表，这次切换会一直挂着，直到用面板的关闭按钮取消。
 - `useTimingEditor` 现在是 199 行，它那一档最多 200 行。下次改它，要先挪出去一些。
