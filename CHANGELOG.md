@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-26
+
 ### Changed
 
 - The plugin is called LinguaLab in both languages. The Chinese name 「语言实验室」 and the English
