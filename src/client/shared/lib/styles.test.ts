@@ -42,7 +42,7 @@ describe('the stylesheet', () => {
   it('asks only containers that exist', () => {
     const asked = [...STYLES.matchAll(/@container\s+([\w-]+)\s*\(/g)].map((match) => match[1])
     expect(asked.length).toBeGreaterThan(0)
-    for (const name of asked) expect(['ll-practice', 'll-body', 'll-video', 'll-top', 'll-home', 'll-stage']).toContain(name)
+    for (const name of asked) expect(['ll-page', 'll-practice', 'll-body', 'll-video', 'll-top', 'll-home', 'll-stage']).toContain(name)
   })
 
   it('keeps only the browse layer on a viewport width', () => {
@@ -374,6 +374,28 @@ describe('the stylesheet', () => {
     expect(block('.dsh-lingualab-body.is-side-narrow .dsh-lingualab-picture,')).toContain(
       '.dsh-lingualab-body.is-side-narrow .dsh-lingualab-videocard{--ll-pic-w:100%}',
     )
+  })
+
+  it('puts the five steps and the settings drawers where the right column is, under a top bar that stays live', () => {
+    // Under the top bar: the drawer and its scrim start at the bar's bottom edge, so the bar is never covered.
+    expect(rule('.dsh-lingualab-page')).toContain('--ll-top-h:49px')
+    expect(rule('.dsh-lingualab-page')).toContain('container:ll-page/inline-size')
+    expect(rule('.dsh-lingualab-scrim')).toContain('inset:var(--ll-top-h) 0 0')
+    const drawer = rule('.dsh-lingualab-popover')
+    expect(drawer).toContain('top:var(--ll-top-h)')
+    // As wide as the column, the same clamp against the same width, with its faint edge and no shadow.
+    expect(drawer).toContain('width:clamp(300px,34cqw,440px)')
+    expect(drawer).toContain('border-left:1px solid var(--dsw-alias-border-l1')
+    expect(drawer).not.toContain('box-shadow')
+    expect(rule('.dsh-lingualab-popover.is-settings')).not.toContain('width')
+    // On a narrow row the column floats at its drawer's width, and so do these.
+    expect(block('@container ll-page (max-width:981px)')).toContain('.dsh-lingualab-popover{width:min(360px,calc(100% - 48px))}')
+    // The head is the column's: 48px, a single line, a faint bottom edge.
+    const head = rule('.dsh-lingualab-drawer-head')
+    expect(head).toContain('height:48px')
+    expect(head).toContain('border-bottom:1px solid var(--dsw-alias-border-l1')
+    expect(rule('.dsh-lingualab-transcript-head')).toContain('height:48px')
+    expect(rule('.dsh-lingualab-drawer-titles')).toContain('align-items:baseline')
   })
 
   it('needs no keyframes of its own, so reduced motion only has to zero the transitions', () => {

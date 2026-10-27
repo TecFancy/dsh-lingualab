@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The five steps' and the settings' drawers take the right column's place. They start under the top bar, which
+  stays visible and live, and are as wide as the column (its floating width on a narrow row), with the column's faint
+  edge, no shadow, and a 48px head on one line like the column's. The scrim covers the stage only.
+
 ### Fixed
 
 - The timing panel under the stage no longer draws a cut-off band of shadow below it. The panel clips its card so the
