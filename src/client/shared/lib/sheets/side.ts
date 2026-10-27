@@ -105,4 +105,9 @@ export const SIDE_STYLES = `
 .dsh-lingualab-body.is-side-narrow .dsh-lingualab-videostage{--ll-pic-share:1}
 .dsh-lingualab-body.is-side-narrow .dsh-lingualab-picture,
 .dsh-lingualab-body.is-side-narrow .dsh-lingualab-videocard{--ll-pic-w:100%}
+/* The five steps' and the settings' drawers take the column's width, so on a narrow row they take the floating column's.
+   The page is as wide as the row, so its own width asks the same 982px question as "sideFloats". */
+@container ll-page (max-width:981px){
+  .dsh-lingualab-popover{width:min(360px,calc(100% - 48px))}
+}
 `
