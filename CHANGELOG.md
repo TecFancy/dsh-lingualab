@@ -19,6 +19,12 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The timing panel under the stage no longer draws a cut-off band of shadow below it. The panel clips its card so the
+  card's lift stays inside it, and that clip cut the shadow off at the panel's bottom edge; the card now has its border
+  and no shadow, like the player card under it.
+
 ## [0.19.1] - 2026-10-26
 
 ### Changed
