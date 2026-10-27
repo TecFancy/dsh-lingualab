@@ -88,6 +88,8 @@ describe('the stylesheet', () => {
     expect(STYLES).not.toContain('grid-template-rows:0fr')
     expect(STYLES).not.toContain('.dsh-lingualab-timing-wrap.is-open{')
     expect(rule('.dsh-lingualab-timing-clip')).toContain('overflow:hidden')
+    // That clip would cut a shadow off in a hard band below the card, so the card has none.
+    expect(rule('.dsh-lingualab-timing')).not.toContain('box-shadow')
     // The card is what fades and lifts, from is-open, and the panel is out of the hit test until it is open.
     expect(rule('.dsh-lingualab-timing')).toContain('opacity:0')
     expect(rule('.dsh-lingualab-timing')).toContain('transition:opacity')
