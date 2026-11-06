@@ -167,6 +167,34 @@ notes/learning/english/media/
 
 开发在 `development` 分支进行，合进 `main` 即发布新版本，不发布到 npm。
 
+## 匿名使用统计
+
+服务端每个进程每天最多发一次匿名上报，而且只在宿主放行了一个请求之后才发：那是插件确定被用到的第一刻。
+启动时不发，关掉之后也不发。它只回答一个问题，有多少台机器真的在用这个面板、用的是哪个版本，而且不需要
+账号、不需要我们自己的服务器，也不用第三方 SDK。
+
+上报的整个请求体就是下面这些，别的一概不带：
+
+| 键 | 值 |
+|---|---|
+| `v` | 载荷版本，`1` |
+| `pkg` | `dsh-lingualab` |
+| `version` | 这个包 `package.json` 里的版本号，宿主加载时读一次 |
+| `id` | 随机的 UUID v4，生成一次之后存在插件的 `installId` 配置项里 |
+| `node` | 只发 Node 的主版本号，`v22` |
+| `os` | `linux`、`darwin` 或 `win32`，其余写 `other` |
+| `arch` | `x64` 或 `arm64`，其余写 `other` |
+| `metrics.episodes` | 媒体库根目录下剧集文件夹的数量，分 `0`、`1-5`、`6-20`、`21+` 四档 |
+| `metrics.ffmpeg` | 宿主能不能找到 `ffmpeg` |
+
+**绝不**上报：文件名、目录路径、剧集名、笔记、字幕、用户名、邮箱、token、session id、主机名和 IP 地址。
+具体做法是把这段 JSON 用 `POST` 发到 `https://t.hi-ruofei.com/v1/ping`，主机是 `t.hi-ruofei.com`，限时五秒，
+不重试、不写日志、不等待：发失败了就静默结束，搭载它的那个请求早就返回了。
+
+这个上报**默认开着**。要关掉，把插件 profile 条目里的 `telemetry` 改成 `false`（在「插件」页改，或者改
+`cordis.patch.yml`）：之后不再生成 id，不再列媒体库，也不再发任何请求。`installId` 是插件自己写回去的那
+一项，用来让重启前后是同一个随机 id；它隐藏起来，因为那不是让人挑的值。
+
 ## 设计稿
 
 首页、练习页、笔记与五步法抽屉的布局、配色和交互，先在 Figma 里出了设计稿：
@@ -228,7 +256,7 @@ npm run deploy                      # pull on the server, restart the service, c
 |---|---|
 | `src/index.ts` | 服务端入口：配置，并挂上各条路由 |
 | `src/host-context.ts` | 用到的那一部分宿主插件 context |
-| `src/host/shared/` | 配置、请求信任与媒体伺服、路径规则、ffmpeg 查找、测试辅助 |
+| `src/host/shared/` | 配置、请求信任与媒体伺服、路径规则、ffmpeg 查找、匿名使用统计、测试辅助 |
 | `src/host/entities/` | episode（库扫描）、open state（打开的剧集）、places（可浏览的位置）、笔记文件、手选字幕、视频缓存 |
 | `src/host/features/` | 一个能力一个切片，路由在 `api/<名字>.route.ts`，挨着它调用的规则 |
 | `src/shared/` | 两端共用的协议与笔记 markdown 格式 |

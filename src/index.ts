@@ -47,9 +47,10 @@ import {
   videoPrepareRoute,
   videoRoute,
 } from './host/features/video/index.ts'
-import { settingsOf } from './host/shared/config/index.ts'
-import { realSpawn } from './host/shared/ffmpeg/index.ts'
+import { resolveRoot, settingsOf } from './host/shared/config/index.ts'
+import { findBinaries, realSpawn } from './host/shared/ffmpeg/index.ts'
 import { guarded } from './host/shared/http/index.ts'
+import { createTelemetry, readPackageManifest, type Telemetry } from './host/shared/telemetry/index.ts'
 
 /** Stable plugin name (the composition row id is `lingualab`). */
 export const name = 'lingualab'
@@ -105,6 +106,22 @@ export interface Config {
    * from the Plugins page and takes effect on the next request without a restart.
    */
   ffmpegPath: VolatileField<string>
+  /**
+   * The anonymous id sent with the usage ping, generated once.
+   *
+   * Hidden because it is not a value anyone would choose: it exists so that two pings from one
+   * installation count as one machine. Volatile so the plugin can write it back through the
+   * settings service; empty until the first admitted request needs it.
+   */
+  installId: VolatileField<string>
+  /**
+   * Whether to send the anonymous usage ping.
+   *
+   * On by default, and deliberately visible in the Plugins page: a statistics switch that cannot
+   * be found is an opt-out only in name. Set it to `false` and no id is generated, the library is
+   * not listed, and no request is made.
+   */
+  telemetry: boolean
 }
 
 // No `z<Config>` annotation: `.volatile()` widens the schema's meta type, and the
@@ -114,7 +131,51 @@ export const Config = z.object({
   libraryRoot: z.string().default('').volatile(),
   openState: z.string().default('').volatile(),
   ffmpegPath: z.string().default('').volatile(),
+  installId: z.string().default('').volatile().hidden(true),
+  telemetry: z.boolean().default(true),
 })
+
+/**
+ * Wire the anonymous usage ping to this plugin's config and readers.
+ *
+ * Kept out of `apply` so the composition stays readable. Every reader is a closure rather than a
+ * value because the config box can be replaced while the process runs, and because the ping reads
+ * the library root and the ffmpeg search once a day rather than once per request.
+ * @param ctx - the host context, read for the settings service and the workspace list.
+ * @param config - the plugin's config.
+ * @param packageRoot - the folder holding `package.json`, read once here.
+ * @param configured - the configured library root, or `''`.
+ * @param ffmpegPath - the configured ffmpeg path, or `''`.
+ * @returns the hook the request guard calls after it admits a request.
+ */
+function telemetryFor(
+  ctx: HostContext,
+  config: Config,
+  packageRoot: string,
+  configured: () => string,
+  ffmpegPath: () => string,
+): Telemetry {
+  return createTelemetry({
+    enabled: () => config.telemetry !== false,
+    installId: () => {
+      try {
+        return config.installId?.get() ?? ''
+      } catch {
+        return ''
+      }
+    },
+    // Written through the settings service, never to a file of our own: the profile stays the one
+    // home for plugin state. A failed write costs the next start a new id, nothing in this one.
+    saveInstallId: (id) => {
+      const settings = settingsOf(ctx)
+      if (settings === null) return
+      void settings.update(name, { installId: id }).catch(() => undefined)
+    },
+    libraryRoot: () => resolveRoot(ctx, configured()).root,
+    ffmpeg: () => findBinaries(ffmpegPath()) !== null,
+    manifest: readPackageManifest(packageRoot),
+  })
+}
 
 /** Mount every route. The config is read per request, so edits need no reload. */
 export function apply(ctx: HostContext, config: Config): void {
@@ -180,6 +241,10 @@ export function apply(ctx: HostContext, config: Config): void {
   // A job still running when the plugin goes away is stopped, so its process and its `.part` do not outlive it.
   ctx.effect(() => () => void jobs.cancel(), 'lingualab: stop the preparing job')
 
+  // The usage ping: no request of its own, no timer. It is started once a day by the guard below,
+  // after a request has already been admitted, and swallows every failure; see `telemetry/`.
+  const telemetry = telemetryFor(ctx, config, packageRoot, configured, ffmpegPath)
+
   // Every route goes through the host's request trust, reads included; see `guard.ts`.
   const routes = [
     configRoute(ctx, configured, name, pluginInfo),
@@ -199,7 +264,7 @@ export function apply(ctx: HostContext, config: Config): void {
     videoPrepareRoute(ctx, configured, ffmpegPath, jobs),
     videoCancelRoute(jobs),
     updateRoute(updateChecker),
-  ].map((route) => guarded(ctx, route))
+  ].map((route) => guarded(ctx, route, telemetry.noteAdmitted))
   for (const route of routes) {
     ctx.effect(() => ctx.webServer.register(route), `lingualab: ${route.kind} ${route.path}`)
   }

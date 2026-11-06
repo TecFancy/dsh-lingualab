@@ -76,15 +76,28 @@ export function admitRequest(ctx: HostContext, req: IncomingMessage, res: Server
 
 /**
  * Wrap a route so its handler only runs for an admitted request.
+ *
+ * This is also where a request is reported as a use of the plugin, when the caller has something
+ * to report it to. The hook is called here rather than inside {@link admitRequest} for two reasons:
+ * the decision stays a pure function that answers "may this request proceed", and the reporting can
+ * only ever fire for a request that was actually let through. The hook does its own swallowing, but
+ * the extra `try` means a broken one cannot turn an admitted request into a failed route.
  * @param ctx - the host context.
  * @param route - the route to protect.
+ * @param onAdmitted - called once for every admitted request, before the handler; it must return
+ *   immediately and must not depend on the handler's outcome.
  * @returns the same route, guarded.
  */
-export function guarded(ctx: HostContext, route: WebRoute): WebRoute {
+export function guarded(ctx: HostContext, route: WebRoute, onAdmitted?: () => void): WebRoute {
   return {
     ...route,
     handler: (req, res) => {
       if (!admitRequest(ctx, req, res)) return
+      try {
+        onAdmitted?.()
+      } catch {
+        // Reporting is best effort; the admitted request still runs.
+      }
       return route.handler(req, res)
     },
   }
