@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-10
+
 ### Changed
 
 - The five steps' and the settings' drawers take the right column's place. They start under the top bar, which
