@@ -64,6 +64,16 @@
 - 触屏上按钮靠透明的 `::after` 把点按区域扩到 44px，外观不变。
 - 这几条样式在 `shared/lib/sheets/side.ts`，接在 `STYLES` 末尾（`styles.ts` 已到体量上限）。
 
+## 五步与设置抽屉占右栏的位置
+
+- 决定与取舍见 `.agents/notes/implemented/feature/2026-10-27-drawers-take-the-column-place.md`。
+- 两个抽屉（`.dsh-lingualab-popover`）和它们的遮罩（`.dsh-lingualab-scrim`）都从顶栏下沿开始：`--ll-top-h` 是 49px，
+  即顶栏的 48px 加 1px 下边线，改顶栏高度时要一起改。顶栏不被遮住，开着抽屉也能点。
+- 宽度和右栏一样：页面是名为 `ll-page` 的宽度容器，抽屉用和右栏同一个 `clamp(300px,34cqw,440px)`；页面宽度就是行宽，
+  所以 `@container ll-page (max-width:981px)` 和 `sideFloats` 的 982px 是同一个判断，这时抽屉跟浮着的右栏一样宽，
+  `min(360px,calc(100% - 48px))`。
+- 抽屉的头和右栏的头一样：48px 高，一行，标题后面跟一段灰色的小字，下边一条淡线。左边线用 `border-l1`，不带阴影。
+
 ## 下一步
 
 已有两篇 proposed note：

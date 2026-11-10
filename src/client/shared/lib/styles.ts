@@ -47,7 +47,9 @@ export const STYLES = `
   --ll-surface:var(--dsw-alias-bg-layer-1,#ffffff);
   /* How much the sentence on stage is scaled by: the settings drawer's stage size (see below). */
   --ll-stage-scale:1;
-  position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;
+  /* Where the drawers start: under the top bar, its 48px and its 1px bottom border. */
+  --ll-top-h:49px;
+  position:relative;container:ll-page/inline-size;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;
   background:var(--dsw-alias-bg-base,transparent);color:var(--dsw-alias-label-primary,inherit);
   font-size:14px;line-height:1.5;outline:none;
   /* A theme switch fades instead of flashing; the reduced-motion rule below zeroes it with the rest. */
@@ -261,13 +263,14 @@ export const STYLES = `
 /* The timing panel, between the stage and the player card. It only exists while the column is in timing mode, and takes its
    full height from the first frame to the last: the layout around it (the picture above all) steps once each way, and only
    the card inside fades and lifts, so nothing is ever drawn at a size it does not keep. It stays mounted for as long as the
-   way out takes, and the page keeps the column in timing mode for as long; see usePresence. */
+   way out takes, and the page keeps the column in timing mode for as long; see usePresence. The card has a border and no
+   shadow: the clip that keeps its lift inside the panel would cut a shadow off at the panel's bottom edge. */
 .dsh-lingualab-timing-wrap{flex:none;width:min(720px,100%);align-self:center}
 .dsh-lingualab-timing-wrap:not(.is-open){pointer-events:none}
 .dsh-lingualab-timing-clip{overflow:hidden}
 .dsh-lingualab-timing{display:flex;flex-direction:column;gap:12px;box-sizing:border-box;margin-bottom:10px;
   padding:14px 16px 12px;border-radius:14px;background:var(--ll-surface);
-  border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));box-shadow:0 8px 24px rgba(0,0,0,0.08);
+  border:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));
   opacity:0;transform:translateY(12px) scale(.98);
   transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
 .dsh-lingualab-timing-wrap.is-open .dsh-lingualab-timing{opacity:1;transform:none}
@@ -564,23 +567,24 @@ ${SCRUB_STYLES}
   .dsh-lingualab-page,.dsh-lingualab-page *{transition-duration:0s !important;transition-delay:0s !important}
 }
 
-/* ── drawer: the five steps slide in over a scrim, and slide out again ──────────── */
-.dsh-lingualab-scrim{position:absolute;inset:0;z-index:21;background:var(--ll-mask);animation:ll-fade-in .18s ease-out}
+/* ── drawer: the five steps and the settings slide in over a scrim, and slide out again ──────────
+   A drawer takes the right column's place: under the top bar, which stays live, as wide as the column, with the column's
+   faint left edge and no shadow, and a 48px head like the column's. The scrim covers the stage only. */
+.dsh-lingualab-scrim{position:absolute;inset:var(--ll-top-h) 0 0;z-index:21;background:var(--ll-mask);animation:ll-fade-in .18s ease-out}
 .dsh-lingualab-scrim.is-leaving{animation:ll-fade-out .2s ease forwards;pointer-events:none}
 @keyframes ll-fade-out{from{opacity:1}to{opacity:0}}
-.dsh-lingualab-popover{position:absolute;top:0;right:0;bottom:0;z-index:22;display:flex;
-  flex-direction:column;width:min(440px,100%);min-height:0;box-sizing:border-box;
-  border-left:1px solid var(--dsw-alias-border-l2,rgba(0,0,0,0.1));
-  background:var(--ll-surface);box-shadow:-18px 0 48px rgba(0,0,0,0.22);
+.dsh-lingualab-popover{position:absolute;top:var(--ll-top-h);right:0;bottom:0;z-index:22;display:flex;
+  flex-direction:column;width:clamp(300px,34cqw,440px);min-height:0;box-sizing:border-box;
+  border-left:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04));background:var(--ll-surface);
   animation:ll-slide-in .2s ease-out}
 .dsh-lingualab-popover.is-leaving{animation:ll-slide-out .2s ease-in forwards;pointer-events:none}
 @keyframes ll-slide-in{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
 @keyframes ll-slide-out{from{transform:none;opacity:1}to{transform:translateX(28px);opacity:0}}
-.dsh-lingualab-drawer-head{flex:none;display:flex;align-items:flex-start;gap:12px;padding:20px 20px 16px}
-.dsh-lingualab-drawer-head .dsh-lingualab-icon-btn{margin:-4px -6px 0 0}
-.dsh-lingualab-drawer-titles{flex:1;display:flex;flex-direction:column;min-width:0;gap:2px}
-.dsh-lingualab-drawer-title{font-weight:700;font-size:18px;line-height:1.3}
-.dsh-lingualab-drawer-sub{font-size:12.5px;color:var(--dsw-alias-label-secondary,#61666b);overflow:hidden;
+.dsh-lingualab-drawer-head{flex:none;display:flex;align-items:center;gap:8px;height:48px;padding:0 10px 0 16px;
+  border-bottom:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,0.04))}
+.dsh-lingualab-drawer-titles{flex:1;display:flex;align-items:baseline;min-width:0;gap:8px}
+.dsh-lingualab-drawer-title{flex:none;font-weight:600}
+.dsh-lingualab-drawer-sub{min-width:0;font-size:12px;color:var(--dsw-alias-label-secondary,#61666b);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 /* ── the 「收藏」 column: one card per kept sentence, the one on stage open ── */
 .dsh-lingualab-transcript.is-kept{position:relative}
@@ -809,7 +813,7 @@ ${SCRUB_STYLES}
 
 
 /* ── five steps: a header, one bar of five segments, then a vertical stepper ── */
-.dsh-lingualab-steps-bar{flex:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:0 20px 18px}
+.dsh-lingualab-steps-bar{flex:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:14px 16px}
 .dsh-lingualab-steps-seg{height:4px;border-radius:999px;background:var(--ll-hover);overflow:hidden}
 .dsh-lingualab-steps-seg span,.dsh-lingualab-step-progress span{display:block;height:100%;border-radius:999px;
   background:var(--dsw-alias-brand-primary,#0f1115);transition:width .3s ease}
@@ -862,16 +866,16 @@ ${SCRUB_STYLES}
 .dsh-lingualab-step-actions .dsh-lingualab-btn.is-primary{flex:1;font-weight:600}
 .dsh-lingualab-step-actions .dsh-lingualab-btn.is-primary.is-running{
   background:color-mix(in srgb,var(--dsw-alias-brand-primary,#0f1115) 82%,var(--ll-surface))}
-/* ── settings drawer: the five-steps drawer's frame, a little narrower, with radio groups inside ── */
-.dsh-lingualab-popover.is-settings{width:min(420px,100%);outline:none}
+/* ── settings drawer: the five-steps drawer's frame, with radio groups inside ── */
+.dsh-lingualab-popover.is-settings{outline:none}
 /* The drawer is painted with the surface colour, so a chosen segment painted with it too would read as sunk
    in dark; layer 2 lifts it (and is the same white in light). */
 .dsh-lingualab-popover.is-settings .dsh-lingualab-segmented button.is-on{background:var(--dsw-alias-bg-layer-2,#ffffff)}
 .dsh-lingualab-settings-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px;
-  padding:0 20px 20px}
+  padding:0 16px 20px}
 .dsh-lingualab-settings-label{margin:18px 0 2px;font-size:12px;font-weight:600;letter-spacing:.02em;
   color:var(--dsw-alias-label-secondary,#61666b)}
-.dsh-lingualab-settings-label:first-child{margin-top:4px}
+.dsh-lingualab-settings-label:first-child{margin-top:14px}
 .dsh-lingualab-setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
 .dsh-lingualab-setting-block{display:flex;flex-direction:column;gap:10px;padding-top:6px}
 .dsh-lingualab-setting-text{display:flex;flex-direction:column;gap:2px;min-width:0}
