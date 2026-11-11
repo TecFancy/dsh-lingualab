@@ -19,6 +19,16 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- An anonymous usage ping, so the project can tell how many installations actually run the plugin and
+  which version they run without an account, a server or a third-party SDK. It is sent at most once
+  a day per process, and only after a request was admitted. It carries the version, a random
+  installation id, the Node major, `os`, `arch`, the library's episode-folder bucket and whether
+  `ffmpeg` was found; never a file name, folder path, episode title, note, subtitle, user name,
+  email, token, session id, host name or address. It has a five second limit, is never retried or
+  logged, and is on by default: set the visible `telemetry` config field to `false` to stop it.
+
 ## [0.20.0] - 2026-11-10
 
 ### Changed
