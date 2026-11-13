@@ -125,4 +125,35 @@ describe('guarded', () => {
     expect(wrapped.kind).toBe('prefix')
     expect(wrapped.path).toBe('/lingualab/media')
   })
+
+  it('reports an admitted request once, before the handler runs', async () => {
+    const order: string[] = []
+    const wrapped = guarded(
+      contextWith({ admit: () => ({ peer: {} }) }),
+      route(() => void order.push('handler')),
+      () => order.push('admitted'),
+    )
+    await wrapped.handler(request(), fakeResponse().res)
+    expect(order).toEqual(['admitted', 'handler'])
+  })
+
+  it('reports nothing for a refused request', async () => {
+    let reported = 0
+    const wrapped = guarded(contextWith({ admit: () => ({ rejection: 401 }) }), route(() => undefined), () => void (reported += 1))
+    await wrapped.handler(request(), fakeResponse().res)
+    expect(reported).toBe(0)
+  })
+
+  it('still runs the handler when the report hook throws', async () => {
+    let ran = 0
+    const wrapped = guarded(
+      contextWith({ admit: () => ({ peer: {} }) }),
+      route(() => void (ran += 1)),
+      () => {
+        throw new Error('boom')
+      },
+    )
+    await wrapped.handler(request(), fakeResponse().res)
+    expect(ran).toBe(1)
+  })
 })

@@ -22,7 +22,8 @@ LinguaLab：dsh 的一个整页面板插件，把工作区里的音频与字幕�
 src/index.ts            服务端入口：配置，并挂上各个 feature 导出的路由
 src/host/               服务端，FSD 的下三层，没有 widgets、pages、app 层
   shared/               config（库根解析）、http（请求信任、媒体伺服带 Range、JSON）、fs（路径检查）、
-                        ffmpeg（查找与起进程）、lib、testing（只给测试用）；除 lib 外每段都有 `index.ts`
+                        ffmpeg（查找与起进程）、telemetry（匿名使用统计的一次上报）、lib、testing（只给测试用）；
+                        除 lib 外每段都有 `index.ts`
   entities/             episode（库扫描：一个文件夹有两个及以上音频或视频词干就是一集多段，视频按字幕的规则归音频词干；
                         文件剧集能伺服哪些文件）、open-state（打开的剧集与文件剧集记录）、place（可浏览的位置）、note（笔记读写）、
                         subtitle-choice（手选字幕的存取与覆盖规则）、video-cache（缓存路径）；实体之间只经 `@x/<读者>.ts` 互读

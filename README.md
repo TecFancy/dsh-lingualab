@@ -189,6 +189,43 @@ belongs to the plugin, so it no longer depends on `dsh-apps-panel` being install
 It is developed on `development` and released by pulling into `main`; nothing here is
 published to npm.
 
+## Anonymous usage statistics
+
+The host half sends at most one ping a day per running process, and only after the
+host has admitted a request: that is the first moment the plugin is known to be in use.
+Nothing is sent at start, and nothing is sent when the ping is off. It answers one question,
+how many machines actually run the panel and which version they run, without an account, a
+server of ours or a third-party SDK.
+
+The accurate description is **pseudonymous data with no IP, linked by a random install id**,
+not legally anonymous data: the same id is linkable over time, so it is only used to estimate
+install counts and version spread, never for billing, security decisions or precise public
+numbers.
+
+The whole body is below, and nothing else rides along:
+
+| Key | Value |
+|---|---|
+| `v` | the payload version, `1` |
+| `pkg` | `dsh-lingualab` |
+| `version` | the version in this package's `package.json`, read when the host loads |
+| `id` | a random UUID v4, made once and kept in the plugin's `installId` config field |
+| `node` | the Node major version only, `v22` |
+| `os` | `linux`, `darwin` or `win32`; `other` for anything else |
+| `arch` | `x64` or `arm64`; `other` for anything else |
+| `metrics.episodes` | how many episode folders the library root holds, in one of four buckets: `0`, `1-5`, `6-20`, `21+` |
+| `metrics.ffmpeg` | whether the host could find `ffmpeg` |
+
+What is **never** sent: a file name, a folder path, an episode title, a note, a subtitle, a user
+name, an email, a token, a session id, a host name or an IP address. The body is a `POST` to
+`https://t.hi-ruofei.com/v1/ping` on `t.hi-ruofei.com`, with a five second limit, no retry, no log
+and no wait: a ping that fails is silent, and the request it rode on has already been answered.
+
+The ping is **on by default**. To stop it, set the `telemetry` field to `false` in this plugin's
+profile entry (the Plugins page, or `cordis.patch.yml`): no id is generated, the library is not
+listed and no request is made. `installId` is the field the plugin writes itself to keep the same
+random id across restarts; it is hidden because it is not a value to choose.
+
 ## Design
 
 The layout, colours and interaction of the home, the practice view and the notes and steps
@@ -255,7 +292,7 @@ Every route, reads included, is answered only for a request the host admits (a l
 |---|---|
 | `src/index.ts` | The host entry: the config, and mounting the routes |
 | `src/host-context.ts` | The slice of the host plugin context we call |
-| `src/host/shared/` | Config, request trust and media serving, path rules, the ffmpeg finder, test helpers |
+| `src/host/shared/` | Config, request trust and media serving, path rules, the ffmpeg finder, the anonymous usage ping, test helpers |
 | `src/host/entities/` | Episode (the library scan), open state, places, the notes file, subtitle choice, video cache |
 | `src/host/features/` | One slice per capability, its route in `api/<name>.route.ts` beside its rules |
 | `src/shared/` | The wire contract and the notes markdown format |
