@@ -70,6 +70,30 @@ export interface PackageManifest {
 /** The `fetch` this module calls; tests replace it, so no test opens a socket. */
 export type TelemetryFetch = (url: string, init: RequestInit) => Promise<unknown>
 
+/**
+ * Whether this process is a test runner.
+ *
+ * The guard below exists because of a real incident: `routes.test.ts` mounts the real plugin
+ * through `apply`, so the default sender posted a live ping on every admitted request, and
+ * `npm test` plus CI wrote rows into the production database for two days. An explicit
+ * `telemetry: false` in that test is the fix; this is the belt under it, so the next test that
+ * forgets cannot reach the endpoint either.
+ */
+function underTestRunner(): boolean {
+  return (process.env.VITEST ?? '').length > 0 || process.env.NODE_ENV === 'test'
+}
+
+/**
+ * The sender used when a caller injects none.
+ *
+ * A test keeps its injected `fetch`; only the default one is refused, and it is refused rather
+ * than silently swapped for a stub so a test that expected a ping sees the absence.
+ */
+const defaultFetch: TelemetryFetch = (url, init) => {
+  if (underTestRunner()) return Promise.reject(new Error('telemetry is disabled under a test runner'))
+  return globalThis.fetch(url, init)
+}
+
 /** The machine facts the payload carries, read once per ping. */
 export interface HostFacts {
   /** `process.versions.node`, full. */
@@ -240,7 +264,7 @@ async function postPayload(fetchFn: TelemetryFetch, payload: TelemetryPayload): 
  */
 export function createTelemetry(options: TelemetryOptions): Telemetry {
   const clock = options.now ?? Date.now
-  const fetchFn: TelemetryFetch = options.fetch ?? ((url, init) => globalThis.fetch(url, init))
+  const fetchFn: TelemetryFetch = options.fetch ?? defaultFetch
   let lastPingAt: number | null = null
   let currentId: string | null = null
 

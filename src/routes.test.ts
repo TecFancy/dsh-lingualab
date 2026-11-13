@@ -53,6 +53,9 @@ async function start(withConnection = true): Promise<Harness> {
   const config = {
     libraryRoot: { get: () => root },
     openState: { get: () => '' },
+    // Off, and not left to the default: this file mounts the real plugin through `apply`, so a
+    // default of `true` would post a real ping to the live endpoint on every admitted request.
+    telemetry: false,
   } as unknown as Config
   apply(ctx, config)
 
