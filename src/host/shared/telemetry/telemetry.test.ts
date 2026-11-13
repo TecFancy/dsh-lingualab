@@ -174,6 +174,27 @@ describe('the usage ping', () => {
     expect(seen.signal?.aborted).toBe(true)
   })
 
+  it('never reaches the network through the default sender under a test runner', async () => {
+    // The guard this pins exists because a test once mounted the real plugin and the default
+    // sender posted live pings from `npm test` and from CI. No injected `fetch` here on purpose.
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(null, { status: 204 }))
+    try {
+      const report = createTelemetry({
+        enabled: () => true,
+        installId: () => STORED_ID,
+        saveInstallId: () => undefined,
+        libraryRoot: () => '',
+        ffmpeg: () => false,
+        manifest: { pkg: 'dsh-lingualab', version: '0.19.1' },
+      })
+      report.noteAdmitted()
+      await flush()
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('generates the install id once and reuses it', async () => {
     const report = harness()
     report.telemetry.noteAdmitted()
