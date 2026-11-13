@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-11-13
+
 ### Fixed
 
 - A test run no longer posts real usage pings. The route tests mount the plugin through its real
