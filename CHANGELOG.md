@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Fixed
+
+- A test run no longer posts real usage pings. The route tests mount the plugin through its real
+  entry point, and the usage ping defaulted to on there, so `npm test`, `npm run verify` and CI
+  wrote rows into the production database; the route tests now turn telemetry off, and the default
+  sender refuses to run under a test runner so a test that forgets cannot reach it either. Nothing
+  changes for an installed plugin.
+
 ## [0.21.0] - 2026-11-13
 
 ### Added
