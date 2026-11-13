@@ -191,11 +191,16 @@ published to npm.
 
 ## Anonymous usage statistics
 
-The host half sends at most one anonymous ping a day per running process, and only after the
+The host half sends at most one ping a day per running process, and only after the
 host has admitted a request: that is the first moment the plugin is known to be in use.
 Nothing is sent at start, and nothing is sent when the ping is off. It answers one question,
 how many machines actually run the panel and which version they run, without an account, a
 server of ours or a third-party SDK.
+
+The accurate description is **pseudonymous data with no IP, linked by a random install id**,
+not legally anonymous data: the same id is linkable over time, so it is only used to estimate
+install counts and version spread, never for billing, security decisions or precise public
+numbers.
 
 The whole body is below, and nothing else rides along:
 
