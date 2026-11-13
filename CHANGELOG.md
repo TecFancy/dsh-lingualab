@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-13
+
 ### Added
 
 - A usage ping, so the project can tell how many installations actually run the plugin and
