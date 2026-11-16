@@ -38,8 +38,9 @@ profile entry, like `openState` and `libraryRoot`; there is no state file of our
 retried by the next admitted request rather than by the next ping, because a write that is fired and
 forgotten is indistinguishable from one that failed, and a process that restarts before the next ping
 would still lose the id; retries back off so a permanently broken service costs one attempt per
-interval. The write is also not in front of the ping: the id is worth reporting whether or not it can
-be stored, so a settings service that hangs cannot hold the report.
+interval, and an attempt that hangs is abandoned after the same interval so a service that recovers
+is asked again. The write is also not in front of the ping: reporting the id and storing it are
+independent, so a settings service that hangs cannot hold the report.
 
 The switch is a plain, visible `telemetry` boolean, default `true`. Turning it off means no id, no
 listing and no request: the module checks it before it does anything else. Nothing else in the

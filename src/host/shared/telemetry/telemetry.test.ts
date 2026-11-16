@@ -216,7 +216,7 @@ describe('the usage ping', () => {
     expect(stored.saved).toHaveLength(0)
   })
 
-  it('retries a failed write on the next admitted request, not a day later', async () => {
+  it('retries a failed write once the backoff has passed, not a day later', async () => {
     // The settings service is mounted after the first request in a real composition, so the first
     // write can legitimately reject. What must not happen is waiting for the next ping to retry it:
     // a process that restarts inside that day would still lose the id, which is the bug this pins.
@@ -241,7 +241,8 @@ describe('the usage ping', () => {
     expect(report.sent).toHaveLength(1)
     expect(attempts).toEqual([report.sent[0]?.id])
 
-    // No clock advance: the very next admitted request retries, and still sends no second ping.
+    // Only the save backoff passes here, not the 24 hour ping window: the next admitted request
+    // retries the write and still sends no second ping.
     report.advance(SAVE_RETRY_MS)
     report.telemetry.noteAdmitted()
     await flush()
@@ -254,6 +255,38 @@ describe('the usage ping', () => {
     report.telemetry.noteAdmitted()
     await flush()
     expect(attempts).toHaveLength(2)
+  })
+
+  it('survives the whole incident: first write fails, a later request saves it, a restart reuses it', async () => {
+    // The failure that was actually observed: the settings service was broken when the first ping
+    // went out, and the id was lost because nothing retried. This walks that exact path end to end.
+    let stored = ''
+    let broken = true
+    const first = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        if (broken) throw new Error('settings.update is broken')
+        stored = id
+      },
+    })
+
+    first.telemetry.noteAdmitted()
+    await flush()
+    const id = first.sent[0]?.id
+    expect(stored).toBe('')
+
+    // The host bug is fixed; the next admitted request saves the id the first ping already reported.
+    broken = false
+    first.advance(SAVE_RETRY_MS)
+    first.telemetry.noteAdmitted()
+    await flush()
+    expect(stored).toBe(id)
+
+    // The restart reads it back instead of making a new one.
+    const second = harness({ installId: () => stored })
+    second.telemetry.noteAdmitted()
+    await flush()
+    expect(second.sent[0]?.id).toBe(id)
   })
 
   it('keeps the id a restart would read back, and does not make a new one', async () => {
@@ -288,6 +321,35 @@ describe('the usage ping', () => {
     report.telemetry.noteAdmitted()
     await flush()
     expect(report.sent).toHaveLength(1)
+  })
+
+  it('tries again after a write that hung, so a recovered service still gets the id', async () => {
+    // A write that never settles must not own the in-flight slot for the rest of the process: the
+    // service may recover, and the id is only safe once it has been stored.
+    const attempts: string[] = []
+    let stored = ''
+    let hang = true
+    const report = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        if (hang) return new Promise<void>(() => undefined)
+        stored = id
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+    expect(report.sent).toHaveLength(1)
+
+    // The hung attempt is abandoned after its timeout, and the next request tries again.
+    hang = false
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(2)
+    expect(stored).toBe(report.sent[0]?.id)
   })
 
   it('backs off a write that keeps failing instead of trying on every request', async () => {

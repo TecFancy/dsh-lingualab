@@ -42,6 +42,10 @@ export const PING_TIMEOUT_MS = 5_000
  * The write is retried by admitted requests rather than by the next ping, because a process that
  * restarts before that ping would lose the id. This is the floor under that retry: a settings
  * service that is permanently broken costs one attempt per interval, not one per request.
+ *
+ * It doubles as the in-flight lease. A write that never settles must not own the slot for the rest
+ * of the process, or a service that recovers after hanging would never be asked again; abandoning
+ * the attempt is harmless because a late success stores the same id this process already reports.
  */
 export const SAVE_RETRY_MS = 30_000
 
@@ -120,8 +124,9 @@ export interface TelemetryOptions {
   /**
    * Persist an id, resolving once it is durable and rejecting when it is not.
    *
-   * The promise is awaited before the id is reported, so a rejection is a fact this module can act
-   * on rather than a write that may or may not have landed. It is never a reason to drop the ping.
+   * The promise is awaited in the background so a rejection is a fact this module can act on rather
+   * than a write that may or may not have landed; the ping itself never waits for it, and a
+   * rejection is never a reason to drop the ping.
    */
   readonly saveInstallId: (id: string) => Promise<void>
   /** The library root at ping time; the episode count comes from one listing of it. */
@@ -282,9 +287,11 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   let lastPingAt: number | null = null
   let currentId: string | null = null
   let persisted = false
-  /** A write is in flight; a second one would only race the first for the same value. */
-  let saving = false
-  /** When the last failed write was tried, so a permanently broken service is not hammered. */
+  /** When the write in flight started, or `null` when none is. */
+  let savingSince: number | null = null
+  /** Identifies the attempt that owns {@link savingSince}, so a stale one cannot clear a newer flag. */
+  let savingAttempt = 0
+  /** When the last write was tried, so a permanently broken service is not hammered. */
   let lastSaveAttemptAt: number | null = null
 
   /**
@@ -297,11 +304,15 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
    * would otherwise still lose the id.
    */
   const rememberId = (id: string): void => {
-    if (saving || persisted) return
+    if (persisted) return
     const now = clock()
+    // One attempt at a time, and one per interval: the lease and the backoff are the same window,
+    // so a write that hangs is abandoned exactly when the next attempt becomes due.
+    if (savingSince !== null && now - savingSince < SAVE_RETRY_MS) return
     if (lastSaveAttemptAt !== null && now - lastSaveAttemptAt < SAVE_RETRY_MS) return
-    saving = true
+    savingSince = now
     lastSaveAttemptAt = now
+    const attempt = ++savingAttempt
     void (async () => {
       try {
         await options.saveInstallId(id)
@@ -309,7 +320,8 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
       } catch {
         // Silence is the contract; the next admitted request retries the write.
       } finally {
-        saving = false
+        // Only the attempt that still owns the flag clears it: a later one may have taken over.
+        if (savingAttempt === attempt) savingSince = null
       }
     })()
   }
