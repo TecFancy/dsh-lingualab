@@ -24,8 +24,10 @@ the plugin that was installed and used, not an artifact on a registry.
 - The usage ping keeps one installation id across restarts. The write back into the plugin's profile
   entry was fired and forgotten, so a settings service that was not mounted yet on the first
   admitted request swallowed the id silently and the next start made a new one; every restart then
-  counted as another installation. The write is now awaited and retried on each ping until it lands,
-  and a test pins the retry. Nothing changes for a deployment where the write already succeeded.
+  counted as another installation. The write is now retried by the next admitted request rather than
+  by the next ping a day later, backs off while it keeps failing, and no longer sits in front of the
+  ping, so a settings service that hangs cannot hold the report. A test crosses a restart and pins
+  the id. Nothing changes for a deployment where the write already succeeded.
 
 ## [0.21.1] - 2026-11-13
 

@@ -36,6 +36,15 @@ export const PING_INTERVAL_MS = 24 * 60 * 60 * 1000
 /** How long one ping may take before it is given up on. */
 export const PING_TIMEOUT_MS = 5_000
 
+/**
+ * The shortest gap between two attempts to store the install id.
+ *
+ * The write is retried by admitted requests rather than by the next ping, because a process that
+ * restarts before that ping would lose the id. This is the floor under that retry: a settings
+ * service that is permanently broken costs one attempt per interval, not one per request.
+ */
+export const SAVE_RETRY_MS = 30_000
+
 /** The bucketed episode count; the buckets are the contract's, not a display choice. */
 export type EpisodeBucket = '0' | '1-5' | '6-20' | '21+'
 
@@ -273,34 +282,47 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   let lastPingAt: number | null = null
   let currentId: string | null = null
   let persisted = false
+  /** A write is in flight; a second one would only race the first for the same value. */
+  let saving = false
+  /** When the last failed write was tried, so a permanently broken service is not hammered. */
+  let lastSaveAttemptAt: number | null = null
 
   /**
    * Offer the id to the settings service, and remember whether it landed.
    *
-   * The write is awaited rather than fired and forgotten: a rejected write is the difference
-   * between one installation and a new one on every restart, so it has to be observable here.
-   * It is still never a reason to drop the ping — an id that cannot be saved is reported anyway,
-   * and the next ping tries again.
+   * This is deliberately not awaited by the ping: the id is worth reporting whether or not it can be
+   * stored, and a settings service that never answers must not hold the request that started the
+   * ping. What it does own is the retry — a write that failed is retried by the next admitted
+   * request, not by the next ping a day later, because a process that restarts inside that day
+   * would otherwise still lose the id.
    */
-  const rememberId = async (id: string): Promise<void> => {
-    try {
-      await options.saveInstallId(id)
-      persisted = true
-    } catch {
-      // Silence is the contract; the next ping retries the write.
-    }
+  const rememberId = (id: string): void => {
+    if (saving || persisted) return
+    const now = clock()
+    if (lastSaveAttemptAt !== null && now - lastSaveAttemptAt < SAVE_RETRY_MS) return
+    saving = true
+    lastSaveAttemptAt = now
+    void (async () => {
+      try {
+        await options.saveInstallId(id)
+        persisted = true
+      } catch {
+        // Silence is the contract; the next admitted request retries the write.
+      } finally {
+        saving = false
+      }
+    })()
   }
 
   /**
    * The id, generated once and kept.
    *
-   * A stored id wins and is never rewritten. Otherwise one is generated and offered to the settings
-   * service; while that write has not landed, every ping retries it, so a settings service that
-   * was not ready on the first request still gets the id before the process ends.
+   * A stored id wins and is never rewritten. Otherwise one is generated here and offered to the
+   * settings service; until that write lands, every admitted request offers it again.
    */
-  const ensureId = async (): Promise<string> => {
+  const ensureId = (): string => {
     if (currentId !== null) {
-      if (!persisted) await rememberId(currentId)
+      if (!persisted) rememberId(currentId)
       return currentId
     }
     let stored: string
@@ -315,7 +337,7 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
       return stored
     }
     currentId = randomUUID()
-    await rememberId(currentId)
+    rememberId(currentId)
     return currentId
   }
 
@@ -324,8 +346,7 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
     try {
       const manifest = options.manifest
       if (manifest.pkg.length === 0 || manifest.version.length === 0) return
-      const id = await ensureId()
-      await postPayload(fetchFn, buildPayload({ manifest, id, metrics: metricsNow(options) }))
+      await postPayload(fetchFn, buildPayload({ manifest, id: ensureId(), metrics: metricsNow(options) }))
     } catch {
       // Silence is the contract; the request this rode on has already been answered.
     }
@@ -335,6 +356,9 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
     noteAdmitted(): void {
       try {
         if (!options.enabled()) return
+        // The id is settled on every admitted request, not only when a ping is due: a write that
+        // failed has to be retried long before the next ping, or a restart in between loses it.
+        ensureId()
         const now = clock()
         // Stamped before the ping starts, so two requests admitted in the same tick cannot both send.
         if (lastPingAt !== null && now - lastPingAt < PING_INTERVAL_MS) return

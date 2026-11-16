@@ -16,6 +16,7 @@ export {
   PING_INTERVAL_MS,
   PING_TIMEOUT_MS,
   readPackageManifest,
+  SAVE_RETRY_MS,
   type Telemetry,
   TELEMETRY_ENDPOINT,
   type TelemetryFetch,

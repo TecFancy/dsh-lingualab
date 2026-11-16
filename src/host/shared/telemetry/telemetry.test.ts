@@ -19,6 +19,7 @@ import {
   PING_INTERVAL_MS,
   PING_TIMEOUT_MS,
   readPackageManifest,
+  SAVE_RETRY_MS,
   TELEMETRY_ENDPOINT,
   type Telemetry,
   type TelemetryOptions,
@@ -215,10 +216,10 @@ describe('the usage ping', () => {
     expect(stored.saved).toHaveLength(0)
   })
 
-  it('retries a write that failed, so the id survives the restart it was made for', async () => {
+  it('retries a failed write on the next admitted request, not a day later', async () => {
     // The settings service is mounted after the first request in a real composition, so the first
-    // write can legitimately reject. What must not happen is giving up on it: an id that never
-    // lands is a new installation on every restart, which is the bug this pins.
+    // write can legitimately reject. What must not happen is waiting for the next ping to retry it:
+    // a process that restarts inside that day would still lose the id, which is the bug this pins.
     const attempts: string[] = []
     let stored = ''
     let failNext = true
@@ -240,18 +241,76 @@ describe('the usage ping', () => {
     expect(report.sent).toHaveLength(1)
     expect(attempts).toEqual([report.sent[0]?.id])
 
-    report.advance(PING_INTERVAL_MS)
+    // No clock advance: the very next admitted request retries, and still sends no second ping.
+    report.advance(SAVE_RETRY_MS)
     report.telemetry.noteAdmitted()
     await flush()
-    // The second ping retried the write and it landed, with the same id.
     expect(attempts).toEqual([report.sent[0]?.id, report.sent[0]?.id])
     expect(stored).toBe(report.sent[0]?.id)
-    expect(report.sent[1]?.id).toBe(report.sent[0]?.id)
+    expect(report.sent).toHaveLength(1)
 
-    report.advance(PING_INTERVAL_MS)
+    // Once it has landed it is not written again.
+    report.advance(SAVE_RETRY_MS)
     report.telemetry.noteAdmitted()
     await flush()
-    // Once it has landed it is not written again.
+    expect(attempts).toHaveLength(2)
+  })
+
+  it('keeps the id a restart would read back, and does not make a new one', async () => {
+    // The real bug was observed across restarts, so this one crosses one: the second reporter is a
+    // new instance reading the same storage, exactly as the next process would.
+    let stored = ''
+    const first = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        stored = id
+      },
+    })
+    first.telemetry.noteAdmitted()
+    await flush()
+    const id = first.sent[0]?.id
+    expect(stored).toBe(id)
+
+    const second = harness({ installId: () => stored })
+    second.telemetry.noteAdmitted()
+    await flush()
+    expect(second.sent[0]?.id).toBe(id)
+    // A stored id is never rewritten.
+    expect(second.saved).toHaveLength(0)
+  })
+
+  it('does not let a write that never settles hold the ping', async () => {
+    // A settings service that hangs must not delay the request that started the ping, nor the ping
+    // itself: the id is worth reporting whether or not it can be stored.
+    const report = harness({
+      saveInstallId: () => new Promise<void>(() => undefined),
+    })
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(report.sent).toHaveLength(1)
+  })
+
+  it('backs off a write that keeps failing instead of trying on every request', async () => {
+    const attempts: string[] = []
+    const report = harness({
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        throw new Error('settings service is broken')
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+
+    // Inside the retry floor: no second attempt, however many requests arrive.
+    for (let request = 0; request < 5; request += 1) report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
     expect(attempts).toHaveLength(2)
   })
 

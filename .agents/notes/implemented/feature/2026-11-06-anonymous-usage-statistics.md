@@ -35,9 +35,11 @@ the reporting outside it.
 The id is a UUID v4 from `crypto.randomUUID()`, hidden and volatile in the config. It is generated
 on the first admitted request and written back through the settings service into this plugin's own
 profile entry, like `openState` and `libraryRoot`; there is no state file of ours. The write is
-awaited and retried on every ping until it lands, because a write that is fired and forgotten is
-indistinguishable from one that failed: the id would then be new on every restart, and the count
-would be installations rather than machines. A write that never lands still does not cost the ping.
+retried by the next admitted request rather than by the next ping, because a write that is fired and
+forgotten is indistinguishable from one that failed, and a process that restarts before the next ping
+would still lose the id; retries back off so a permanently broken service costs one attempt per
+interval. The write is also not in front of the ping: the id is worth reporting whether or not it can
+be stored, so a settings service that hangs cannot hold the report.
 
 The switch is a plain, visible `telemetry` boolean, default `true`. Turning it off means no id, no
 listing and no request: the module checks it before it does anything else. Nothing else in the
