@@ -108,8 +108,13 @@ export interface TelemetryOptions {
   readonly enabled: () => boolean
   /** The `installId` config field, or `''` when none has been generated yet. */
   readonly installId: () => string
-  /** Persist a generated id; never awaited, and its failure is the caller's to swallow. */
-  readonly saveInstallId: (id: string) => void
+  /**
+   * Persist an id, resolving once it is durable and rejecting when it is not.
+   *
+   * The promise is awaited before the id is reported, so a rejection is a fact this module can act
+   * on rather than a write that may or may not have landed. It is never a reason to drop the ping.
+   */
+  readonly saveInstallId: (id: string) => Promise<void>
   /** The library root at ping time; the episode count comes from one listing of it. */
   readonly libraryRoot: () => string
   /** Whether `ffmpeg` can be found at ping time. */
@@ -267,29 +272,50 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   const fetchFn: TelemetryFetch = options.fetch ?? defaultFetch
   let lastPingAt: number | null = null
   let currentId: string | null = null
+  let persisted = false
+
+  /**
+   * Offer the id to the settings service, and remember whether it landed.
+   *
+   * The write is awaited rather than fired and forgotten: a rejected write is the difference
+   * between one installation and a new one on every restart, so it has to be observable here.
+   * It is still never a reason to drop the ping — an id that cannot be saved is reported anyway,
+   * and the next ping tries again.
+   */
+  const rememberId = async (id: string): Promise<void> => {
+    try {
+      await options.saveInstallId(id)
+      persisted = true
+    } catch {
+      // Silence is the contract; the next ping retries the write.
+    }
+  }
 
   /**
    * The id, generated once and kept.
    *
-   * A stored id wins. Otherwise one is generated and offered to the settings service; a write that
-   * fails costs the next start a new id, not this process, which keeps using the one in memory.
+   * A stored id wins and is never rewritten. Otherwise one is generated and offered to the settings
+   * service; while that write has not landed, every ping retries it, so a settings service that
+   * was not ready on the first request still gets the id before the process ends.
    */
-  const ensureId = (): string => {
-    if (currentId !== null) return currentId
+  const ensureId = async (): Promise<string> => {
+    if (currentId !== null) {
+      if (!persisted) await rememberId(currentId)
+      return currentId
+    }
     let stored: string
     try {
       stored = options.installId().trim()
     } catch {
       stored = ''
     }
-    currentId = stored.length > 0 ? stored : randomUUID()
-    if (stored.length === 0) {
-      try {
-        options.saveInstallId(currentId)
-      } catch {
-        // Memory only: the write is an optimisation for the next start, never a condition here.
-      }
+    if (stored.length > 0) {
+      currentId = stored
+      persisted = true
+      return stored
     }
+    currentId = randomUUID()
+    await rememberId(currentId)
     return currentId
   }
 
@@ -298,7 +324,8 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
     try {
       const manifest = options.manifest
       if (manifest.pkg.length === 0 || manifest.version.length === 0) return
-      await postPayload(fetchFn, buildPayload({ manifest, id: ensureId(), metrics: metricsNow(options) }))
+      const id = await ensureId()
+      await postPayload(fetchFn, buildPayload({ manifest, id, metrics: metricsNow(options) }))
     } catch {
       // Silence is the contract; the request this rode on has already been answered.
     }

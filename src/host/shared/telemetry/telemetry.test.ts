@@ -65,7 +65,7 @@ function harness(overrides: Partial<TelemetryOptions> = {}): {
   const telemetry = createTelemetry({
     enabled: () => true,
     installId: () => stored,
-    saveInstallId: (id) => {
+    saveInstallId: async (id) => {
       saved.push(id)
       stored = id
     },
@@ -182,7 +182,7 @@ describe('the usage ping', () => {
       const report = createTelemetry({
         enabled: () => true,
         installId: () => STORED_ID,
-        saveInstallId: () => undefined,
+        saveInstallId: async () => undefined,
         libraryRoot: () => '',
         ffmpeg: () => false,
         manifest: { pkg: 'dsh-lingualab', version: '0.19.1' },
@@ -213,6 +213,46 @@ describe('the usage ping', () => {
     await flush()
     expect(stored.sent[0]?.id).toBe(STORED_ID)
     expect(stored.saved).toHaveLength(0)
+  })
+
+  it('retries a write that failed, so the id survives the restart it was made for', async () => {
+    // The settings service is mounted after the first request in a real composition, so the first
+    // write can legitimately reject. What must not happen is giving up on it: an id that never
+    // lands is a new installation on every restart, which is the bug this pins.
+    const attempts: string[] = []
+    let stored = ''
+    let failNext = true
+    const report = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        if (failNext) {
+          failNext = false
+          throw new Error('settings service not mounted yet')
+        }
+        stored = id
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    // The ping still went out, with the id it could not save yet.
+    expect(report.sent).toHaveLength(1)
+    expect(attempts).toEqual([report.sent[0]?.id])
+
+    report.advance(PING_INTERVAL_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    // The second ping retried the write and it landed, with the same id.
+    expect(attempts).toEqual([report.sent[0]?.id, report.sent[0]?.id])
+    expect(stored).toBe(report.sent[0]?.id)
+    expect(report.sent[1]?.id).toBe(report.sent[0]?.id)
+
+    report.advance(PING_INTERVAL_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    // Once it has landed it is not written again.
+    expect(attempts).toHaveLength(2)
   })
 
   it('never carries a path, a subtitle or an audio file name', async () => {
