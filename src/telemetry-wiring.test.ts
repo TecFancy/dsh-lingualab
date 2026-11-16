@@ -52,8 +52,10 @@ interface Mounted {
   admit: () => void
   /** The `installId` the profile would hold. */
   storedId: () => string
-  /** Every write the settings service was asked for. */
+  /** Every write the settings service accepted. */
   writes: { ns: string; patch: Record<string, unknown> }[]
+  /** Every write it was asked for, refused ones included. */
+  attempts: { ns: string; patch: Record<string, unknown> }[]
   /** Whether the settings service is mounted at all. */
   setSettingsMounted: (mounted: boolean) => void
   /** Whether the next write is refused. */
@@ -68,11 +70,15 @@ function mount(box: ProfileBox = { installId: '' }): Mounted {
   const root = tempRoot()
   const routes: WebRoute[] = []
   const writes: { ns: string; patch: Record<string, unknown> }[] = []
+  const attempts: { ns: string; patch: Record<string, unknown> }[] = []
   let settingsMounted = true
   let failNext = false
 
   const settings = {
     update: async (ns: string, patch: Record<string, unknown>): Promise<void> => {
+      // Recorded before the refusal, so a test can assert that a retry offers the same id rather
+      // than a fresh one: that equality is the whole point of the retry.
+      attempts.push({ ns, patch })
       if (failNext) {
         failNext = false
         throw new Error('settings.update is broken')
@@ -120,6 +126,7 @@ function mount(box: ProfileBox = { installId: '' }): Mounted {
     },
     storedId: () => box.installId,
     writes,
+    attempts,
     setSettingsMounted: (mounted) => void (settingsMounted = mounted),
     failNextWrite: (fail) => void (failNext = fail),
   }
@@ -139,7 +146,8 @@ describe('the install id through the real wiring', () => {
 
   it('retries through the adapter after the settings service refused the first write', async () => {
     // The incident: the service was broken when the first ping went out. The adapter must hand the
-    // rejection back rather than swallow it, and a later admitted request must try again.
+    // rejection back rather than swallow it, and a later admitted request must try again — with the
+    // same id, because a retry that offered a fresh one would be the bug wearing a different hat.
     vi.useFakeTimers()
     const mounted = mount()
     mounted.failNextWrite(true)
@@ -147,23 +155,28 @@ describe('the install id through the real wiring', () => {
     await flush()
     expect(mounted.writes).toHaveLength(0)
     expect(mounted.storedId()).toBe('')
+    expect(mounted.attempts).toHaveLength(1)
 
     vi.advanceTimersByTime(SAVE_RETRY_MS)
     mounted.admit()
     await flush()
     expect(mounted.writes).toHaveLength(1)
     expect(mounted.storedId()).not.toBe('')
+    expect(mounted.attempts).toHaveLength(2)
+    expect(mounted.attempts[1]?.patch.installId).toBe(mounted.attempts[0]?.patch.installId)
   })
 
   it('retries through the adapter once the settings service is mounted', async () => {
-    // The other half of the incident: the service was not there at all yet, which the adapter
-    // reports as a rejection rather than as a silent no-op.
+    // The other half of the incident: the service was not there at all yet. The adapter reports that
+    // as a rejection without ever reaching `settings.update`, so the first attempt is not recorded
+    // there; what matters is that the next admitted request does reach it, with the same id.
     vi.useFakeTimers()
     const mounted = mount()
     mounted.setSettingsMounted(false)
     mounted.admit()
     await flush()
     expect(mounted.writes).toHaveLength(0)
+    expect(mounted.attempts).toHaveLength(0)
 
     mounted.setSettingsMounted(true)
     vi.advanceTimersByTime(SAVE_RETRY_MS)
@@ -171,9 +184,10 @@ describe('the install id through the real wiring', () => {
     await flush()
     expect(mounted.writes).toHaveLength(1)
     expect(mounted.storedId()).not.toBe('')
+    expect(mounted.attempts).toHaveLength(1)
   })
 
-  it('reuses the id the profile already holds instead of writing a new one', async () => {
+  it('does not rewrite an id the profile already holds', async () => {
     // A restart is a second mount over the same profile box: it must read the id back, not make one.
     const box: ProfileBox = { installId: '' }
     const first = mount(box)
