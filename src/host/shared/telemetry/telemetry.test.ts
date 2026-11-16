@@ -4,7 +4,7 @@
  * What these pin is the contract at its edges, because every failure mode here is quiet: a ping
  * that goes out when it was turned off, one that repeats every request, one that carries a path,
  * or one that throws into the route that started it would all pass a reading of the happy path.
- * So the six cases below are the ones the shared contract names, plus the readers that build the
+ * So the cases below are the ones the shared contract names, plus the readers that build the
  * numbers, and every one of them replaces the network and the clock: a test never opens a socket.
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -343,7 +343,7 @@ describe('the usage ping', () => {
     expect(attempts).toHaveLength(1)
     expect(report.sent).toHaveLength(1)
 
-    // The hung attempt is abandoned after its timeout, and the next request tries again.
+    // Once its lease has expired, the next admitted request tries again.
     hang = false
     report.advance(SAVE_RETRY_MS)
     report.telemetry.noteAdmitted()

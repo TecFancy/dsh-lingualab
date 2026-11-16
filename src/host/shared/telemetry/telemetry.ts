@@ -287,9 +287,9 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   let lastPingAt: number | null = null
   let currentId: string | null = null
   let persisted = false
-  /** When the write in flight started, or `null` when none is. */
+  /** When the current lease started, or `null` when no attempt is holding one. */
   let savingSince: number | null = null
-  /** Identifies the attempt that owns {@link savingSince}, so a stale one cannot clear a newer flag. */
+  /** Identifies the attempt that owns {@link savingSince}, so a stale one cannot clear a newer lease. */
   let savingAttempt = 0
   /** When the last write was tried, so a permanently broken service is not hammered. */
   let lastSaveAttemptAt: number | null = null
@@ -306,8 +306,10 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   const rememberId = (id: string): void => {
     if (persisted) return
     const now = clock()
-    // One attempt at a time, and one per interval: the lease and the backoff are the same window,
-    // so a write that hangs is abandoned exactly when the next attempt becomes due.
+    // At most one new attempt per interval, and the lease and the backoff are the same window, so
+    // an attempt that hangs stops holding the lease exactly when the next one becomes due. The
+    // abandoned attempt is not cancelled — it cannot be — and may still settle later; that is
+    // harmless, because every attempt writes the same id this process already reports.
     if (savingSince !== null && now - savingSince < SAVE_RETRY_MS) return
     if (lastSaveAttemptAt !== null && now - lastSaveAttemptAt < SAVE_RETRY_MS) return
     savingSince = now
