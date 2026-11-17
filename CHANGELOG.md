@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-11-17
+
 ### Changed
 
 - The README is an entry point again. It introduces the panel, says what it does in a few
