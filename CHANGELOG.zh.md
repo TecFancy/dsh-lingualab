@@ -13,9 +13,15 @@
    抬高 manifest 的版本号。
 
 中英两个版本是一对文件，`release-notes.mjs` 把两边一起取出来，作为 GitHub Release 的正文。
-这个仓库不发 npm，这里的版本号标记的是一个装过、用过的状态，而不是注册表上的包。
+这个仓库发布到 npm，包名 `dsh-lingualab`。版本号既标记插件的一个状态，也标记注册表上的那份产物。
 
 ## [Unreleased]
+
+### 修复
+
+- 截图在 npm 页面上能显示了。npm 不解析 README 里的相对图片路径，所以那四张图在 GitHub 上正常、
+  在 npm 上是坏的；现在改成 `raw.githubusercontent.com` 的绝对地址。图片同时从包的 `files` 里移出，
+  因为 README 是从仓库取图的：包体积从 909 KB 降到 706 KB。
 
 ## [0.21.3] - 2026-11-17
 
