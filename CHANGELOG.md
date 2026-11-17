@@ -19,6 +19,28 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-17
+
+### Fixed
+
+- A failed write of the usage ping's installation id is now retried, so a restart reuses the id
+  instead of counting as another installation. The write back into the plugin's profile entry was
+  fired and forgotten, so a settings service that was not mounted yet on the first admitted request
+  swallowed the id silently and the next start made a new one. It is now retried by the next admitted
+  request once the backoff has passed, rather than by the next ping a day later, and it no longer
+  sits in front of the ping, so a settings service that hangs cannot hold the report. Once a write
+  has landed, a restart reads that id back; a process that never gets a second admitted request, or
+  whose settings service never answers, can still lose it. Nothing changes for a deployment where the
+  write already succeeded.
+- A stored `installId` that is not a UUID v4 is no longer reported or replaced. A hand-edited or
+  half-written value used to be sent as if it were an id, which put a string into the counts that
+  does not meet the contract; a truncated one also has less entropy, so a higher chance of colliding
+  with another installation. Replacing it instead could split one installation into two, because
+  nothing can tell whether it once stood for an id that was already reported. The ping is skipped
+  until the field is fixed or cleared, and fixing it resumes reporting on the next admitted request
+  rather than a day later. An uppercase UUID is the same id, so it is accepted and reported in
+  lowercase.
+
 ## [0.21.1] - 2026-11-13
 
 ### Fixed

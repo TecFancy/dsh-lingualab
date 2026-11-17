@@ -165,11 +165,14 @@ function telemetryFor(
       }
     },
     // Written through the settings service, never to a file of our own: the profile stays the one
-    // home for plugin state. A failed write costs the next start a new id, nothing in this one.
-    saveInstallId: (id) => {
+    // home for plugin state. The promise is handed back rather than swallowed, so the reporter can
+    // tell a write that landed from one that did not and retry the latter on the next admitted
+    // request; a settings service that is not mounted yet is exactly that case, not a reason to
+    // give up.
+    saveInstallId: async (id) => {
       const settings = settingsOf(ctx)
-      if (settings === null) return
-      void settings.update(name, { installId: id }).catch(() => undefined)
+      if (settings === null) throw new Error('no settings service')
+      await settings.update(name, { installId: id })
     },
     libraryRoot: () => resolveRoot(ctx, configured()).root,
     ffmpeg: () => findBinaries(ffmpegPath()) !== null,

@@ -226,6 +226,16 @@ profile entry (the Plugins page, or `cordis.patch.yml`): no id is generated, the
 listed and no request is made. `installId` is the field the plugin writes itself to keep the same
 random id across restarts; it is hidden because it is not a value to choose.
 
+If that field ever holds something that is not a UUID v4 — a hand edit, a half-written value — the
+plugin sends nothing and replaces nothing. A string that does not meet the contract does not belong
+in the counts, a truncated one has less entropy and so a higher chance of colliding with another
+installation, and replacing it could split one installation into two, because nothing can tell
+whether it once stood for an id that was already reported. An uppercase UUID is the same id, so it is
+accepted and reported in lowercase. To resume, edit the field in the profile's `cordis.patch.yml` to
+a UUID v4, or clear it to have a new id generated (clearing starts a new installation identity), and
+let the new configuration take effect — restart when you edited the file by hand. The next admitted
+request then reports, without waiting out the day.
+
 ## Design
 
 The layout, colours and interaction of the home, the practice view and the notes and steps
