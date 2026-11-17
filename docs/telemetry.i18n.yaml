@@ -17,9 +17,9 @@
 "/anonymous-usage-statistics/the-request-contains-only-these-fields":
   en: 684efd925d000297
   zh: 35be2347e81ad150
-"/anonymous-usage-statistics/telemetry-is-on-by-default":
-  en: e06842f06e059f77
-  zh: 6d28c83776d41525
+"/anonymous-usage-statistics/telemetry-is-off-by-default":
+  en: 34025cffdda99795
+  zh: 0895033c3c22bcdd
 "/anonymous-usage-statistics/invalid-install-ids-stop-reporting-and-are-never-overwritten":
   en: 753f0f12e2104f2f
   zh: 1d831ea29042f759

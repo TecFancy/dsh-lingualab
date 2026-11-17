@@ -2,7 +2,7 @@
 
 English | [简体中文](releasing.zh.md)
 
-This document explains how to release and deploy LinguaLab, and how `ship`, `deploy` and CI divide the work. Read it before merging changes into `main` or updating the plugin on a server.
+This document explains how to release LinguaLab, and how `ship` and CI divide the work. Read it before merging changes into `main`.
 
 ## A pull request into `main` is a release
 
@@ -10,7 +10,6 @@ Work lands on `development`. A pull request into `main` is a release. Run this c
 
 ```sh
 npm run ship -- patch|minor|major   # check, bump, verify, push, open the PR, wait for green, merge, sync back
-npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
 ## `ship` performs four release steps in order
@@ -30,10 +29,8 @@ The `version-bump` job in CI fails a pull request that does not raise the versio
 
 ## The release workflow creates the tag after merging
 
-The tag is not made by hand. When the merge lands on `main`, the `release` workflow creates the tag and a GitHub Release whose body is that version's sections from the changelog pair, Chinese first and English after.
+The tag is not made by hand. When the merge lands on `main`, the `release` workflow creates the tag, a GitHub Release whose body is that version's sections from the changelog pair (Chinese first and English after), and the `dsh-lingualab-<version>.tgz` attached to it. The same version is then published to npm from the same tarball, so the registry, the Release and the tag always carry one artifact.
 
-Nothing is published to npm. The plugin is installed from a local path or a tarball, so a version number here marks a state that was installed and used, not an artifact on a registry.
+## Publishing to npm
 
-## `deploy` reads its target from environment variables
-
-`deploy` reads its target from `LINGUALAB_DEPLOY_HOST` and `LINGUALAB_DEPLOY_PATH`; see the repository skill for the details.
+The first version of a package has to be published by a maintainer, because npm only lets you register a Trusted Publisher on a package that already exists. After that, the `release` workflow publishes over OIDC: no `NPM_TOKEN` secret exists, and the trust is registered on npmjs.com against this repository and the `release.yml` filename. Renaming that file breaks publishing.

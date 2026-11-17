@@ -34,9 +34,9 @@ What is **never** sent: a file name, a folder path, an episode title, a note, a 
 
 The body is a `POST` to `https://t.hi-ruofei.com/v1/ping` on `t.hi-ruofei.com`, with a five second limit, no retry, no log and no wait. A ping that fails is silent, and the request it rode on has already been answered.
 
-## Telemetry is on by default
+## Telemetry is off by default
 
-The ping is **on by default**. To stop it, set the `telemetry` field to `false` in this plugin's profile entry, either on the Plugins page or in `cordis.patch.yml`. No id is generated, the library is not listed and no request is made.
+The ping is **off by default**. To turn it on, set the `telemetry` field to `true` in this plugin's profile entry, either on the Plugins page or in `cordis.patch.yml`. While it is off, no id is generated, the library is not listed and no request is made.
 
 `installId` is the field the plugin writes itself to keep the same random id across restarts. It is hidden because it is not a value to choose.
 

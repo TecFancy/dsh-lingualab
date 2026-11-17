@@ -23,6 +23,27 @@
   发版、服务端路由、仓库结构，都在 `docs/` 下。路由表和上报字段表属于参考资料，不再夹在介绍中间。
   中文那份是重写的，不是再翻一遍，读起来是中文。
 
+### 新增
+
+- 包发布到 npm，名字是 `dsh-lingualab`，安装从「本地路径或 tar 包」变成一条命令。每个 GitHub Release
+  同时挂着发出去的那份 `dsh-lingualab-<version>.tgz`，注册表和 Release 页不会出现两份不同的字节。
+- 两份 README 都加了安装章节：一行命令、固定版本写法，以及装完在哪里找到面板。
+- 根目录补了 `LICENSE`，内容是 manifest 早就声明过的 MIT 全文，并随包一起发出去。
+- 加了 `SECURITY.md`，指向 GitHub 的私密漏洞报告。
+- 加了 `engines` 和 `peerDependencies`，写明这个插件对 DeepSeek Harness 和客户端包的版本要求，
+  宿主太旧会在安装时报错，而不是运行时才出问题。
+
+### 变更
+
+- **匿名使用统计改为默认关闭。** 原先默认开启，意味着陌生人第一次安装、还没读到任何说明，就已经每天向
+  维护者的域名发一次伪匿名上报。现在打开它必须显式选择；上报内容、端点和安装 id 的规则没有变，文档
+  里仍然写全。
+- `.npmrc` 把 registry 固定到 `registry.npmjs.org`，lockfile 里的 519 个 `resolved` 也从镜像改成官方地址，
+  这样从发布的包安装时，解析到的主机和完整性哈希指向同一处。
+- `npm run release` 现在同时抬 `package-lock.json` 和 `package.json`。之前七个版本只抬了 manifest，
+  lockfile 一直停在 `0.14.5`。
+- `AGENTS.md` 不再打进包。它是写给贡献者的 agent 规则，装插件的人用不到，但文件仍留在仓库里。
+
 ## [0.21.2] - 2026-11-17
 
 ### 修复
