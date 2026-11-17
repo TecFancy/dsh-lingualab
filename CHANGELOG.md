@@ -19,6 +19,8 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+## [0.21.4] - 2026-11-17
+
 ### Fixed
 
 - The screenshots render on the npm page. npm does not resolve a README's relative image
