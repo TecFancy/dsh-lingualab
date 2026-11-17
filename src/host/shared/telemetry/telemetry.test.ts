@@ -4,7 +4,7 @@
  * What these pin is the contract at its edges, because every failure mode here is quiet: a ping
  * that goes out when it was turned off, one that repeats every request, one that carries a path,
  * or one that throws into the route that started it would all pass a reading of the happy path.
- * So the six cases below are the ones the shared contract names, plus the readers that build the
+ * So the cases below are the ones the shared contract names, plus the readers that build the
  * numbers, and every one of them replaces the network and the clock: a test never opens a socket.
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -13,12 +13,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeTempDir } from '../testing/index.ts'
 import {
   buildPayload,
+  canonicalInstallId,
   countEpisodeFolders,
   createTelemetry,
   episodeBucket,
   PING_INTERVAL_MS,
   PING_TIMEOUT_MS,
   readPackageManifest,
+  SAVE_RETRY_MS,
   TELEMETRY_ENDPOINT,
   type Telemetry,
   type TelemetryOptions,
@@ -65,7 +67,7 @@ function harness(overrides: Partial<TelemetryOptions> = {}): {
   const telemetry = createTelemetry({
     enabled: () => true,
     installId: () => stored,
-    saveInstallId: (id) => {
+    saveInstallId: async (id) => {
       saved.push(id)
       stored = id
     },
@@ -182,7 +184,7 @@ describe('the usage ping', () => {
       const report = createTelemetry({
         enabled: () => true,
         installId: () => STORED_ID,
-        saveInstallId: () => undefined,
+        saveInstallId: async () => undefined,
         libraryRoot: () => '',
         ffmpeg: () => false,
         manifest: { pkg: 'dsh-lingualab', version: '0.19.1' },
@@ -215,6 +217,226 @@ describe('the usage ping', () => {
     expect(stored.saved).toHaveLength(0)
   })
 
+  it('skips the ping rather than report or replace a stored value that is not an id', async () => {
+    // A hand-edited or half-written value is not an id. Reporting it would put a string into the
+    // counts that does not meet the contract, and a truncated one has too little entropy to be safe
+    // from collisions; replacing it would silently split one installation into two. So nothing is
+    // sent and nothing is written, and the value is left for a human to fix.
+    for (const broken of ['not-a-uuid', '6a403451', '6a403451-e825-4256-8e79-7aad7e6631b', '']) {
+      const report = harness({ installId: () => broken })
+      report.telemetry.noteAdmitted()
+      await flush()
+      if (broken === '') {
+        // An empty value is not broken, it is "no id yet": one is generated and written.
+        expect(report.sent).toHaveLength(1)
+        expect(report.saved).toHaveLength(1)
+        continue
+      }
+      expect(report.sent).toHaveLength(0)
+      expect(report.saved).toHaveLength(0)
+    }
+  })
+
+  it('reports a stored id in the one spelling this module writes, whatever case it was typed in', async () => {
+    // An uppercase UUID is the same id, so refusing it would silently stop reporting for a value a
+    // human could have typed. It is normalised in memory and the config is left alone.
+    const upper = harness({ installId: () => STORED_ID.toUpperCase() })
+    upper.telemetry.noteAdmitted()
+    await flush()
+    expect(upper.sent[0]?.id).toBe(STORED_ID)
+    expect(upper.saved).toHaveLength(0)
+
+    const canonical = harness({ installId: () => STORED_ID })
+    canonical.telemetry.noteAdmitted()
+    await flush()
+    expect(canonical.sent[0]?.id).toBe(STORED_ID)
+  })
+
+  it('resumes on the next request once a broken value is fixed, without waiting out a day', async () => {
+    // The broken value must not consume the ping window: a window stamped for a ping that never went
+    // out would delay the first real report by a day, which is not what "fix the field" should mean.
+    let stored = 'not-a-uuid'
+    const report = harness({ installId: () => stored })
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(report.sent).toHaveLength(0)
+
+    stored = STORED_ID
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(report.sent).toHaveLength(1)
+    expect(report.sent[0]?.id).toBe(STORED_ID)
+  })
+
+  it('never overwrites the broken value it refused to report', async () => {
+    // Replacing it would split one installation into two, so the value stays exactly as it was.
+    const report = harness({ installId: () => 'not-a-uuid' })
+    for (let request = 0; request < 3; request += 1) report.telemetry.noteAdmitted()
+    await flush()
+    expect(report.saved).toHaveLength(0)
+    expect(report.sent).toHaveLength(0)
+  })
+
+  it('retries a failed write once the backoff has passed, not a day later', async () => {
+    // The settings service is mounted after the first request in a real composition, so the first
+    // write can legitimately reject. What must not happen is waiting for the next ping to retry it:
+    // a process that restarts inside that day would still lose the id, which is the bug this pins.
+    const attempts: string[] = []
+    let stored = ''
+    let failNext = true
+    const report = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        if (failNext) {
+          failNext = false
+          throw new Error('settings service not mounted yet')
+        }
+        stored = id
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    // The ping still went out, with the id it could not save yet.
+    expect(report.sent).toHaveLength(1)
+    expect(attempts).toEqual([report.sent[0]?.id])
+
+    // Only the save backoff passes here, not the 24 hour ping window: the next admitted request
+    // retries the write and still sends no second ping.
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toEqual([report.sent[0]?.id, report.sent[0]?.id])
+    expect(stored).toBe(report.sent[0]?.id)
+    expect(report.sent).toHaveLength(1)
+
+    // Once it has landed it is not written again.
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(2)
+  })
+
+  it('survives the whole incident: first write fails, a later request saves it, a restart reuses it', async () => {
+    // The failure that was actually observed: the settings service was broken when the first ping
+    // went out, and the id was lost because nothing retried. This walks that exact path end to end.
+    let stored = ''
+    let broken = true
+    const first = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        if (broken) throw new Error('settings.update is broken')
+        stored = id
+      },
+    })
+
+    first.telemetry.noteAdmitted()
+    await flush()
+    const id = first.sent[0]?.id
+    expect(stored).toBe('')
+
+    // The host bug is fixed; the next admitted request saves the id the first ping already reported.
+    broken = false
+    first.advance(SAVE_RETRY_MS)
+    first.telemetry.noteAdmitted()
+    await flush()
+    expect(stored).toBe(id)
+
+    // The restart reads it back instead of making a new one.
+    const second = harness({ installId: () => stored })
+    second.telemetry.noteAdmitted()
+    await flush()
+    expect(second.sent[0]?.id).toBe(id)
+  })
+
+  it('keeps the id a restart would read back, and does not make a new one', async () => {
+    // The real bug was observed across restarts, so this one crosses one: the second reporter is a
+    // new instance reading the same storage, exactly as the next process would.
+    let stored = ''
+    const first = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        stored = id
+      },
+    })
+    first.telemetry.noteAdmitted()
+    await flush()
+    const id = first.sent[0]?.id
+    expect(stored).toBe(id)
+
+    const second = harness({ installId: () => stored })
+    second.telemetry.noteAdmitted()
+    await flush()
+    expect(second.sent[0]?.id).toBe(id)
+    // A stored id is never rewritten.
+    expect(second.saved).toHaveLength(0)
+  })
+
+  it('does not let a write that never settles hold the ping', async () => {
+    // A settings service that hangs must not delay the request that started the ping, nor the ping
+    // itself: the id is worth reporting whether or not it can be stored.
+    const report = harness({
+      saveInstallId: () => new Promise<void>(() => undefined),
+    })
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(report.sent).toHaveLength(1)
+  })
+
+  it('tries again after a write that hung, so a recovered service still gets the id', async () => {
+    // A write that never settles must not own the in-flight slot for the rest of the process: the
+    // service may recover, and the id is only safe once it has been stored.
+    const attempts: string[] = []
+    let stored = ''
+    let hang = true
+    const report = harness({
+      installId: () => stored,
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        if (hang) return new Promise<void>(() => undefined)
+        stored = id
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+    expect(report.sent).toHaveLength(1)
+
+    // Once its lease has expired, the next admitted request tries again.
+    hang = false
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(2)
+    expect(stored).toBe(report.sent[0]?.id)
+  })
+
+  it('backs off a write that keeps failing instead of trying on every request', async () => {
+    const attempts: string[] = []
+    const report = harness({
+      saveInstallId: async (id) => {
+        attempts.push(id)
+        throw new Error('settings service is broken')
+      },
+    })
+
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+
+    // Inside the retry floor: no second attempt, however many requests arrive.
+    for (let request = 0; request < 5; request += 1) report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(1)
+
+    report.advance(SAVE_RETRY_MS)
+    report.telemetry.noteAdmitted()
+    await flush()
+    expect(attempts).toHaveLength(2)
+  })
+
   it('never carries a path, a subtitle or an audio file name', async () => {
     const root = tempDir()
     mkdirSync(join(root, 'S01E01'))
@@ -233,6 +455,35 @@ describe('the usage ping', () => {
 })
 
 describe('the readers behind the metrics', () => {
+  it('accepts only a UUID v4 as a stored id, and normalises its case', () => {
+    // Table-driven on purpose: the shape is a contract, and every way of missing it is a different
+    // way for a bad value to reach the counts.
+    const cases: [string, string | null][] = [
+      [STORED_ID, STORED_ID],
+      [STORED_ID.toUpperCase(), STORED_ID],
+      // Wrong version digit: v1 and v7 are real UUIDs, but not the one this module writes.
+      ['0f4a9c1e-6d2b-1c33-9a51-1d2c3b4a5e6f', null],
+      ['0f4a9c1e-6d2b-7c33-9a51-1d2c3b4a5e6f', null],
+      // Wrong variant nibble.
+      ['0f4a9c1e-6d2b-4c33-1a51-1d2c3b4a5e6f', null],
+      // Not hexadecimal.
+      ['0f4a9c1e-6d2b-4c33-9a51-1d2c3b4a5e6g', null],
+      // One character short, one too many.
+      ['0f4a9c1e-6d2b-4c33-9a51-1d2c3b4a5e6', null],
+      ['0f4a9c1e-6d2b-4c33-9a51-1d2c3b4a5e6ff', null],
+      // Hyphens in the wrong places.
+      ['0f4a9c1e6-d2b-4c33-9a51-1d2c3b4a5e6f', null],
+      ['0f4a9c1e-6d2b-4c33-9a51-1d2c3b4a5e6f-', null],
+      // Not an id at all.
+      ['', null],
+      ['not-a-uuid', null],
+      ['6a403451', null],
+    ]
+    for (const [input, expected] of cases) {
+      expect(canonicalInstallId(input), input).toBe(expected)
+    }
+  })
+
   it('buckets the episode count at the contract’s edges', () => {
     expect(episodeBucket(null)).toBe('0')
     expect(episodeBucket(0)).toBe('0')

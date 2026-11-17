@@ -36,6 +36,19 @@ export const PING_INTERVAL_MS = 24 * 60 * 60 * 1000
 /** How long one ping may take before it is given up on. */
 export const PING_TIMEOUT_MS = 5_000
 
+/**
+ * The shortest gap between two attempts to store the install id.
+ *
+ * The write is retried by admitted requests rather than by the next ping, because a process that
+ * restarts before that ping would lose the id. This is the floor under that retry: a settings
+ * service that is permanently broken costs one attempt per interval, not one per request.
+ *
+ * It doubles as the in-flight lease. A write that never settles must not own the slot for the rest
+ * of the process, or a service that recovers after hanging would never be asked again; abandoning
+ * the attempt is harmless because a late success stores the same id this process already reports.
+ */
+export const SAVE_RETRY_MS = 30_000
+
 /** The bucketed episode count; the buckets are the contract's, not a display choice. */
 export type EpisodeBucket = '0' | '1-5' | '6-20' | '21+'
 
@@ -108,8 +121,14 @@ export interface TelemetryOptions {
   readonly enabled: () => boolean
   /** The `installId` config field, or `''` when none has been generated yet. */
   readonly installId: () => string
-  /** Persist a generated id; never awaited, and its failure is the caller's to swallow. */
-  readonly saveInstallId: (id: string) => void
+  /**
+   * Persist an id, resolving once it is durable and rejecting when it is not.
+   *
+   * The promise is awaited in the background so a rejection is a fact this module can act on rather
+   * than a write that may or may not have landed; the ping itself never waits for it, and a
+   * rejection is never a reason to drop the ping.
+   */
+  readonly saveInstallId: (id: string) => Promise<void>
   /** The library root at ping time; the episode count comes from one listing of it. */
   readonly libraryRoot: () => string
   /** Whether `ffmpeg` can be found at ping time. */
@@ -175,6 +194,27 @@ function hostArch(arch: string): string {
 /** The machine as it will be reported. */
 export function hostFacts(): HostFacts {
   return { nodeVersion: process.versions.node, platform: process.platform, arch: process.arch }
+}
+
+/** A UUID v4, in either case: the shape is what matters, not the spelling. */
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/**
+ * The canonical form of a stored id, or `null` when the value is not a UUID v4.
+ *
+ * A stored value is trusted only when it has the shape the contract names, and it is reported in the
+ * one spelling this module writes. Case is normalised rather than rejected: an uppercase UUID is the
+ * same id, and refusing it would silently stop reporting for a value a human could have typed.
+ *
+ * A value that is not a UUID v4 at all is neither reported nor replaced. Reporting it would put a
+ * string into the counts that does not meet the contract, and a truncated one has too little entropy
+ * to be safe from collisions; replacing it would silently split one installation into two, because
+ * nothing here can tell whether it once stood for an id that was already reported.
+ * @param value - the raw config value.
+ * @returns the lowercase UUID v4, or `null` when the value is not one.
+ */
+export function canonicalInstallId(value: string): string | null {
+  return UUID_V4.test(value) ? value.toLowerCase() : null
 }
 
 /**
@@ -267,38 +307,88 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   const fetchFn: TelemetryFetch = options.fetch ?? defaultFetch
   let lastPingAt: number | null = null
   let currentId: string | null = null
+  let persisted = false
+  /** When the current lease started, or `null` when no attempt is holding one. */
+  let savingSince: number | null = null
+  /** Identifies the attempt that owns {@link savingSince}, so a stale one cannot clear a newer lease. */
+  let savingAttempt = 0
+  /** When the last write was tried, so a permanently broken service is not hammered. */
+  let lastSaveAttemptAt: number | null = null
+
+  /**
+   * Offer the id to the settings service, and remember whether it landed.
+   *
+   * This is deliberately not awaited by the ping: the id is worth reporting whether or not it can be
+   * stored, and a settings service that never answers must not hold the request that started the
+   * ping. What it does own is the retry — a write that failed is retried by the next admitted
+   * request, not by the next ping a day later, because a process that restarts inside that day
+   * would otherwise still lose the id.
+   */
+  const rememberId = (id: string): void => {
+    if (persisted) return
+    const now = clock()
+    // At most one new attempt per interval, and the lease and the backoff are the same window, so
+    // an attempt that hangs stops holding the lease exactly when the next one becomes due. The
+    // abandoned attempt is not cancelled — it cannot be — and may still settle later; that is
+    // harmless, because every attempt writes the same id this process already reports.
+    if (savingSince !== null && now - savingSince < SAVE_RETRY_MS) return
+    if (lastSaveAttemptAt !== null && now - lastSaveAttemptAt < SAVE_RETRY_MS) return
+    savingSince = now
+    lastSaveAttemptAt = now
+    const attempt = ++savingAttempt
+    void (async () => {
+      try {
+        await options.saveInstallId(id)
+        persisted = true
+      } catch {
+        // Silence is the contract; the next admitted request retries the write.
+      } finally {
+        // Only the attempt that still owns the flag clears it: a later one may have taken over.
+        if (savingAttempt === attempt) savingSince = null
+      }
+    })()
+  }
 
   /**
    * The id, generated once and kept.
    *
-   * A stored id wins. Otherwise one is generated and offered to the settings service; a write that
-   * fails costs the next start a new id, not this process, which keeps using the one in memory.
+   * A stored id wins and is never rewritten. Otherwise one is generated here and offered to the
+   * settings service; until that write lands, every admitted request offers it again.
+   *
+   * A stored value that is not a UUID v4 is neither used nor replaced, and it does not consume the
+   * ping window: the caller only stamps the window once it has an id to report, so fixing the value
+   * resumes reporting on the next admitted request rather than a day later.
+   * @returns the id to report, or `null` when the stored value is unusable.
    */
-  const ensureId = (): string => {
-    if (currentId !== null) return currentId
+  const ensureId = (): string | null => {
+    if (currentId !== null) {
+      if (!persisted) rememberId(currentId)
+      return currentId
+    }
     let stored: string
     try {
       stored = options.installId().trim()
     } catch {
       stored = ''
     }
-    currentId = stored.length > 0 ? stored : randomUUID()
-    if (stored.length === 0) {
-      try {
-        options.saveInstallId(currentId)
-      } catch {
-        // Memory only: the write is an optimisation for the next start, never a condition here.
-      }
+    if (stored.length > 0) {
+      const canonical = canonicalInstallId(stored)
+      if (canonical === null) return null
+      currentId = canonical
+      persisted = true
+      return canonical
     }
+    currentId = randomUUID()
+    rememberId(currentId)
     return currentId
   }
 
   /** One ping, swallowed in every direction: no retry, no log, no rethrow. */
-  const ping = async (): Promise<void> => {
+  const ping = async (id: string): Promise<void> => {
     try {
       const manifest = options.manifest
       if (manifest.pkg.length === 0 || manifest.version.length === 0) return
-      await postPayload(fetchFn, buildPayload({ manifest, id: ensureId(), metrics: metricsNow(options) }))
+      await postPayload(fetchFn, buildPayload({ manifest, id, metrics: metricsNow(options) }))
     } catch {
       // Silence is the contract; the request this rode on has already been answered.
     }
@@ -308,11 +398,17 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
     noteAdmitted(): void {
       try {
         if (!options.enabled()) return
+        // The id is settled on every admitted request, not only when a ping is due: a write that
+        // failed has to be retried long before the next ping, or a restart in between loses it.
+        const id = ensureId()
+        // No usable id means no ping, and no window consumed either: the next request after the
+        // value is fixed reports immediately instead of waiting out a day it never used.
+        if (id === null) return
         const now = clock()
         // Stamped before the ping starts, so two requests admitted in the same tick cannot both send.
         if (lastPingAt !== null && now - lastPingAt < PING_INTERVAL_MS) return
         lastPingAt = now
-        void ping()
+        void ping(id)
       } catch {
         // A broken reader or clock must not reach the route.
       }
