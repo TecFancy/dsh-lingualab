@@ -224,7 +224,10 @@ and no wait: a ping that fails is silent, and the request it rode on has already
 The ping is **on by default**. To stop it, set the `telemetry` field to `false` in this plugin's
 profile entry (the Plugins page, or `cordis.patch.yml`): no id is generated, the library is not
 listed and no request is made. `installId` is the field the plugin writes itself to keep the same
-random id across restarts; it is hidden because it is not a value to choose.
+random id across restarts; it is hidden because it is not a value to choose. If that field ever
+holds something that is not a UUID v4 — a hand edit, a half-written value — the plugin sends nothing
+and replaces nothing: reporting a value no other ping can match would look like a machine, and
+replacing it would turn one installation into two. Fix or clear the field to resume.
 
 ## Design
 

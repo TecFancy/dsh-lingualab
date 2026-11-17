@@ -196,6 +196,22 @@ export function hostFacts(): HostFacts {
   return { nodeVersion: process.versions.node, platform: process.platform, arch: process.arch }
 }
 
+/** A UUID v4 in its canonical lowercase form, which is the only shape this module ever writes. */
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+/**
+ * Whether a stored value is an id this module could have written.
+ *
+ * A stored id is trusted only when it has the shape the contract names. A hand-edited or half-written
+ * value is not an id, and reporting it would put a value into the counts that no other ping can ever
+ * match — worse than reporting nothing, because it looks like a machine.
+ * @param value - the raw config value.
+ * @returns true when it is a canonical UUID v4.
+ */
+export function isInstallId(value: string): boolean {
+  return UUID_V4.test(value)
+}
+
 /**
  * Build the v1 body.
  *
@@ -333,8 +349,14 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
    *
    * A stored id wins and is never rewritten. Otherwise one is generated here and offered to the
    * settings service; until that write lands, every admitted request offers it again.
+   *
+   * A stored value that is not a UUID v4 is neither used nor replaced. Reporting it would put a
+   * value into the counts that no other ping can match, and replacing it would silently turn one
+   * installation into two; so the ping is skipped until someone fixes the value by hand. That is
+   * the fail-closed choice: no data is better than wrong data.
+   * @returns the id to report, or `null` when the stored value is unusable.
    */
-  const ensureId = (): string => {
+  const ensureId = (): string | null => {
     if (currentId !== null) {
       if (!persisted) rememberId(currentId)
       return currentId
@@ -346,6 +368,7 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
       stored = ''
     }
     if (stored.length > 0) {
+      if (!isInstallId(stored)) return null
       currentId = stored
       persisted = true
       return stored
@@ -360,7 +383,9 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
     try {
       const manifest = options.manifest
       if (manifest.pkg.length === 0 || manifest.version.length === 0) return
-      await postPayload(fetchFn, buildPayload({ manifest, id: ensureId(), metrics: metricsNow(options) }))
+      const id = ensureId()
+      if (id === null) return
+      await postPayload(fetchFn, buildPayload({ manifest, id, metrics: metricsNow(options) }))
     } catch {
       // Silence is the contract; the request this rode on has already been answered.
     }

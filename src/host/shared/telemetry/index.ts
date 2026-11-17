@@ -12,6 +12,7 @@ export {
   type EpisodeBucket,
   hostFacts,
   type HostFacts,
+  isInstallId,
   type PackageManifest,
   PING_INTERVAL_MS,
   PING_TIMEOUT_MS,

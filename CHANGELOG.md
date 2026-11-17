@@ -30,6 +30,10 @@ the plugin that was installed and used, not an artifact on a registry.
   has landed, a restart reads that id back; a process that never gets a second admitted request, or
   whose settings service never answers, can still lose it. Nothing changes for a deployment where the
   write already succeeded.
+- A stored `installId` that is not a UUID v4 is no longer reported or replaced. A hand-edited or
+  half-written value used to be sent as if it were an id, which put a value into the counts that no
+  other ping could match; replacing it instead would have turned one installation into two. The ping
+  is skipped until the field is fixed or cleared.
 
 ## [0.21.1] - 2026-11-13
 

@@ -216,6 +216,39 @@ describe('the usage ping', () => {
     expect(stored.saved).toHaveLength(0)
   })
 
+  it('skips the ping rather than report or replace a stored value that is not an id', async () => {
+    // A hand-edited or half-written value is not an id. Reporting it would put a value into the
+    // counts that no other ping can match; replacing it would silently turn one installation into
+    // two. So nothing is sent and nothing is written, and the value is left for a human to fix.
+    for (const broken of ['not-a-uuid', '6a403451', '6a403451-e825-4256-8e79-7aad7e6631b', '']) {
+      const report = harness({ installId: () => broken })
+      report.telemetry.noteAdmitted()
+      await flush()
+      if (broken === '') {
+        // An empty value is not broken, it is "no id yet": one is generated and written.
+        expect(report.sent).toHaveLength(1)
+        expect(report.saved).toHaveLength(1)
+        continue
+      }
+      expect(report.sent).toHaveLength(0)
+      expect(report.saved).toHaveLength(0)
+    }
+  })
+
+  it('accepts a stored id only in the canonical shape this module writes', async () => {
+    // Uppercase is a valid UUID but not the shape this module writes, so it is not trusted either:
+    // the contract's id is the lowercase form, and a value that differs is not one of ours.
+    const upper = harness({ installId: () => STORED_ID.toUpperCase() })
+    upper.telemetry.noteAdmitted()
+    await flush()
+    expect(upper.sent).toHaveLength(0)
+
+    const canonical = harness({ installId: () => STORED_ID })
+    canonical.telemetry.noteAdmitted()
+    await flush()
+    expect(canonical.sent[0]?.id).toBe(STORED_ID)
+  })
+
   it('retries a failed write once the backoff has passed, not a day later', async () => {
     // The settings service is mounted after the first request in a real composition, so the first
     // write can legitimately reject. What must not happen is waiting for the next ping to retry it:
