@@ -4,7 +4,7 @@
 
 LinguaLab 面板：**从左栏「更多」菜单里点一行，中栏打开一整页**，当前会话不受影响。这一页把已经放进工作区的素材变成精听练习：一次练一集，逐句进行，笔记写回磁盘，Agent 也能读到。
 
-![练习页：舞台上一句，右栏是字幕列表](docs/assets/practice-light.webp)
+![练习页：舞台上一句，右栏是字幕列表](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/practice-light.webp)
 
 ## 安装
 
@@ -33,7 +33,7 @@ dsh plugin --profile web add dsh-lingualab@0.21.3
 
 媒体库结构、配对规则、视频格式与准备设置、练习控件、笔记、复习和设置，详见[使用指南](docs/usage.zh.md)。
 
-![首页：接着上次那一集、五步进度，以及库里其余剧集](docs/assets/home-light.webp)
+![首页：接着上次那一集、五步进度，以及库里其余剧集](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/home-light.webp)
 
 ## 当前状态
 
@@ -53,7 +53,7 @@ dsh plugin --profile web add dsh-lingualab@0.21.3
 | [服务端路由](docs/host-routes.zh.md) | 服务端注册的每条路由及其返回内容 |
 | [仓库结构](docs/repository-layout.zh.md) | 每个目录里放什么 |
 
-![深色主题下的收藏，每句带自己的笔记和评级](docs/assets/notes-dark.webp)
+![深色主题下的收藏，每句带自己的笔记和评级](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/notes-dark.webp)
 
 ## 设计稿
 
@@ -63,7 +63,7 @@ dsh plugin --profile web add dsh-lingualab@0.21.3
 
 在窄屏上，右栏变成盖在舞台上的抽屉，而不是舞台旁边的一列：
 
-<img src="docs/assets/ipad-portrait.webp" width="420" alt="iPad 竖屏下右栏作为抽屉盖在舞台上">
+<img src="https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/ipad-portrait.webp" width="420" alt="iPad 竖屏下右栏作为抽屉盖在舞台上">
 
 ## 匿名使用统计
 
