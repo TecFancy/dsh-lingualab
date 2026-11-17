@@ -7,7 +7,7 @@
 - **路由路径只在一处定义**：`src/shared/protocol.ts` 里的路径常量。
   - 这些路径同时记在 `dsh-plugin.naming.json` 里，`check-host.mjs` 会核对两边，只改一边会被拦下。
   - 新增路由写在所属 feature 的 `src/host/features/<名字>/api/<名字>.route.ts`，从切片的 `index.ts` 导出，
-    在 `src/index.ts` 里挂上，同时更新 naming 记录和 README 的路由表。
+    在 `src/index.ts` 里挂上，同时更新 naming 记录和 `docs/host-routes.md` 的路由表（中英两份）。
 - **浏览只认 place id，不认路径**：页面传来的是 `ws_<哈希>` 或 `lib`，由服务端自己解析成绝对路径
   （`src/host/entities/place`，路径检查在 `src/host/shared/fs`）。
   - `/`、`/etc`、`/proc` 这类根目录一律拒绝。

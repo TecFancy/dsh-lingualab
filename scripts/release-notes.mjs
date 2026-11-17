@@ -64,8 +64,9 @@ const body = [
   '',
   '---',
   '',
-  '这个仓库不发 npm：这个版本标记的是一次装过、用过的状态，不是注册表上的一个包。',
-  '装在哪个 profile：`dsh plugin --profile <名字> add -w <本仓目录>`，服务端改完要重启 dsh-web。',
+  `从 npm 安装：\`dsh plugin --profile <名字> add dsh-lingualab@${version}\``,
+  `或者下载本页附件 \`dsh-lingualab-${version}.tgz\` 后 \`dsh plugin --profile <名字> add ./dsh-lingualab-${version}.tgz\`。`,
+  '服务端改完要重启 dsh-web。',
   '',
 ].join('\n')
 
