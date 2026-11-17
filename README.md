@@ -4,7 +4,7 @@ English | [简体中文](README.zh.md)
 
 The LinguaLab panel is **one row in the left rail's 「更多」 menu, opening a whole page in the centre column**, leaving the current Session untouched. It turns media that already sits in the workspace into intensive-listening practice: one episode at a time, sentence by sentence, with the notes written back to disk where the agent can read them.
 
-![The practice view: one sentence on the stage, the subtitle list on the right](docs/assets/practice-light.webp)
+![The practice view: one sentence on the stage, the subtitle list on the right](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/practice-light.webp)
 
 ## Install
 
@@ -31,7 +31,7 @@ Then open the left rail's 「更多」 menu and pick **LinguaLab**. Drop an audi
 - One folder is one episode, and several audio files in it become segments. Video can supply a segment's picture and sound, with direct playback, one-time preparation and a lower-bandwidth smooth version; a local file can play without an upload.
 - Practice works sentence by sentence, with speed, looping, subtitles, shadowing, recording and saved progress. Stars collect sentences for graded review, and notes stay on disk for the agent.
 
-![The home: the episode to resume, the five steps, and the rest of the library](docs/assets/home-light.webp)
+![The home: the episode to resume, the five steps, and the rest of the library](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/home-light.webp)
 
 See [Usage](docs/usage.md) for the library layout, pairing rules, video formats and preparation settings, every practice control, notes, review and settings.
 
@@ -53,7 +53,7 @@ It is developed on `development` and released by pulling into `main`, which tags
 | [Host routes](docs/host-routes.md) | Every route the host registers and what it answers |
 | [Repository layout](docs/repository-layout.md) | What lives in each directory |
 
-![Kept sentences in the dark theme, each with its note and its grade](docs/assets/notes-dark.webp)
+![Kept sentences in the dark theme, each with its note and its grade](https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/notes-dark.webp)
 
 ## Design
 
@@ -63,7 +63,7 @@ The file is the reference for proportions and hierarchy, not for values: it hard
 
 On a narrow screen the right column becomes a drawer over the stage instead of a column beside it:
 
-<img src="docs/assets/ipad-portrait.webp" width="420" alt="The right column as a drawer over the stage on an iPad in portrait">
+<img src="https://raw.githubusercontent.com/TecFancy/dsh-lingualab/main/docs/assets/ipad-portrait.webp" width="420" alt="The right column as a drawer over the stage on an iPad in portrait">
 
 ## Anonymous usage statistics
 

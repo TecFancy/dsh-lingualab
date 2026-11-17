@@ -18,7 +18,6 @@
     "README.zh.md",
     "LICENSE",
     "docs/*.md",
-    "docs/assets",
     "locale/*.json"
   ],
   "scripts": {
