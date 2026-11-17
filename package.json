@@ -1,6 +1,6 @@
 {
   "name": "dsh-lingualab",
-  "version": "0.21.3",
+  "version": "0.21.4",
   "description": "LinguaLab — a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
   "license": "MIT",
   "type": "module",
@@ -18,7 +18,6 @@
     "README.zh.md",
     "LICENSE",
     "docs/*.md",
-    "docs/assets",
     "locale/*.json"
   ],
   "scripts": {

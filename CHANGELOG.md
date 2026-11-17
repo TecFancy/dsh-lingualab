@@ -14,10 +14,19 @@ enforces both:
    practice: `npm run release -- minor` moves the unreleased entries under a dated
    heading and bumps the manifest in the same commit.
 
-This repository is not published to npm. A version number here marks a state of
-the plugin that was installed and used, not an artifact on a registry.
+This repository is published to npm as `dsh-lingualab`. A version number here marks
+both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
+
+## [0.21.4] - 2026-11-17
+
+### Fixed
+
+- The screenshots render on the npm page. npm does not resolve a README's relative image
+  paths, so the four pictures were broken there while working on GitHub; they are absolute
+  `raw.githubusercontent.com` URLs now. The images also left the package's `files`, since
+  the README fetches them from the repository: the tarball drops from 909 KB to 706 KB.
 
 ## [0.21.3] - 2026-11-17
 
@@ -54,6 +63,13 @@ the plugin that was installed and used, not an artifact on a registry.
   left at `0.14.5` for seven releases because only the manifest was bumped.
 - `AGENTS.md` is no longer shipped inside the package. It holds contributor-facing agent rules that
   an installed plugin does not need; it stays in the repository.
+
+### Fixed
+
+- The screenshots render on the npm page. npm does not resolve a README's relative image
+  paths, so the four pictures were broken there while working on GitHub; they are absolute
+  `raw.githubusercontent.com` URLs now. The images also left the package's `files`, since
+  the README fetches them from the repository: the tarball drops from 909 KB to 706 KB.
 
 ## [0.21.2] - 2026-11-17
 
