@@ -19,6 +19,14 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Changed
+
+- The README is an entry point again. It introduces the panel, says what it does in a few
+  paragraphs, and links five documents under `docs/`: usage, the anonymous usage statistics,
+  releasing, the host routes and the repository layout. The route table and the telemetry
+  payload table are reference material and no longer sit in the middle of the introduction.
+  The Chinese side was rewritten rather than translated again, so it reads as Chinese.
+
 ## [0.21.2] - 2026-11-17
 
 ### Fixed

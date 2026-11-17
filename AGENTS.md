@@ -53,6 +53,7 @@ src/client/             前端，FSD 分层，没有 app 层
                         useSideColumn（右栏的视图与收起）、useStageNotes、useRetime、useVideoSource、useVideoNotices，每个带单测
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像
+docs/                   长文文档，中英一对：usage、telemetry、releasing、host-routes、repository-layout
 scripts/                检查脚本，入口是 verify.mjs
 ```
 
@@ -65,6 +66,7 @@ notes 树与链接（各带自测）、docs、全仓链接、中英配对与它�
 ## 写东西的规矩
 
 - 中文文档按 `docs` 缺省语体写：全角标点，中英之间一个空格，别用箭头当连词。
+- README 只做介绍和指路，长文写进 `docs/`，一份文档讲一件事，中英两份一起建，并在 README 的文档表里加一行。
 - 每篇 note 三件套，中文那份是真翻译。改一侧就跑
   `npm run bilingual:check -- --write` 重记哈希。
 - 两端共用的新类型放 `src/shared/`，前端经 `src/client/shared/` 里的转发文件导入；新增能力新建切片并给它写 `index.ts`。
