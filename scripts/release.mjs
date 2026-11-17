@@ -105,6 +105,18 @@ if (dryRun) {
 writeFileSync(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`)
 for (const [file, text] of nextChangelogs) writeFileSync(join(root, file), text)
 
+// The lockfile carries the same version in two places, and npm refuses to publish a
+// tree whose lockfile disagrees with the manifest. Bumping only package.json left the
+// lockfile at 0.14.5 for seven releases, so the sync is part of the bump now.
+const lockPath = join(root, 'package-lock.json')
+if (existsSync(lockPath)) {
+  const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
+  lock.version = next
+  if (lock.packages?.[''] !== undefined) lock.packages[''].version = next
+  writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`)
+  console.log(`  lockfile：版本同步到 ${next}`)
+}
+
 // Moving entries between sections changes the pairing hashes, so the record has to
 // be refreshed in the same commit. Without this the release commit fails its own
 // pre-commit gate, which is how this step was found.
@@ -115,7 +127,7 @@ try {
   console.error('⚠️ 配对记录没能重记，提交前自己跑一次 npm run bilingual:check -- --write')
 }
 
-git('add', 'package.json', ...CHANGELOGS)
+git('add', 'package.json', 'package-lock.json', ...CHANGELOGS)
 // One sidecar records the whole pair, so it is named after the English side — not
 // one per file, which is what staging every derived name got wrong.
 const sidecar = CHANGELOGS[0]?.replace(/\.md$/, '.i18n.yaml')

@@ -2,7 +2,7 @@
 
 [English](releasing.md) | 简体中文
 
-这份文档说明如何发版和部署 LinguaLab，以及 `ship`、`deploy` 和 CI 各自负责什么。准备把改动合进 `main`，或要在服务器上更新插件时读它。
+这份文档说明如何发版 LinguaLab，以及 `ship` 和 CI 各自负责什么。准备把改动合进 `main` 时读它。
 
 ## 开往 `main` 的 PR 就是发版
 
@@ -10,7 +10,6 @@
 
 ```sh
 npm run ship -- patch|minor|major   # check, bump, verify, push, open the PR, wait for green, merge, sync back
-npm run deploy                      # pull on the server, restart the service, confirm it is active
 ```
 
 ## `ship` 按顺序完成四步
@@ -32,8 +31,8 @@ CI 的 `version-bump` job 会让没有提升版本号的 PR 检查失败。`--dr
 
 标签不用手动创建。合并进入 `main` 后，`release` 工作流会创建标签和 GitHub Release。Release 正文取自中英两份更新日志里这一版的内容，先中文，后英文。
 
-插件不发布到 npm，而是从本地路径或 tar 包安装。因此，这里的版本号标记的是一个安装并使用过的状态，不是注册表上的发布产物。
+合并落地后，`release` 工作流会创建 tag、GitHub Release（正文取自双语 changelog，中文在前），并把 `dsh-lingualab-<version>.tgz` 挂到 Release 上。同一个版本随后从同一个 tar 包发布到 npm，所以注册表、Release 和 tag 始终指向同一份产物。
 
-## `deploy` 从环境变量读取部署目标
+## 发布到 npm
 
-`deploy` 从 `LINGUALAB_DEPLOY_HOST` 和 `LINGUALAB_DEPLOY_PATH` 读取部署目标，细节见仓库自带的技能。
+包的第一个版本必须由维护者手工发布，因为 npm 只允许给已经存在的包登记 Trusted Publisher。之后 `release` 工作流通过 OIDC 发布：仓库里没有 `NPM_TOKEN`，信任关系登记在 npmjs.com 上，绑定本仓库和 `release.yml` 这个文件名。改文件名会让发布失效。

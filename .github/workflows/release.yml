@@ -1,11 +1,13 @@
-# A merge into `main` becomes a tag and a GitHub Release.
+# A merge into `main` becomes a tag, a GitHub Release, a tarball and an npm version.
 #
 # The one human decision in a release is running `npm run ship -- patch|minor|major`,
 # which ends by merging the pull request from `development` into `main` once its
 # checks are green. That merge is the moment "this version is going out", so
 # everything after it is mechanical and lives here:
 # read the version from `package.json`, and if its tag does not exist yet, take that
-# version's section out of the changelog pair and publish it as the release body.
+# version's section out of the changelog pair, publish it as the release body, attach
+# the tarball npm will receive, and publish that same tarball to npm.
+#
 # `gh release create` creates the tag on the merged commit as part of the same call,
 # so nobody tags by hand and a tag can never point at the wrong commit.
 #
@@ -14,14 +16,23 @@
 # A version with no changelog section is the one failure that is not a skip: it fails
 # the run, because publishing a release that says nothing is worse than not publishing.
 #
-# There is no publish job and no artifact: this repository is installed from a
-# local path or a tarball, not from a registry.
+# Publishing to npm is off until `NPM_PUBLISH_ENABLED` is `true`. The first version of
+# a package has to be published by a maintainer, because npm only lets you register a
+# Trusted Publisher on a package that already exists; after that the `publish` job
+# below takes over. See docs/releasing.md.
 name: release
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publish_ref:
+        description: >-
+          Existing tag to (re)publish to npm, for example v0.21.3. Leave empty for a
+          normal release run.
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -34,14 +45,18 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      created: ${{ steps.version.outputs.exists == 'false' }}
     steps:
       # Full history with tags, so "does this tag exist" is a local question.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: 24
+          package-manager-cache: false
 
       - name: Read the version and look for its tag
         id: version
@@ -65,6 +80,15 @@ jobs:
             exit 1
           fi
 
+      # The tarball is built once and both attached to the Release and published to
+      # npm, so the registry and the Release page can never carry different bytes.
+      - name: Build the tarball
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          npm ci
+          npm pack --pack-destination .
+          mv "dsh-lingualab-${{ steps.version.outputs.version }}.tgz" release.tgz
+
       - name: Create the tag and publish the release
         if: steps.version.outputs.exists == 'false'
         env:
@@ -73,4 +97,56 @@ jobs:
           gh release create "v${{ steps.version.outputs.version }}" \
             --target "$GITHUB_SHA" \
             --title "v${{ steps.version.outputs.version }}" \
-            --notes-file release-body.md
+            --notes-file release-body.md \
+            release.tgz
+
+  publish:
+    needs: release
+    # Two ways in: a release was just cut, or an operator named an existing tag to
+    # (re)publish - the recovery path when a publish failed after the tag existed.
+    if: >-
+      vars.NPM_PUBLISH_ENABLED == 'true' &&
+      ((needs.release.outputs.created == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_ref != ''))
+    runs-on: ubuntu-latest
+    # npm Trusted Publishing (OIDC): npm exchanges this job's GitHub-signed identity
+    # for a short-lived publish token, so no NPM_TOKEN secret exists. The trust is
+    # registered on npmjs.com against this exact repo and the `release.yml` filename;
+    # renaming the file breaks publishing.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.publish_ref || github.ref }}
+      # No `registry-url` here on purpose. It makes setup-node write
+      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` into .npmrc; with no
+      # token that expands to an empty string, npm reads it as "auth is already
+      # configured" and never starts the OIDC exchange, failing with ENEEDAUTH
+      # (actions/setup-node#1551). registry.npmjs.org is npm's default anyway, and
+      # the repo .npmrc pins it.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # Refuse to publish a tree whose version does not match the tag being
+      # published: a mismatch would put the wrong code under a version number.
+      - name: Check the checked-out version matches the tag
+        if: inputs.publish_ref != ''
+        env:
+          INPUTS_PUBLISH_REF: ${{ inputs.publish_ref }}
+        run: |
+          want="${INPUTS_PUBLISH_REF#v}"
+          got="$(node -p "require('./package.json').version")"
+          if [ "$want" != "$got" ]; then
+            echo "::error::tag $INPUTS_PUBLISH_REF is $want but package.json says $got"
+            exit 1
+          fi
+          echo "publishing $got from $INPUTS_PUBLISH_REF"
+
+      - run: npm ci
+      # No NODE_AUTH_TOKEN and no --provenance: a trusted publish attests
+      # automatically.
+      - run: npm publish

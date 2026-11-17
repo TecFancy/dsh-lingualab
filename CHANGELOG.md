@@ -27,6 +27,32 @@ the plugin that was installed and used, not an artifact on a registry.
   payload table are reference material and no longer sit in the middle of the introduction.
   The Chinese side was rewritten rather than translated again, so it reads as Chinese.
 
+### Added
+
+- The package is published to npm as `dsh-lingualab`, so it installs with one command instead of
+  from a local path or a tarball. Each GitHub Release also carries the exact `dsh-lingualab-<version>.tgz`
+  that was published, so the registry and the Release page can never disagree.
+- An `Install` section in both READMEs: the one-line command, the pinned-version form, and where the
+  panel appears afterwards.
+- A root `LICENSE` file with the MIT text the manifest already declared, shipped inside the package.
+- A `SECURITY.md` pointing at GitHub's private vulnerability reporting.
+- `engines` and `peerDependencies` declaring the DeepSeek Harness and client-package versions this
+  plugin is built against, so a host that is too old fails at install time rather than at runtime.
+
+### Changed
+
+- **Anonymous usage statistics are off by default.** They were on by default, which meant a stranger's
+  first install sent a daily pseudonymous ping to the maintainer's domain before they had read
+  anything. Turning them on is now an explicit choice; the payload, the endpoint and the install-id
+  rules are unchanged and still documented in full.
+- `.npmrc` pins the registry to `registry.npmjs.org`, and the lockfile's 519 `resolved` URLs point
+  there instead of at a mirror, so an install from the published package resolves where the
+  integrity hashes say it should.
+- `npm run release` now bumps `package-lock.json` alongside `package.json`. The lockfile had been
+  left at `0.14.5` for seven releases because only the manifest was bumped.
+- `AGENTS.md` is no longer shipped inside the package. It holds contributor-facing agent rules that
+  an installed plugin does not need; it stays in the repository.
+
 ## [0.21.2] - 2026-11-17
 
 ### Fixed

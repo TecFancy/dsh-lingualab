@@ -132,7 +132,7 @@ export const Config = z.object({
   openState: z.string().default('').volatile(),
   ffmpegPath: z.string().default('').volatile(),
   installId: z.string().default('').volatile().hidden(true),
-  telemetry: z.boolean().default(true),
+  telemetry: z.boolean().default(false),
 })
 
 /**

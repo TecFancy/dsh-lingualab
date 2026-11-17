@@ -4,6 +4,26 @@
 
 LinguaLab 面板：**从左栏「更多」菜单里点一行，中栏打开一整页**，当前会话不受影响。这一页把已经放进工作区的素材变成精听练习：一次练一集，逐句进行，笔记写回磁盘，Agent 也能读到。
 
+![练习页：舞台上一句，右栏是字幕列表](docs/assets/practice-light.webp)
+
+## 安装
+
+需要已装好 DeepSeek Harness 并有一个 Web profile，Node 22.19 或更新。只有准备视频剧集时才需要 `ffmpeg` 和 `ffprobe`。
+
+```sh
+dsh plugin --profile web add dsh-lingualab
+```
+
+把 `web` 换成你自己的 profile 名。要固定版本：
+
+```sh
+dsh plugin --profile web add dsh-lingualab@0.21.3
+```
+
+装完从左栏「更多」菜单里点 **LinguaLab**。把音频和字幕拖到页面上就能开始。
+
+> **使用统计默认关闭。** 打开后每天会向 `t.hi-ruofei.com` 发一次伪匿名上报；具体载荷和打开方式见[匿名使用统计](#匿名使用统计)。
+
 ## 做什么
 
 - **首页**列出上次听的一集、其余剧集和拖放区。打开一集就进入**练习**视图，点返回按钮回到首页。
@@ -13,13 +33,15 @@ LinguaLab 面板：**从左栏「更多」菜单里点一行，中栏打开一�
 
 媒体库结构、配对规则、视频格式与准备设置、练习控件、笔记、复习和设置，详见[使用指南](docs/usage.zh.md)。
 
+![首页：接着上次那一集、五步进度，以及库里其余剧集](docs/assets/home-light.webp)
+
 ## 当前状态
 
 服务端和前端都已完成。服务端提供库扫描、导入路由、支持 `Range` 的媒体路由、可浏览的选择层、笔记读写与复习清单；前端提供首页、练习视图、「收藏」栏与复习，以及浏览和设置媒体目录的两层浮层。
 
 这一页**不在左栏占一行**，也不在「应用」页上占一张卡片。它以 `main` 面板的形式注册在 `lingualab` 这个键上，入口是左栏「更多」菜单里的第一行。这个插件自己把入口注册进 `sidebar.panellist.actions`，点击后调用 `layout.selectPanel('lingualab')`。入口由插件自己注册，因此左栏不必为每个插件各加一行，也不再依赖 `dsh-apps-panel`。
 
-开发在 `development` 分支进行，合进 `main` 即发布新版本，不发布到 npm。
+开发在 `development` 分支进行，合进 `main` 即发布新版本，同时打 tag 并发到 npm。
 
 ## 文档
 
@@ -31,16 +53,26 @@ LinguaLab 面板：**从左栏「更多」菜单里点一行，中栏打开一�
 | [服务端路由](docs/host-routes.zh.md) | 服务端注册的每条路由及其返回内容 |
 | [仓库结构](docs/repository-layout.zh.md) | 每个目录里放什么 |
 
+![深色主题下的收藏，每句带自己的笔记和评级](docs/assets/notes-dark.webp)
+
 ## 设计稿
 
 首页、练习页、笔记与五步法抽屉的布局、配色和交互，先在 Figma 里出了设计稿：[LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY)。画板有 `Practice / Light` 与 `Practice / Dark`、`Home / Light` 与 `Home / Dark`、`Notes / Light` 和 `Five steps / Light`。
 
 这份稿用来参照比例与层级，不用来取具体数值：稿里写死了十六进制色值和 Inter 字体，而页面读取 dsh 的 `--dsw-alias-*` 令牌和字体，所以会随主题变化。设置里选的主题，只在页面根元素上覆盖这些令牌，其他地方不变。
 
+在窄屏上，右栏变成盖在舞台上的抽屉，而不是舞台旁边的一列：
+
+<img src="docs/assets/ipad-portrait.webp" width="420" alt="iPad 竖屏下右栏作为抽屉盖在舞台上">
+
 ## 匿名使用统计
 
-上报**默认开启**。每个运行中的服务端进程每天最多发一次，而且只在服务端放行一个请求之后；启动时不发，关掉之后也不发。
+上报**默认关闭**。打开之后，每个运行中的服务端进程每天最多发一次，而且只在服务端放行一个请求之后；启动时不发，关掉之后也不发。
 上报只包含载荷版本、包名和版本、随机安装 id、Node 主版本、操作系统与架构、剧集数量分档，以及能否找到 `ffmpeg`。
 **绝不**上报文件名、目录路径、剧集名、笔记、字幕、用户名、邮箱、token、session id、主机名或 IP 地址。
 要关掉，把插件 profile 条目里的 `telemetry` 改成 `false`（在插件页改，或者改 `cordis.patch.yml`）：之后不再生成 id，不再列媒体库，也不再发任何请求。
 完整请求体、发送方式和安装 id 的规则，详见[匿名使用统计](docs/telemetry.zh.md)。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。

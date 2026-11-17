@@ -6,8 +6,8 @@
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/releasing":
-  en: dafac28a51ad0a9f
-  zh: bdfe2b689862523a
+  en: 8903ac0345a240bb
+  zh: ff327c073f250113
 "/releasing/a-pull-request-into-main-is-a-release":
   en: 4c8e5a57385f7f2e
   zh: 6560f0b490076f77
@@ -18,8 +18,8 @@
   en: d241cde6f0cba0b6
   zh: a5f997978360524f
 "/releasing/the-release-workflow-creates-the-tag-after-merging":
-  en: f73a9e031843f57c
-  zh: e9c3cc715cb46f37
-"/releasing/deploy-reads-its-target-from-environment-variables":
-  en: a10e257bd138488c
-  zh: 105fcf21fefeab14
+  en: e3853baae377fd0a
+  zh: 0e123947e60d028e
+"/releasing/publishing-to-npm":
+  en: d224164852779801
+  zh: 5a0836d9c61ad5e3

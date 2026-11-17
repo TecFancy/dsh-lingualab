@@ -1,7 +1,6 @@
 {
   "name": "dsh-lingualab",
   "version": "0.21.2",
-  "private": true,
   "description": "LinguaLab — a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
   "license": "MIT",
   "type": "module",
@@ -16,7 +15,10 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "AGENTS.md",
+    "README.zh.md",
+    "LICENSE",
+    "docs/*.md",
+    "docs/assets",
     "locale/*.json"
   ],
   "scripts": {
@@ -89,5 +91,23 @@
         "@deepseek-ai/dsh-client-ui-sidebar"
       ]
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TecFancy/dsh-lingualab.git"
+  },
+  "homepage": "https://github.com/TecFancy/dsh-lingualab",
+  "bugs": {
+    "url": "https://github.com/TecFancy/dsh-lingualab/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.2-rc.2 <0.3.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-ui-layout": ">=0.2.2-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-sidebar": ">=0.2.2-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-client-locale": ">=0.2.2-rc.2 <0.3.0"
   }
 }

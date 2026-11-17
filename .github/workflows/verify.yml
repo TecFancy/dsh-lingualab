@@ -1,7 +1,6 @@
 # Every push to `development` and every pull request that targets `development`
-# or `main` runs the same gate the release train relies on. There is no publish
-# job anywhere in this repository on purpose: the plugin is installed from a
-# local path or a tarball, never from the npm registry.
+# or `main` runs the same gate the release train relies on. Publishing lives in
+# `release.yml`; this file only decides whether a change is fit to ship.
 name: verify
 
 on:
@@ -14,10 +13,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run verify
@@ -29,10 +28,10 @@ jobs:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: 24
       - run: BASE_REF=origin/${{ github.base_ref }} node scripts/check-version-bump.mjs
