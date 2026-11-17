@@ -82,12 +82,13 @@ jobs:
 
       # The tarball is built once and both attached to the Release and published to
       # npm, so the registry and the Release page can never carry different bytes.
+      # It keeps the name `npm pack` gives it, which is what the README tells people
+      # to download.
       - name: Build the tarball
         if: steps.version.outputs.exists == 'false'
         run: |
           npm ci
           npm pack --pack-destination .
-          mv "dsh-lingualab-${{ steps.version.outputs.version }}.tgz" release.tgz
 
       - name: Create the tag and publish the release
         if: steps.version.outputs.exists == 'false'
@@ -98,7 +99,7 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "v${{ steps.version.outputs.version }}" \
             --notes-file release-body.md \
-            release.tgz
+            "dsh-lingualab-${{ steps.version.outputs.version }}.tgz"
 
   publish:
     needs: release
