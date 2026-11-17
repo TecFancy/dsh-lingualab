@@ -31,9 +31,12 @@ the plugin that was installed and used, not an artifact on a registry.
   whose settings service never answers, can still lose it. Nothing changes for a deployment where the
   write already succeeded.
 - A stored `installId` that is not a UUID v4 is no longer reported or replaced. A hand-edited or
-  half-written value used to be sent as if it were an id, which put a value into the counts that no
-  other ping could match; replacing it instead would have turned one installation into two. The ping
-  is skipped until the field is fixed or cleared.
+  half-written value used to be sent as if it were an id, which put a string into the counts that
+  does not meet the contract; a truncated one also has too little entropy to be safe from collisions.
+  Replacing it instead would have split one installation into two, because nothing can tell whether
+  it once stood for an id that was already reported. The ping is skipped until the field is fixed or
+  cleared, and fixing it resumes reporting on the next request rather than a day later. An uppercase
+  UUID is the same id, so it is accepted and reported in lowercase.
 
 ## [0.21.1] - 2026-11-13
 

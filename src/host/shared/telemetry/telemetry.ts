@@ -196,20 +196,25 @@ export function hostFacts(): HostFacts {
   return { nodeVersion: process.versions.node, platform: process.platform, arch: process.arch }
 }
 
-/** A UUID v4 in its canonical lowercase form, which is the only shape this module ever writes. */
-const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+/** A UUID v4, in either case: the shape is what matters, not the spelling. */
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 /**
- * Whether a stored value is an id this module could have written.
+ * The canonical form of a stored id, or `null` when the value is not a UUID v4.
  *
- * A stored id is trusted only when it has the shape the contract names. A hand-edited or half-written
- * value is not an id, and reporting it would put a value into the counts that no other ping can ever
- * match — worse than reporting nothing, because it looks like a machine.
+ * A stored value is trusted only when it has the shape the contract names, and it is reported in the
+ * one spelling this module writes. Case is normalised rather than rejected: an uppercase UUID is the
+ * same id, and refusing it would silently stop reporting for a value a human could have typed.
+ *
+ * A value that is not a UUID v4 at all is neither reported nor replaced. Reporting it would put a
+ * string into the counts that does not meet the contract, and a truncated one has too little entropy
+ * to be safe from collisions; replacing it would silently split one installation into two, because
+ * nothing here can tell whether it once stood for an id that was already reported.
  * @param value - the raw config value.
- * @returns true when it is a canonical UUID v4.
+ * @returns the lowercase UUID v4, or `null` when the value is not one.
  */
-export function isInstallId(value: string): boolean {
-  return UUID_V4.test(value)
+export function canonicalInstallId(value: string): string | null {
+  return UUID_V4.test(value) ? value.toLowerCase() : null
 }
 
 /**
@@ -350,10 +355,9 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
    * A stored id wins and is never rewritten. Otherwise one is generated here and offered to the
    * settings service; until that write lands, every admitted request offers it again.
    *
-   * A stored value that is not a UUID v4 is neither used nor replaced. Reporting it would put a
-   * value into the counts that no other ping can match, and replacing it would silently turn one
-   * installation into two; so the ping is skipped until someone fixes the value by hand. That is
-   * the fail-closed choice: no data is better than wrong data.
+   * A stored value that is not a UUID v4 is neither used nor replaced, and it does not consume the
+   * ping window: the caller only stamps the window once it has an id to report, so fixing the value
+   * resumes reporting on the next admitted request rather than a day later.
    * @returns the id to report, or `null` when the stored value is unusable.
    */
   const ensureId = (): string | null => {
@@ -368,10 +372,11 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
       stored = ''
     }
     if (stored.length > 0) {
-      if (!isInstallId(stored)) return null
-      currentId = stored
+      const canonical = canonicalInstallId(stored)
+      if (canonical === null) return null
+      currentId = canonical
       persisted = true
-      return stored
+      return canonical
     }
     currentId = randomUUID()
     rememberId(currentId)
@@ -379,12 +384,10 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
   }
 
   /** One ping, swallowed in every direction: no retry, no log, no rethrow. */
-  const ping = async (): Promise<void> => {
+  const ping = async (id: string): Promise<void> => {
     try {
       const manifest = options.manifest
       if (manifest.pkg.length === 0 || manifest.version.length === 0) return
-      const id = ensureId()
-      if (id === null) return
       await postPayload(fetchFn, buildPayload({ manifest, id, metrics: metricsNow(options) }))
     } catch {
       // Silence is the contract; the request this rode on has already been answered.
@@ -397,12 +400,15 @@ export function createTelemetry(options: TelemetryOptions): Telemetry {
         if (!options.enabled()) return
         // The id is settled on every admitted request, not only when a ping is due: a write that
         // failed has to be retried long before the next ping, or a restart in between loses it.
-        ensureId()
+        const id = ensureId()
+        // No usable id means no ping, and no window consumed either: the next request after the
+        // value is fixed reports immediately instead of waiting out a day it never used.
+        if (id === null) return
         const now = clock()
         // Stamped before the ping starts, so two requests admitted in the same tick cannot both send.
         if (lastPingAt !== null && now - lastPingAt < PING_INTERVAL_MS) return
         lastPingAt = now
-        void ping()
+        void ping(id)
       } catch {
         // A broken reader or clock must not reach the route.
       }
