@@ -19,6 +19,8 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-17
+
 ### Fixed
 
 - A failed write of the usage ping's installation id is now retried, so a restart reuses the id
