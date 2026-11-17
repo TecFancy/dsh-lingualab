@@ -4,6 +4,8 @@
 
 LinguaLab 面板：**从左栏「更多」菜单里点一行，中栏打开一整页**，当前会话不受影响。这一页把已经放进工作区的素材变成精听练习：一次练一集，逐句进行，笔记写回磁盘，Agent 也能读到。
 
+![练习页：舞台上一句，右栏是字幕列表](docs/assets/practice-light.webp)
+
 ## 安装
 
 需要已装好 DeepSeek Harness 并有一个 Web profile，Node 22.19 或更新。只有准备视频剧集时才需要 `ffmpeg` 和 `ffprobe`。
@@ -31,6 +33,8 @@ dsh plugin --profile web add dsh-lingualab@0.21.3
 
 媒体库结构、配对规则、视频格式与准备设置、练习控件、笔记、复习和设置，详见[使用指南](docs/usage.zh.md)。
 
+![首页：接着上次那一集、五步进度，以及库里其余剧集](docs/assets/home-light.webp)
+
 ## 当前状态
 
 服务端和前端都已完成。服务端提供库扫描、导入路由、支持 `Range` 的媒体路由、可浏览的选择层、笔记读写与复习清单；前端提供首页、练习视图、「收藏」栏与复习，以及浏览和设置媒体目录的两层浮层。
@@ -49,11 +53,17 @@ dsh plugin --profile web add dsh-lingualab@0.21.3
 | [服务端路由](docs/host-routes.zh.md) | 服务端注册的每条路由及其返回内容 |
 | [仓库结构](docs/repository-layout.zh.md) | 每个目录里放什么 |
 
+![深色主题下的收藏，每句带自己的笔记和评级](docs/assets/notes-dark.webp)
+
 ## 设计稿
 
 首页、练习页、笔记与五步法抽屉的布局、配色和交互，先在 Figma 里出了设计稿：[LinguaLab redesign](https://www.figma.com/design/kdmcHGX1TcLPj84v7rg1xY)。画板有 `Practice / Light` 与 `Practice / Dark`、`Home / Light` 与 `Home / Dark`、`Notes / Light` 和 `Five steps / Light`。
 
 这份稿用来参照比例与层级，不用来取具体数值：稿里写死了十六进制色值和 Inter 字体，而页面读取 dsh 的 `--dsw-alias-*` 令牌和字体，所以会随主题变化。设置里选的主题，只在页面根元素上覆盖这些令牌，其他地方不变。
+
+在窄屏上，右栏变成盖在舞台上的抽屉，而不是舞台旁边的一列：
+
+<img src="docs/assets/ipad-portrait.webp" width="420" alt="iPad 竖屏下右栏作为抽屉盖在舞台上">
 
 ## 匿名使用统计
 
