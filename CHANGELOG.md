@@ -19,6 +19,13 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+### Added
+
+- `package.json#keywords`, including `dsh-plugin` and `deepseek-harness`. Every directory in the
+  ecosystem filters on those two: npm search, the registry indexes and the storefronts that read
+  `keywords`. Without them the package installs fine and is invisible to all of them at once, so
+  `check-host` now fails when either is missing.
+
 ## [0.21.6] - 2026-11-18
 
 ### Added
