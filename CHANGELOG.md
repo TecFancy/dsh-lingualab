@@ -19,6 +19,8 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+## [0.21.6] - 2026-11-18
+
 ### Added
 
 - A package icon: `icon.svg` at the repository root, headphones with one subtitle line between the
