@@ -68,6 +68,13 @@ const hostBundle = read('lib/index.js')
 
 // 1. The package names itself consistently.
 expect(manifest.name === naming.plugin?.packageName, 'package.json#name 与命名清单的 packageName 不一致')
+// The two keywords the ecosystem's directories filter on. npm search, the registry
+// indexes and the storefronts that read `keywords` all key off them, and a package
+// missing either stays invisible to every one of them while still installing fine —
+// so nothing else in the repository would notice the loss.
+for (const keyword of ['dsh-plugin', 'deepseek-harness']) {
+  expect(manifest.keywords?.includes(keyword), `package.json#keywords 必须包含 ${keyword}，否则各插件目录搜不到本包`)
+}
 expect(manifest.main === 'lib/index.js', 'package.json#main 必须是 lib/index.js')
 expect(manifest.exports?.['.'] === './lib/index.js', 'package.json#exports["."] 必须是 ./lib/index.js')
 expect(manifest.exports?.['./client'] === './lib/client.js', 'package.json#exports["./client"] 必须是 ./lib/client.js')

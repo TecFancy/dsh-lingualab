@@ -17,6 +17,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- `package.json#keywords`，其中包含 `dsh-plugin` 和 `deepseek-harness`。生态里每个插件目录都按这两个词筛选：
+  npm 搜索、各家注册表索引、读 `keywords` 的商店页。缺了它们，包照样装得上，但所有目录同时搜不到，
+  所以 `check-host` 现在缺一个就失败。
+
 ## [0.21.6] - 2026-11-18
 
 ### 新增
