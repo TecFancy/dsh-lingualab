@@ -19,6 +19,17 @@ the plugin that was installed and used, not an artifact on a registry.
 
 ## [Unreleased]
 
+### Added
+
+- A repository-root `screenshots.json`, so the plugin market's card shows the practice view, the
+  home, the kept sentences and the iPad layout instead of a blank tile. The market reads that file
+  from beside `package.json`; the README images only feed the install dialog, which never opens for
+  an installed plugin.
+- `npm run screenshots:check` and its self-test, in the fast tier of `verify`: 1 to 8 entries, a
+  relative path that stays inside the repository, a raster image, every file present, no repeats.
+  Nothing else in the repository references `screenshots.json`, so without the gate a renamed image
+  would leave the card pointing at a 404.
+
 ## [0.21.3] - 2026-11-17
 
 ### Changed
