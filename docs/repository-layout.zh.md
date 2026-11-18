@@ -17,3 +17,4 @@
 | `lib/` | tsdown 生成的构建产物，会提交进仓库；外壳取用的就是这些文件 |
 | `locale/` | 「插件」页上的显示名和简介 |
 | `cordis.patch.yml` | bundle 补丁（Loader 行 `lingualab`） |
+| `screenshots.json` | 插件市场卡片用的截图，路径相对于这个文件 |

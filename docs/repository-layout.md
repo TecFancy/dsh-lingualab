@@ -17,3 +17,4 @@ This document maps the main source and configuration paths to their responsibili
 | `lib/` | tsdown output, committed: what the shell fetches |
 | `locale/` | The Plugins page display name and summary |
 | `cordis.patch.yml` | Bundle patch (loader row `lingualab`) |
+| `screenshots.json` | The plugin market's card screenshots, as paths relative to this file |
