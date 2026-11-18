@@ -1,0 +1,13 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LinguaLab">
+  <!-- LinguaLab's mark: headphones with one subtitle line between the earcups.
+       The two halves of the plugin — listening and the sentence on screen — in
+       one shape, and nothing else, because the sidebar row draws it at 14px.
+       Colours are explicit on purpose: the host inlines this file as a data URL
+       and the plugin manager draws it in an <img>, where currentColor and the
+       page's theme tokens do not reach. -->
+  <rect width="36" height="36" rx="9" fill="#3B54C4"/>
+  <path d="M9.6 19.4v-2.2a8.4 8.4 0 0 1 16.8 0v2.2" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="7.4" y="18.4" width="5.2" height="7.6" rx="2.6" fill="#FFFFFF"/>
+  <rect x="23.4" y="18.4" width="5.2" height="7.6" rx="2.6" fill="#FFFFFF"/>
+  <rect x="13.4" y="17.6" width="9.2" height="2.1" rx="1.05" fill="#FFFFFF"/>
+</svg>

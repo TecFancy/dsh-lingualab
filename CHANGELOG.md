@@ -19,6 +19,20 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+### Added
+
+- A package icon: `icon.svg` at the repository root, headphones with one subtitle line between the
+  earcups, declared as `package.json#icon` and exported as `./icon`. The Plugins page and the plugin
+  market's card draw it instead of the host's placeholder tile and the owner's avatar, so the plugin
+  looks the same wherever a reader meets it. `assets/` carries PNG copies for storefronts that want
+  one.
+- The sidebar row's mark gains the same subtitle line, so the menu row and the tile are recognisably
+  the same plugin.
+- `check-host` now verifies the icon: declared, exported, shipped in `files`, free of `currentColor`
+  and theme variables (the host draws it as an image, where neither reaches), and on the 36-unit
+  canvas. Nothing else in the repository reads that file, so without the gate a `currentColor` edit
+  would ship as an invisible tile in dark mode.
+
 ## [0.21.5] - 2026-11-18
 
 ### Added

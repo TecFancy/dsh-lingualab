@@ -17,4 +17,6 @@
 | `lib/` | tsdown 生成的构建产物，会提交进仓库；外壳取用的就是这些文件 |
 | `locale/` | 「插件」页上的显示名和简介 |
 | `cordis.patch.yml` | bundle 补丁（Loader 行 `lingualab`） |
+| `icon.svg` | 包图标：「插件」页的 tile 与市场卡片，由 `package.json#icon` 声明 |
+| `assets/` | 图标的位图副本，给需要 PNG 的商店页用（`icon-512.png`、`icon-180.png`） |
 | `screenshots.json` | 插件市场卡片用的截图，路径相对于这个文件 |
