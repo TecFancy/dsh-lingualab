@@ -17,6 +17,8 @@
 
 ## [Unreleased]
 
+## [0.21.7] - 2026-11-18
+
 ### Added
 
 - `package.json#keywords`，其中包含 `dsh-plugin` 和 `deepseek-harness`。生态里每个插件目录都按这两个词筛选：

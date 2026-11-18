@@ -19,6 +19,8 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+## [0.21.7] - 2026-11-18
+
 ### Added
 
 - `package.json#keywords`, including `dsh-plugin` and `deepseek-harness`. Every directory in the
