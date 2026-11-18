@@ -1,6 +1,6 @@
 {
   "name": "dsh-lingualab",
-  "version": "0.21.4",
+  "version": "0.21.5",
   "description": "LinguaLab — a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
   "license": "MIT",
   "type": "module",
@@ -38,6 +38,8 @@
     "release": "node scripts/release.mjs",
     "release:check": "node scripts/check-version-bump.mjs",
     "release:notes": "node scripts/release-notes.mjs",
+    "screenshots:check": "node scripts/check-screenshots.mjs",
+    "screenshots:test": "node scripts/check-screenshots.mjs --self-test",
     "ship": "node scripts/ship.mjs",
     "skills:check": "node scripts/sync-skills.mjs --check",
     "skills:sync": "node scripts/sync-skills.mjs",
