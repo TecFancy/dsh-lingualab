@@ -19,6 +19,8 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+## [0.21.5] - 2026-11-18
+
 ### Added
 
 - A repository-root `screenshots.json`, so the plugin market's card shows the practice view, the
