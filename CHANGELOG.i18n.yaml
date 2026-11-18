@@ -6,14 +6,20 @@
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog":
-  en: 44eed631f7c24922
-  zh: f67127285ec7efc9
+  en: 41d234675a2b2a28
+  zh: 5d3a9fdb2675258c
 "/changelog/unreleased":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
 "/changelog/unreleased/added":
   en: 8eab994864d7d668
   zh: bfd19bd3b3413449
+"/changelog/0-21-4-2026-11-17":
+  en: e3b0c44298fc1c14
+  zh: e3b0c44298fc1c14
+"/changelog/0-21-4-2026-11-17/fixed":
+  en: 5df8eff132a39dc7
+  zh: acbb6175ad41ffc9
 "/changelog/0-21-3-2026-11-17":
   en: e3b0c44298fc1c14
   zh: e3b0c44298fc1c14
