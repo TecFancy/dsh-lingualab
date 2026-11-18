@@ -17,4 +17,6 @@ This document maps the main source and configuration paths to their responsibili
 | `lib/` | tsdown output, committed: what the shell fetches |
 | `locale/` | The Plugins page display name and summary |
 | `cordis.patch.yml` | Bundle patch (loader row `lingualab`) |
+| `icon.svg` | The package icon: the Plugins page tile and the market card, declared as `package.json#icon` |
+| `assets/` | Raster copies of the icon for storefronts that want a PNG (`icon-512.png`, `icon-180.png`) |
 | `screenshots.json` | The plugin market's card screenshots, as paths relative to this file |

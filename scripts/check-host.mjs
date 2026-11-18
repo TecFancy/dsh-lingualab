@@ -144,6 +144,27 @@ for (const specifier of new Set(requested)) {
   expect(platform.has(specifier), `lib/client.js 向模块表要了 ${specifier}，宿主没有这个模块`)
 }
 
+// 6. The package icon is one file, declared three ways, and it survives being drawn in an <img>.
+//    The host inlines `package.json#icon` as a data URL and the plugin manager renders it as an
+//    image, so `currentColor` and the page's theme tokens never reach it: a mark that relies on
+//    either renders black-on-black or invisible, and nothing else in the repository reads this
+//    file to notice.
+const iconPath = manifest.icon
+expect(typeof iconPath === 'string' && iconPath !== '', 'package.json#icon 必须声明包图标')
+if (typeof iconPath === 'string' && iconPath !== '') {
+  const relative = iconPath.replace(/^\.\//, '')
+  expect(manifest.exports?.['./icon'] === iconPath, 'package.json#exports["./icon"] 必须与 #icon 指向同一个文件')
+  expect(manifest.files?.includes(relative), `package.json#files 必须包含 ${relative}，否则发出去的包里没有图标`)
+  const icon = read(relative)
+  expect(icon !== '', `${relative} 不存在`)
+  // Comments are stripped first: the file explains this rule in prose, and a check that reads its
+  // own explanation as a violation would force the comment out of the file it belongs in.
+  const drawing = icon.replace(/<!--[\s\S]*?-->/g, '')
+  expect(!/currentColor/.test(drawing), `${relative} 不能用 currentColor：宿主把它当图片画，主题色到不了那里`)
+  expect(!/var\(--/.test(drawing), `${relative} 不能用主题变量：宿主把它当图片画，变量到不了那里`)
+  expect(/viewBox="0 0 36 36"/.test(drawing), `${relative} 的 viewBox 必须是 0 0 36 36，与插件页的 36px 画布一致`)
+}
+
 if (problems.length > 0) {
   console.error(`❌ check-host — ${problems.length} 处不一致：`)
   for (const problem of problems) console.error(`   · ${problem}`)
