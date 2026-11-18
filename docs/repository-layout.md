@@ -20,4 +20,4 @@ This document maps the main source and configuration paths to their responsibili
 | `icon.svg` | The package icon: the Plugins page tile and the market card, declared as `package.json#icon` |
 | `assets/` | Raster copies of the icon for storefronts that want a PNG (`icon-512.png`, `icon-180.png`) |
 | `screenshots.json` | The plugin market's card screenshots, as paths relative to this file |
-| `package.json` | The manifest. Besides the install contract, its `keywords` carry `dsh-plugin` and `deepseek-harness`: every directory in the ecosystem filters on those two, and `check-host` fails without them |
+| `package.json` | The manifest. Besides the install contract, its `keywords` carry `dsh-plugin` and `deepseek-harness`: every directory in the ecosystem filters on those two, and `metadata:check` fails without them |

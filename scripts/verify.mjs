@@ -49,6 +49,8 @@ const STEPS = [
   { name: 'links:check', cmd: ['npm', 'run', '--silent', 'links:check'], fast: true, about: '全仓 markdown 相对链接有效' },
   { name: 'screenshots:check', cmd: ['npm', 'run', '--silent', 'screenshots:check'], fast: true, about: '市场卡片截图清单指向真实存在的位图' },
   { name: 'screenshots:test', cmd: ['npm', 'run', '--silent', 'screenshots:test'], fast: true, about: '截图检查自己还拦得住' },
+  { name: 'metadata:check', cmd: ['npm', 'run', '--silent', 'metadata:check'], fast: true, about: '发布元数据带各插件目录筛选的关键词' },
+  { name: 'metadata:test', cmd: ['npm', 'run', '--silent', 'metadata:test'], fast: true, about: '发布元数据检查自己还拦得住' },
   { name: 'bilingual:check', cmd: ['npm', 'run', '--silent', 'bilingual:check'], fast: true, about: '中英对照的结构与哈希一致' },
   { name: 'bilingual:test', cmd: ['node', 'scripts/check-bilingual.mjs', '--self-test'], fast: true, about: '中英对照检查自己还拦得住（含 Windows 路径）' },
   { name: 'zh:prose', cmd: ['npm', 'run', '--silent', 'zh:prose'], fast: true, about: '中文标点、空格与术语' },
