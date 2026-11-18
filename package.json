@@ -1,19 +1,22 @@
 {
   "name": "dsh-lingualab",
-  "version": "0.21.5",
+  "version": "0.21.6",
   "description": "LinguaLab — a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
   "license": "MIT",
+  "icon": "./icon.svg",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
+    "./icon": "./icon.svg",
     "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
     "cordis.patch.yml",
+    "icon.svg",
     "README.md",
     "README.zh.md",
     "LICENSE",
