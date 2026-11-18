@@ -19,6 +19,18 @@ both a state of the plugin and the artifact on the registry.
 
 ## [Unreleased]
 
+## [0.21.7] - 2026-11-18
+
+### Added
+
+- `package.json#keywords`, including `dsh-plugin` and `deepseek-harness`. Every directory in the
+  ecosystem filters on those two: npm search, the registry indexes and the storefronts that read
+  `keywords`. Without them the package installs fine and is invisible to all of them at once.
+- `metadata:check`, a gate for the publish metadata rather than the host contract: `keywords` must
+  exist, carry both directory tokens, repeat nothing and misspell nothing, and `description` must be
+  one line. It is separate from `check-host` on purpose — a failure here means nobody will find the
+  plugin, not that it will not run, and the two should not be reported as one thing.
+
 ## [0.21.6] - 2026-11-18
 
 ### Added

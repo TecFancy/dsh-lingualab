@@ -20,3 +20,4 @@
 | `icon.svg` | 包图标：「插件」页的 tile 与市场卡片，由 `package.json#icon` 声明 |
 | `assets/` | 图标的位图副本，给需要 PNG 的商店页用（`icon-512.png`、`icon-180.png`） |
 | `screenshots.json` | 插件市场卡片用的截图，路径相对于这个文件 |
+| `package.json` | 包清单。除了安装契约，`keywords` 里必须带 `dsh-plugin` 和 `deepseek-harness`：生态里每个插件目录都按这两个词筛选，缺了 `metadata:check` 会失败 |

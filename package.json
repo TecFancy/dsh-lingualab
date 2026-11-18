@@ -1,7 +1,19 @@
 {
   "name": "dsh-lingualab",
-  "version": "0.21.6",
+  "version": "0.21.7",
   "description": "LinguaLab — a study panel that turns workspace media (audio plus subtitles) into intensive-listening practice.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "language-learning",
+    "intensive-listening",
+    "listening-practice",
+    "subtitles",
+    "shadowing",
+    "audio",
+    "video"
+  ],
   "license": "MIT",
   "icon": "./icon.svg",
   "type": "module",
@@ -51,7 +63,9 @@
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify.mjs",
     "watch": "tsdown --watch",
-    "zh:prose": "node scripts/check-zh-prose.mjs"
+    "zh:prose": "node scripts/check-zh-prose.mjs",
+    "metadata:check": "node scripts/check-metadata.mjs",
+    "metadata:test": "node scripts/check-metadata.mjs --self-test"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.4",
