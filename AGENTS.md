@@ -53,7 +53,7 @@ src/client/             前端，FSD 分层，没有 app 层
                         useSideColumn（右栏的视图与收起）、useStageNotes、useRetime、useVideoSource、useVideoNotices，每个带单测
 .agents/notes/          决策记录，一篇三件套（.md / .zh.md / .i18n.yaml）
 .agents/skills/         仓库自带技能，dsh 原生扫描，`.claude/skills` 是生成的镜像
-docs/                   长文文档，中英一对：usage、telemetry、releasing、host-routes、repository-layout
+docs/                   长文文档，中英一对：usage、design、status、telemetry、releasing、host-routes、repository-layout
 scripts/                检查脚本，入口是 verify.mjs
 ```
 
